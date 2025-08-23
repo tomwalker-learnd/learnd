@@ -30,9 +30,10 @@ const LessonForm = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
+      // Type assertion to work around outdated types file
+      const { data, error } = await (supabase
+        .from('clients') as any)
+        .select('id, name, logo_url, created_at, updated_at')
         .eq('user_id', user.id)
         .order('name');
 

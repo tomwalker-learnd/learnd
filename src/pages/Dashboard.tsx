@@ -56,17 +56,30 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      // Type assertion to work around outdated types file
-      const { data, error } = await (supabase
-        .from('clients') as any)
+      // Create a simple query that bypasses type inference issues
+      const supabaseClient = supabase as any;
+      const response = await supabaseClient
+        .from('clients')
         .select('id, name, logo_url, created_at, updated_at')
         .eq('user_id', user.id)
         .order('name');
 
-      if (error) throw error;
-      setClients(data || []);
+      if (response.error) {
+        console.error('Supabase error:', response.error);
+        throw response.error;
+      }
+
+      // Explicitly type the response data
+      const clientsData: Client[] = response.data || [];
+      setClients(clientsData);
     } catch (error) {
       console.error('Error fetching clients:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch clients. Please try again.",
+        variant: "destructive",
+      });
+      setClients([]);
     }
   };
 

@@ -11,7 +11,7 @@ export function ChartsView({ lessons }: ChartsViewProps) {
   // Prepare satisfaction data
   const satisfactionData = Array.from({ length: 5 }, (_, i) => ({
     rating: i + 1,
-    count: lessons.filter(lesson => lesson.satisfaction_rating === i + 1).length
+    count: lessons.filter(lesson => lesson.satisfaction === i + 1).length
   }));
 
   // Prepare budget data
@@ -25,12 +25,12 @@ export function ChartsView({ lessons }: ChartsViewProps) {
   const scopeData = [
     { 
       name: 'No Changes', 
-      value: lessons.filter(l => !l.scope_changes).length,
+      value: lessons.filter(l => !l.scope_change).length,
       color: '#22c55e'
     },
     { 
       name: 'Had Changes', 
-      value: lessons.filter(l => l.scope_changes).length,
+      value: lessons.filter(l => l.scope_change).length,
       color: '#ef4444'
     }
   ].filter(item => item.value > 0);
@@ -38,8 +38,8 @@ export function ChartsView({ lessons }: ChartsViewProps) {
   // Timeline data
   const timelineData = [
     { status: 'Early', count: lessons.filter(l => l.timeline_status === 'early').length },
-    { status: 'On Time', count: lessons.filter(l => l.timeline_status === 'on_time').length },
-    { status: 'Delayed', count: lessons.filter(l => l.timeline_status === 'delayed').length }
+    { status: 'On Time', count: lessons.filter(l => l.timeline_status === 'on-time').length },
+    { status: 'Late', count: lessons.filter(l => l.timeline_status === 'late').length }
   ].filter(item => item.count > 0);
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];

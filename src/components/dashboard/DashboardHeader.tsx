@@ -3,14 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { LogOut, User } from 'lucide-react';
-import { Profile } from '@/types';
 
-interface DashboardHeaderProps {
-  profile: Profile | null;
-}
-
-export function DashboardHeader({ profile }: DashboardHeaderProps) {
-  const { signOut } = useAuth();
+export function DashboardHeader() {
+  const { signOut, profile } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();

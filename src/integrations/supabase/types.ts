@@ -41,55 +41,47 @@ export type Database = {
       lessons: {
         Row: {
           budget_status: string
-          client_id: string | null
+          client_name: string | null
           created_at: string
+          created_by: string
           id: string
           notes: string | null
           project_name: string
           role: string
-          satisfaction_rating: number
-          scope_changes: boolean
+          satisfaction: number
+          scope_change: boolean
           timeline_status: string
           updated_at: string
-          user_id: string
         }
         Insert: {
           budget_status: string
-          client_id?: string | null
+          client_name?: string | null
           created_at?: string
+          created_by: string
           id?: string
           notes?: string | null
           project_name: string
           role: string
-          satisfaction_rating: number
-          scope_changes?: boolean
+          satisfaction: number
+          scope_change?: boolean
           timeline_status: string
           updated_at?: string
-          user_id: string
         }
         Update: {
           budget_status?: string
-          client_id?: string | null
+          client_name?: string | null
           created_at?: string
+          created_by?: string
           id?: string
           notes?: string | null
           project_name?: string
           role?: string
-          satisfaction_rating?: number
-          scope_changes?: boolean
+          satisfaction?: number
+          scope_change?: boolean
           timeline_status?: string
           updated_at?: string
-          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "lessons_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {

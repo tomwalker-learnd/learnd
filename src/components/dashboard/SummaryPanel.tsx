@@ -14,10 +14,10 @@ export function SummaryPanel({ lessons }: SummaryPanelProps) {
   const stats = {
     total: lessons.length,
     avgSatisfaction: lessons.length > 0 
-      ? (lessons.reduce((acc, lesson) => acc + lesson.satisfaction_rating, 0) / lessons.length).toFixed(1)
+      ? (lessons.reduce((acc, lesson) => acc + lesson.satisfaction, 0) / lessons.length).toFixed(1)
       : '0',
     onBudget: lessons.filter(lesson => lesson.budget_status === 'on').length,
-    scopeChanges: lessons.filter(lesson => lesson.scope_changes).length,
+    scopeChanges: lessons.filter(lesson => lesson.scope_change).length,
   };
 
   return (
@@ -84,7 +84,7 @@ export function SummaryPanel({ lessons }: SummaryPanelProps) {
         <CardContent>
           <div className="flex flex-wrap gap-4">
             <Button 
-              onClick={() => navigate('/lesson/new')}
+              onClick={() => navigate('/submit')}
               className="flex items-center gap-2"
             >
               <PlusCircle className="h-4 w-4" />
@@ -93,7 +93,7 @@ export function SummaryPanel({ lessons }: SummaryPanelProps) {
             
             <Button 
               variant="outline"
-              onClick={() => navigate('/lesson/new')}
+              onClick={() => navigate('/submit')}
               className="flex items-center gap-2"
             >
               <BookOpen className="h-4 w-4" />
@@ -102,7 +102,7 @@ export function SummaryPanel({ lessons }: SummaryPanelProps) {
             
             <Button 
               variant="outline"
-              onClick={() => navigate('/lesson/new')}
+              onClick={() => navigate('/submit')}
               className="flex items-center gap-2"
             >
               <TrendingUp className="h-4 w-4" />

@@ -113,10 +113,10 @@ const Auth = () => {
           <img 
             src="/brand/learnd-logo-v6.png" 
             alt="Learnd" 
-            className="mx-auto mb-2"
+            className="mx-auto mb-1"
             style={{ height: '192px' }}
           />
-          <p className="text-muted-foreground mt-2">Learn. Improve. Repeat.</p>
+          <p className="text-muted-foreground">Learn. Improve. Repeat.</p>
         </div>
 
         <Card>

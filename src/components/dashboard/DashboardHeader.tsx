@@ -49,7 +49,9 @@ export function DashboardHeader() {
               className="h-6 w-auto sm:h-7" 
             />
             <div className="hidden sm:block">
-              <p className="text-sm text-muted-foreground">Project Learning Platform</p>
+              <p className="text-sm text-muted-foreground font-inter">
+                Continuous Improvement, <span className="block sm:inline">One Project at a Time.</span>
+              </p>
             </div>
           </div>
           

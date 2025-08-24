@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import learndLogo from '@/assets/learnd-logo.png';
 
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();
@@ -112,7 +111,7 @@ const Auth = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img 
-            src={learndLogo} 
+            src="/brand/learnd-logo-v6.png" 
             alt="Learnd" 
             className="h-12 mx-auto mb-2"
           />

@@ -50,7 +50,7 @@ export function DashboardHeader() {
             />
             <div className="hidden sm:block">
               <p className="text-sm text-muted-foreground font-inter">
-                Continuous Improvement, <span className="block sm:inline">One Project at a Time.</span>
+                Learn. Improve. Repeat.
               </p>
             </div>
           </div>

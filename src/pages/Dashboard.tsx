@@ -68,23 +68,23 @@ const Dashboard = () => {
       
       <main className="container mx-auto px-4 py-8">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-foreground mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 font-poppins bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
             Welcome to Your Learning Dashboard
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-inter">
             Capture insights, track progress, and analyze your project experiences
           </p>
         </div>
 
         {/* Primary CTA - Centered on desktop, full-width on mobile */}
         <div className="max-w-md mx-auto mb-8">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer group w-full" 
+          <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group w-full border-primary/20 hover:border-primary/40" 
                 onClick={() => navigate('/submit')}>
             <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-full flex items-center justify-center mb-4 group-hover:from-primary/20 group-hover:to-secondary/20 transition-all duration-300">
                 <BookOpen className="h-8 w-8 text-primary" />
               </div>
-              <CardTitle className="text-xl">Capture New Lessons</CardTitle>
+              <CardTitle className="text-xl font-poppins">Capture New Lessons</CardTitle>
               <CardDescription>
                 Document insights and learnings from your projects
               </CardDescription>
@@ -99,21 +99,21 @@ const Dashboard = () => {
 
         {/* Stats Chips - Left aligned under the card */}
         <div className="max-w-md mx-auto mb-8">
-          <div className="flex gap-4 text-sm text-muted-foreground">
-            <span className="px-3 py-1 bg-muted rounded-full">
+          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground justify-center sm:justify-start">
+            <span className="px-4 py-2 bg-muted/50 rounded-full backdrop-blur-sm">
               Total Lessons: {stats.totalLessons}
             </span>
-            <span className="px-3 py-1 bg-muted rounded-full">
+            <span className="px-4 py-2 bg-muted/50 rounded-full backdrop-blur-sm">
               Avg. Satisfaction: {stats.avgSatisfaction}
             </span>
           </div>
         </div>
 
         {/* Secondary Links */}
-        <div className="flex justify-center gap-6">
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6">
           <Button 
             variant="ghost" 
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground w-full sm:w-auto"
             onClick={() => navigate('/lessons')}
           >
             <BookOpen className="h-4 w-4 mr-2" />
@@ -121,7 +121,7 @@ const Dashboard = () => {
           </Button>
           <Button 
             variant="ghost" 
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground w-full sm:w-auto"
             onClick={() => navigate('/analytics')}
           >
             <BarChart3 className="h-4 w-4 mr-2" />

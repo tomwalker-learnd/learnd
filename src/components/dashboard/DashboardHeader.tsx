@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { LogOut, User } from 'lucide-react';
+import learndLogo from '@/assets/learnd-logo.png';
 
 export function DashboardHeader() {
   const { signOut, profile } = useAuth();
@@ -38,12 +39,18 @@ export function DashboardHeader() {
   };
 
   return (
-    <header className="border-b bg-card">
+    <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Learnd</h1>
-            <p className="text-muted-foreground">Project Lessons Dashboard</p>
+          <div className="flex items-center gap-3">
+            <img 
+              src={learndLogo} 
+              alt="Learnd Logo" 
+              className="h-8 w-auto sm:h-10" 
+            />
+            <div className="hidden sm:block">
+              <p className="text-sm text-muted-foreground">Project Learning Platform</p>
+            </div>
           </div>
           
           <div className="flex items-center gap-4">

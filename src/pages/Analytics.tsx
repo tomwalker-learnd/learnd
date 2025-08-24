@@ -73,9 +73,9 @@ const Analytics = () => {
 
   // Prepare budget status data
   const budgetData = [
-    { status: 'Under Budget', count: lessons.filter(lesson => lesson.budget_status === 'under').length, color: '#22c55e' },
-    { status: 'On Budget', count: lessons.filter(lesson => lesson.budget_status === 'on').length, color: '#3b82f6' },
-    { status: 'Over Budget', count: lessons.filter(lesson => lesson.budget_status === 'over').length, color: '#ef4444' }
+    { status: 'Under Budget', count: lessons.filter(lesson => lesson.budget_status === 'under').length, color: 'hsl(142 76% 36%)' },
+    { status: 'On Budget', count: lessons.filter(lesson => lesson.budget_status === 'on').length, color: 'hsl(218 27% 84%)' },
+    { status: 'Over Budget', count: lessons.filter(lesson => lesson.budget_status === 'over').length, color: 'hsl(250 91% 60%)' }
   ].filter(item => item.count > 0);
 
   // Calculate summary statistics
@@ -188,11 +188,17 @@ const Analytics = () => {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={satisfactionData}>
+                      <defs>
+                        <linearGradient id="satisfactionGradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="hsl(7 100% 69%)" />
+                          <stop offset="100%" stopColor="hsl(330 81% 60%)" />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="label" />
                       <YAxis />
                       <Tooltip formatter={(value) => [`${value} project${value !== 1 ? 's' : ''}`, 'Count']} />
-                      <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="count" fill="url(#satisfactionGradient)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>

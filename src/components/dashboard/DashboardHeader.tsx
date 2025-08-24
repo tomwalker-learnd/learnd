@@ -43,7 +43,11 @@ export function DashboardHeader() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <a href="/dashboard" className="flex items-center gap-2">
-            <img src="/brand/learnd-logo-v6.png" alt="Learnd" height="28" style={{ height: 28, width: 'auto' }} onError={(e)=>{ e.currentTarget.replaceWith(Object.assign(document.createElement('span'),{textContent:'Learnd'})); }} />
+            <img 
+              src="/brand/learnd-logo-v6.png" 
+              alt="Learnd" 
+              className="h-6 sm:h-7 w-auto" 
+            />
             <span className="text-sm text-muted-foreground hidden sm:inline">Learn. Improve. Repeat.</span>
           </a>
           

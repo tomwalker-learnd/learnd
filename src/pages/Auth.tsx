@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import learndLogo from '@/assets/learnd-logo.png';
 
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();
@@ -110,8 +111,12 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Learnd</h1>
-          <p className="text-muted-foreground mt-2">Capture and analyze your project lessons</p>
+          <img 
+            src={learndLogo} 
+            alt="Learnd" 
+            className="h-12 mx-auto mb-2"
+          />
+          <p className="text-muted-foreground mt-2">Learn. Improve. Repeat.</p>
         </div>
 
         <Card>

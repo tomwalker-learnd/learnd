@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,50 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 
+/** Detect Tailwind's `dark` class and system dark mode; updates live on changes. */
+function useIsDark(): boolean {
+  const getIsDark = () =>
+    document.documentElement.classList.contains('dark') ||
+    window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    try {
+      return getIsDark();
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    const onMQ = () => setIsDark(getIsDark());
+    mq?.addEventListener?.('change', onMQ);
+
+    // Watch for class changes on <html> so toggles update immediately.
+    const obs = new MutationObserver(() => setIsDark(getIsDark()));
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    return () => {
+      mq?.removeEventListener?.('change', onMQ);
+      obs.disconnect();
+    };
+  }, []);
+
+  return isDark;
+}
+
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const isDark = useIsDark();
+  const logoSrc = useMemo(
+    () => (isDark ? '/brand/learnd-logo-v8_Dk.png' : '/brand/learnd-logo-v8_Lgt.png'),
+    [isDark]
+  );
 
   if (loading) {
     return (
@@ -41,13 +79,11 @@ const Auth = () => {
     const password = formData.get('password') as string;
 
     const { error } = await signIn(email, password);
-
     if (error) {
       setError(error.message);
     } else {
       toast({ title: 'Welcome back!', description: 'You have successfully signed in.' });
     }
-
     setIsLoading(false);
   };
 
@@ -63,23 +99,21 @@ const Auth = () => {
     const lastName = formData.get('lastName') as string;
 
     const { error } = await signUp(email, password, firstName, lastName);
-
     if (error) {
       setError(error.message);
     } else {
       toast({ title: 'Account created!', description: 'Please check your email to verify your account.' });
     }
-
     setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
-        {/* Brand header: tighter spacing between logo + tagline */}
+        {/* Brand header: logo slightly wider than tagline, tight spacing */}
         <div className="text-center mb-6">
           <img
-            src="/brand/learnd-logo-v6.png"
+            src={logoSrc}
             alt="Learnd"
             className="mx-auto w-[340px] sm:w-[260px] h-auto object-contain mb-2"
           />

@@ -114,7 +114,7 @@ const Auth = () => {
             src="/brand/learnd-logo-v6.png" 
             alt="Learnd" 
             className="mx-auto mb-2"
-            style={{ height: '480px' }}
+            style={{ height: '192px' }}
           />
           <p className="text-muted-foreground mt-2">Learn. Improve. Repeat.</p>
         </div>

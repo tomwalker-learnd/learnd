@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,12 +14,13 @@ const Auth = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
           <p className="mt-2 text-muted-foreground">Loading...</p>
         </div>
       </div>
@@ -34,22 +35,19 @@ const Auth = () => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    
+
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
     const { error } = await signIn(email, password);
-    
+
     if (error) {
       setError(error.message);
     } else {
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully signed in.",
-      });
+      toast({ title: 'Welcome back!', description: 'You have successfully signed in.' });
     }
-    
+
     setIsLoading(false);
   };
 
@@ -57,7 +55,7 @@ const Auth = () => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    
+
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
@@ -65,41 +63,36 @@ const Auth = () => {
     const lastName = formData.get('lastName') as string;
 
     const { error } = await signUp(email, password, firstName, lastName);
-    
+
     if (error) {
       setError(error.message);
     } else {
-      toast({
-        title: "Account created!",
-        description: "Please check your email to verify your account.",
-      });
+      toast({ title: 'Account created!', description: 'Please check your email to verify your account.' });
     }
-    
+
     setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Learnd</h1>
-            <img
-    src="/brand/learnd-logo-v6.png"
-    alt="Learnd"
-    className="mx-auto w-auto"
-    style={{ height: "120px", maxHeight: "20vh" }}
-  />
-  <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground">
-    Learn. Improve. Repeat.
-  </p>
+        {/* Brand header (logo + tagline) */}
+        <div className="text-center mb-4">
+          <img
+            src="/brand/learnd-logo-v6.png"
+            alt="Learnd"
+            className="mx-auto w-auto object-contain"
+            style={{ height: '160px', maxHeight: '25vh' }} // adjust if you want slightly smaller/larger
+          />
+          <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground">
+            Learn. Improve. Repeat.
+          </p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Authentication</CardTitle>
-            <CardDescription>
-              Sign in to your account or create a new one
-            </CardDescription>
+            <CardDescription>Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
@@ -114,77 +107,69 @@ const Auth = () => {
                 </Alert>
               )}
 
+              {/* Sign In */}
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      required
-                    />
+                    <Input id="email" name="email" type="email" placeholder="your@email.com" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      required
-                    />
+                    <Input id="password" name="password" type="password" required />
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => navigate('/auth/reset')}
+                        className="text-sm text-primary hover:underline underline-offset-2"
+                      >
+                        Forgot your password?
+                      </button>
+                    </div>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Signing in..." : "Sign In"}
+
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full font-semibold rounded-xl text-white
+                               bg-[linear-gradient(90deg,#FF6F61_0%,#FF4F8A_50%,#5B3DF5_100%)]
+                               hover:brightness-110"
+                  >
+                    {isLoading ? 'Signing in...' : 'Sign In'}
                   </Button>
                 </form>
               </TabsContent>
 
+              {/* Sign Up */}
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        type="text"
-                        placeholder="John"
-                      />
+                      <Input id="firstName" name="firstName" type="text" placeholder="John" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        type="text"
-                        placeholder="Doe"
-                      />
+                      <Input id="lastName" name="lastName" type="text" placeholder="Doe" />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      required
-                    />
+                    <Input id="signup-email" name="email" type="email" placeholder="your@email.com" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      required
-                      minLength={6}
-                    />
+                    <Input id="signup-password" name="password" type="password" required minLength={6} />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Creating account..." : "Create Account"}
+
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full font-semibold rounded-xl text-white
+                               bg-[linear-gradient(90deg,#FF6F61_0%,#FF4F8A_50%,#5B3DF5_100%)]
+                               hover:brightness-110"
+                  >
+                    {isLoading ? 'Creating account...' : 'Create Account'}
                   </Button>
                 </form>
               </TabsContent>

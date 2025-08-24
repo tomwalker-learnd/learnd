@@ -8,12 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
 
   if (loading) {
     return (
@@ -78,6 +81,31 @@ const Auth = () => {
     setIsLoading(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setForgotPasswordLoading(true);
+    setError(null);
+    
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('forgotEmail') as string;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset`
+    });
+    
+    if (error) {
+      setError(error.message);
+    } else {
+      toast({
+        title: "Password reset email sent!",
+        description: "Check your email for a link to reset your password.",
+      });
+      setShowForgotPassword(false);
+    }
+    
+    setForgotPasswordLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
@@ -107,30 +135,77 @@ const Auth = () => {
               )}
 
               <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      required
-                    />
+                {!showForgotPassword ? (
+                  <div className="space-y-4">
+                    <form onSubmit={handleSignIn} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          placeholder="your@email.com"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                          id="password"
+                          name="password"
+                          type="password"
+                          required
+                        />
+                      </div>
+                      <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? "Signing in..." : "Sign In"}
+                      </Button>
+                    </form>
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(true)}
+                        className="text-sm text-muted-foreground hover:text-foreground underline"
+                      >
+                        Forgot your password?
+                      </button>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      required
-                    />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <h3 className="text-lg font-medium">Reset Password</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Enter your email to receive a password reset link
+                      </p>
+                    </div>
+                    <form onSubmit={handleForgotPassword} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="forgotEmail">Email</Label>
+                        <Input
+                          id="forgotEmail"
+                          name="forgotEmail"
+                          type="email"
+                          placeholder="your@email.com"
+                          required
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="flex-1"
+                          onClick={() => setShowForgotPassword(false)}
+                        >
+                          Back
+                        </Button>
+                        <Button type="submit" className="flex-1" disabled={forgotPasswordLoading}>
+                          {forgotPasswordLoading ? "Sending..." : "Send Reset Email"}
+                        </Button>
+                      </div>
+                    </form>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Signing in..." : "Sign In"}
-                  </Button>
-                </form>
+                )}
               </TabsContent>
 
               <TabsContent value="signup">

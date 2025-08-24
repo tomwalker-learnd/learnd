@@ -42,18 +42,10 @@ export function DashboardHeader() {
     <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img 
-              src="/learnd-logo-v5.svg" 
-              alt="Learnd Logo" 
-              className="h-6 w-auto sm:h-7" 
-            />
-            <div className="hidden sm:block">
-              <p className="text-sm text-muted-foreground font-inter">
-                Learn. Improve. Repeat.
-              </p>
-            </div>
-          </div>
+          <a href="/dashboard" className="flex items-center gap-2">
+            <img src="/brand/learnd-logo-v6.png" alt="Learnd" height="28" style={{ height: 28, width: 'auto' }} onError={(e)=>{ e.currentTarget.replaceWith(Object.assign(document.createElement('span'),{textContent:'Learnd'})); }} />
+            <span className="text-sm text-muted-foreground hidden sm:inline">Learn. Improve. Repeat.</span>
+          </a>
           
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">

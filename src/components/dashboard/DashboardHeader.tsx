@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { LogOut, User } from 'lucide-react';
-import learndLogo from '@/assets/learnd-logo.png';
+
 
 export function DashboardHeader() {
   const { signOut, profile } = useAuth();
@@ -44,9 +44,9 @@ export function DashboardHeader() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
-              src={learndLogo} 
+              src="/learnd-logo-v5.svg" 
               alt="Learnd Logo" 
-              className="h-8 w-auto sm:h-10" 
+              className="h-6 w-auto sm:h-7" 
             />
             <div className="hidden sm:block">
               <p className="text-sm text-muted-foreground">Project Learning Platform</p>

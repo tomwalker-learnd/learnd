@@ -14,35 +14,40 @@ export function ChartsView({ lessons }: ChartsViewProps) {
     count: lessons.filter(lesson => lesson.satisfaction === i + 1).length
   }));
 
-  // Prepare budget data
+  // Prepare budget data with brand colors
   const budgetData = [
     { status: 'Under', count: lessons.filter(l => l.budget_status === 'under').length },
     { status: 'On Budget', count: lessons.filter(l => l.budget_status === 'on').length },
     { status: 'Over', count: lessons.filter(l => l.budget_status === 'over').length }
   ].filter(item => item.count > 0);
 
-  // Prepare scope changes data
+  // Brand colors for budget chart
+  const BUDGET_COLORS = {
+    'Under': '#FF6F61', // --brand-start
+    'On Budget': '#9AA4AF', // neutral gray
+    'Over': '#5B3DF5' // --brand-end
+  };
+
+  // Prepare scope changes data with brand colors
   const scopeData = [
     { 
       name: 'No Changes', 
       value: lessons.filter(l => !l.scope_change).length,
-      color: '#22c55e'
+      color: '#FF6F61' // --brand-start for positive outcome
     },
     { 
       name: 'Had Changes', 
       value: lessons.filter(l => l.scope_change).length,
-      color: '#ef4444'
+      color: '#5B3DF5' // --brand-end for changes needed
     }
   ].filter(item => item.value > 0);
 
-  // Timeline data
+  // Timeline data with brand colors
   const timelineData = [
     { status: 'Early', count: lessons.filter(l => l.timeline_status === 'early').length },
     { status: 'On Time', count: lessons.filter(l => l.timeline_status === 'on-time').length },
     { status: 'Late', count: lessons.filter(l => l.timeline_status === 'late').length }
   ].filter(item => item.count > 0);
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
   if (lessons.length === 0) {
     return (
@@ -85,11 +90,20 @@ export function ChartsView({ lessons }: ChartsViewProps) {
         <CardContent>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={satisfactionData}>
+              <defs>
+                <linearGradient id="satisfactionGradient" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#FF6F61" />
+                  <stop offset="100%" stopColor="#5B3DF5" />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="rating" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="hsl(var(--primary))" />
+              <Bar 
+                dataKey="count" 
+                fill="url(#satisfactionGradient)" 
+              />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -119,8 +133,8 @@ export function ChartsView({ lessons }: ChartsViewProps) {
                 fill="#8884d8"
                 dataKey="count"
               >
-                {budgetData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                {budgetData.map((entry) => (
+                  <Cell key={`cell-${entry.status}`} fill={BUDGET_COLORS[entry.status as keyof typeof BUDGET_COLORS]} />
                 ))}
               </Pie>
               <Tooltip />
@@ -178,7 +192,7 @@ export function ChartsView({ lessons }: ChartsViewProps) {
                 <XAxis dataKey="status" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="count" fill="hsl(var(--secondary))" />
+                <Bar dataKey="count" fill="#FF4F8A" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

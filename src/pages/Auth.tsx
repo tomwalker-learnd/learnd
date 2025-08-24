@@ -163,7 +163,7 @@ const Auth = () => {
                           required
                         />
                       </div>
-                      <Button type="submit" className="w-full" disabled={isLoading}>
+                      <Button type="submit" className="w-full btn-brand" disabled={isLoading}>
                         {isLoading ? "Signing in..." : "Sign In"}
                       </Button>
                     </form>
@@ -205,7 +205,7 @@ const Auth = () => {
                         >
                           Back
                         </Button>
-                        <Button type="submit" className="flex-1" disabled={forgotPasswordLoading}>
+                        <Button type="submit" className="flex-1 btn-brand" disabled={forgotPasswordLoading}>
                           {forgotPasswordLoading ? "Sending..." : "Send Reset Email"}
                         </Button>
                       </div>
@@ -256,7 +256,7 @@ const Auth = () => {
                       minLength={6}
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="w-full btn-brand" disabled={isLoading}>
                     {isLoading ? "Creating account..." : "Create Account"}
                   </Button>
                 </form>

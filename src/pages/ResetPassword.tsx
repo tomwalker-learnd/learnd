@@ -128,7 +128,7 @@ const ResetPassword = () => {
                   placeholder="Confirm new password"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full btn-brand" disabled={isLoading}>
                 {isLoading ? "Updating password..." : "Update Password"}
               </Button>
             </form>

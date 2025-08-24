@@ -68,7 +68,7 @@ const Dashboard = () => {
       
       <main className="container mx-auto px-4 py-8">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 font-poppins bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 font-poppins text-brand">
             Welcome to Your Learning Dashboard
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-inter">
@@ -90,7 +90,7 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" size="lg">
+              <Button className="w-full btn-brand" size="lg">
                 Start Capturing
               </Button>
             </CardContent>

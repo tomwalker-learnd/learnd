@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 
-/** Detect Tailwind's `dark` class and system dark mode; updates live on changes. */
 function useIsDark(): boolean {
   const getIsDark = () =>
     document.documentElement.classList.contains('dark') ||
@@ -28,7 +27,6 @@ function useIsDark(): boolean {
     const onMQ = () => setIsDark(getIsDark());
     mq?.addEventListener?.('change', onMQ);
 
-    // Watch for class changes on <html> so toggles update immediately.
     const obs = new MutationObserver(() => setIsDark(getIsDark()));
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
@@ -46,19 +44,13 @@ const Auth = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
-
   const isDark = useIsDark();
-  const logoSrc = useMemo(
-    () => (isDark ? '/brand/learnd-logo-v8_Dk.png' : '/brand/learnd-logo-v8_Lgt.png'),
-    [isDark]
-  );
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p className="mt-2 text-muted-foreground">Loading...</p>
         </div>
       </div>
@@ -79,11 +71,16 @@ const Auth = () => {
     const password = formData.get('password') as string;
 
     const { error } = await signIn(email, password);
+
     if (error) {
       setError(error.message);
     } else {
-      toast({ title: 'Welcome back!', description: 'You have successfully signed in.' });
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully signed in.",
+      });
     }
+
     setIsLoading(false);
   };
 
@@ -99,25 +96,30 @@ const Auth = () => {
     const lastName = formData.get('lastName') as string;
 
     const { error } = await signUp(email, password, firstName, lastName);
+
     if (error) {
       setError(error.message);
     } else {
-      toast({ title: 'Account created!', description: 'Please check your email to verify your account.' });
+      toast({
+        title: "Account created!",
+        description: "Please check your email to verify your account.",
+      });
     }
+
     setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
-        {/* Brand header: logo slightly wider than tagline, tight spacing */}
         <div className="text-center mb-6">
           <img
-            src={logoSrc}
+            src={isDark ? "/brand/learnd-logo-v8_Dk.png" : "/brand/learnd-logo-v8_Lgt.png"}
             alt="Learnd"
-            className="mx-auto w-[340px] sm:w-[260px] h-auto object-contain mb-2"
+            className="mx-auto w-auto"
+            style={{ height: "120px", maxHeight: "20vh" }}
           />
-          <p className="text-center text-base sm:text-sm text-muted-foreground">
+          <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground">
             Learn. Improve. Repeat.
           </p>
         </div>
@@ -125,9 +127,10 @@ const Auth = () => {
         <Card>
           <CardHeader>
             <CardTitle>Authentication</CardTitle>
-            <CardDescription>Sign in to your account or create a new one</CardDescription>
+            <CardDescription>
+              Sign in to your account or create a new one
+            </CardDescription>
           </CardHeader>
-
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
@@ -141,72 +144,77 @@ const Auth = () => {
                 </Alert>
               )}
 
-              {/* Sign In */}
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" placeholder="your@email.com" required />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      required
+                    />
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input id="password" name="password" type="password" required />
-                    <div className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => navigate('/auth/reset')}
-                        className="text-sm text-primary hover:underline underline-offset-2"
-                      >
-                        Forgot your password?
-                      </button>
-                    </div>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      required
+                    />
                   </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full font-semibold rounded-xl text-white
-                               bg-[linear-gradient(90deg,#FF6F61_0%,#FF4F8A_50%,#5B3DF5_100%)]
-                               hover:brightness-110"
-                  >
-                    {isLoading ? 'Signing in...' : 'Sign In'}
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
               </TabsContent>
 
-              {/* Sign Up */}
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" name="firstName" type="text" placeholder="John" />
+                      <Input
+                        id="firstName"
+                        name="firstName"
+                        type="text"
+                        placeholder="John"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" name="lastName" type="text" placeholder="Doe" />
+                      <Input
+                        id="lastName"
+                        name="lastName"
+                        type="text"
+                        placeholder="Doe"
+                      />
                     </div>
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
-                    <Input id="signup-email" name="email" type="email" placeholder="your@email.com" required />
+                    <Input
+                      id="signup-email"
+                      name="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      required
+                    />
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
-                    <Input id="signup-password" name="password" type="password" required minLength={6} />
+                    <Input
+                      id="signup-password"
+                      name="password"
+                      type="password"
+                      required
+                      minLength={6}
+                    />
                   </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full font-semibold rounded-xl text-white
-                               bg-[linear-gradient(90deg,#FF6F61_0%,#FF4F8A_50%,#5B3DF5_100%)]
-                               hover:brightness-110"
-                  >
-                    {isLoading ? 'Creating account...' : 'Create Account'}
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Creating account..." : "Create Account"}
                   </Button>
                 </form>
               </TabsContent>

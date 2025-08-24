@@ -76,15 +76,14 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
-        {/* Brand header (logo + tagline) */}
+        {/* Brand header: logo slightly wider than tagline, tight spacing */}
         <div className="text-center mb-4">
           <img
             src="/brand/learnd-logo-v6.png"
             alt="Learnd"
-            className="mx-auto w-auto object-contain"
-            style={{ height: '160px', maxHeight: '25vh' }} // adjust if you want slightly smaller/larger
+            className="mx-auto w-[340px] sm:w-[260px] h-auto object-contain"
           />
-          <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground">
+          <p className="mt-2 text-center text-base sm:text-sm text-muted-foreground w-fit mx-auto">
             Learn. Improve. Repeat.
           </p>
         </div>
@@ -153,10 +152,12 @@ const Auth = () => {
                       <Input id="lastName" name="lastName" type="text" placeholder="Doe" />
                     </div>
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
                     <Input id="signup-email" name="email" type="email" placeholder="your@email.com" required />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <Input id="signup-password" name="password" type="password" required minLength={6} />

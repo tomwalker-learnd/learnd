@@ -76,14 +76,14 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
-        {/* Brand header: logo slightly wider than tagline, tight spacing */}
-        <div className="text-center mb-4">
+        {/* Brand header: tighter spacing between logo + tagline */}
+        <div className="text-center mb-6">
           <img
             src="/brand/learnd-logo-v6.png"
             alt="Learnd"
-            className="mx-auto w-[340px] sm:w-[260px] h-auto object-contain"
+            className="mx-auto w-[340px] sm:w-[260px] h-auto object-contain mb-2"
           />
-          <p className="mt-2 text-center text-base sm:text-sm text-muted-foreground w-fit mx-auto">
+          <p className="text-center text-base sm:text-sm text-muted-foreground">
             Learn. Improve. Repeat.
           </p>
         </div>

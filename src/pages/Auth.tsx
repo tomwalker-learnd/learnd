@@ -107,18 +107,19 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img 
-            src="/brand/learnd-logo-v6.png" 
-            alt="Learnd" 
-            className="mx-auto mb-1"
-            style={{ height: '192px' }}
-          />
-          <p className="text-muted-foreground">Learn. Improve. Repeat.</p>
-        </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background py-6 px-4 sm:py-12">
+      {/* Logo and tagline above card */}
+      <div className="text-center mb-6 sm:mb-8">
+        <img 
+          src="/brand/learnd-logo-v6.png" 
+          alt="Learnd" 
+          className="mx-auto h-12 w-auto"
+        />
+        <p className="text-muted-foreground text-sm mt-4 sm:mt-6">Learn. Improve. Repeat.</p>
+      </div>
 
+      {/* Auth card */}
+      <div className="w-full max-w-md">
         <Card>
           <CardHeader>
             <CardTitle>Authentication</CardTitle>

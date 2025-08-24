@@ -79,8 +79,11 @@ const Auth = () => {
   };
 
   return (
-    <div className="text-center mb-4">
-  <img
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-foreground">Learnd</h1>
+            <img
     src="/brand/learnd-logo-v6.png"
     alt="Learnd"
     className="mx-auto w-auto"
@@ -89,8 +92,6 @@ const Auth = () => {
   <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground">
     Learn. Improve. Repeat.
   </p>
-</div>
-          <p className="text-muted-foreground mt-2">Capture and analyze your project lessons</p>
         </div>
 
         <Card>

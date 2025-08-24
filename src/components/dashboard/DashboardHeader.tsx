@@ -46,7 +46,7 @@ export function DashboardHeader() {
             <img 
               src="/brand/learnd-logo-v6.png" 
               alt="Learnd" 
-              className="h-6 sm:h-7 w-auto" 
+              className="h-6 sm:h-21 w-auto" 
             />
             <span className="text-sm text-muted-foreground hidden sm:inline">Learn. Improve. Repeat.</span>
           </a>

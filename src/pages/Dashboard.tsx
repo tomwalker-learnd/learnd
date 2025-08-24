@@ -1,20 +1,54 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { BookOpen, PlusCircle, TrendingUp, FileText } from 'lucide-react';
+import { BookOpen, TrendingUp, BarChart3 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, profile } = useAuth();
   const navigate = useNavigate();
+  const [stats, setStats] = useState({ totalLessons: 0, avgSatisfaction: '0.0' });
 
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!user) return;
+      
+      try {
+        let query = (supabase as any).from('lessons').select('satisfaction');
+        
+        // If user is not admin or power_user, filter by created_by
+        if (profile?.role === 'basic_user') {
+          query = query.eq('created_by', user.id);
+        }
+        
+        const { data: lessons } = await query;
+        
+        if (lessons) {
+          const totalLessons = lessons.length;
+          const avgSatisfaction = totalLessons > 0 
+            ? (lessons.reduce((acc: number, lesson: any) => acc + lesson.satisfaction, 0) / totalLessons).toFixed(1)
+            : '0.0';
+          
+          setStats({ totalLessons, avgSatisfaction });
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    };
+
+    if (user && profile) {
+      fetchStats();
+    }
+  }, [user, profile]);
 
   if (loading) {
     return (
@@ -42,9 +76,9 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {/* Capture New Lessons */}
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer group" 
+        {/* Primary CTA - Centered on desktop, full-width on mobile */}
+        <div className="max-w-md mx-auto mb-8">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer group w-full" 
                 onClick={() => navigate('/submit')}>
             <CardHeader className="text-center">
               <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
@@ -61,62 +95,36 @@ const Dashboard = () => {
               </Button>
             </CardContent>
           </Card>
-
-          {/* Submit New Record */}
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer group" 
-                onClick={() => navigate('/submit')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-secondary/20 transition-colors">
-                <PlusCircle className="h-8 w-8 text-secondary" />
-              </div>
-              <CardTitle className="text-xl">Submit New Record</CardTitle>
-              <CardDescription>
-                Add a new project experience to your database
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="secondary" className="w-full" size="lg">
-                Add Record
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Enter Most Recent Project */}
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer group" 
-                onClick={() => navigate('/submit')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-accent/20 transition-colors">
-                <FileText className="h-8 w-8 text-accent" />
-              </div>
-              <CardTitle className="text-xl">Enter Your Most Recent Project</CardTitle>
-              <CardDescription>
-                Quick entry for your latest project experience
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full" size="lg">
-                Enter Project
-              </Button>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Quick Access Links */}
-        <div className="flex justify-center gap-6 mt-12">
+        {/* Stats Chips - Left aligned under the card */}
+        <div className="max-w-md mx-auto mb-8">
+          <div className="flex gap-4 text-sm text-muted-foreground">
+            <span className="px-3 py-1 bg-muted rounded-full">
+              Total Lessons: {stats.totalLessons}
+            </span>
+            <span className="px-3 py-1 bg-muted rounded-full">
+              Avg. Satisfaction: {stats.avgSatisfaction}
+            </span>
+          </div>
+        </div>
+
+        {/* Secondary Links */}
+        <div className="flex justify-center gap-6">
           <Button 
             variant="ghost" 
             className="text-muted-foreground hover:text-foreground"
             onClick={() => navigate('/lessons')}
           >
             <BookOpen className="h-4 w-4 mr-2" />
-            View All Lessons
+            View Lessons
           </Button>
           <Button 
             variant="ghost" 
             className="text-muted-foreground hover:text-foreground"
             onClick={() => navigate('/analytics')}
           >
-            <TrendingUp className="h-4 w-4 mr-2" />
+            <BarChart3 className="h-4 w-4 mr-2" />
             View Analytics
           </Button>
         </div>

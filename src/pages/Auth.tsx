@@ -8,15 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
 
   if (loading) {
     return (
@@ -81,45 +78,20 @@ const Auth = () => {
     setIsLoading(false);
   };
 
-  const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setForgotPasswordLoading(true);
-    setError(null);
-    
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('forgotEmail') as string;
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset`
-    });
-    
-    if (error) {
-      setError(error.message);
-    } else {
-      toast({
-        title: "Password reset email sent!",
-        description: "Check your email for a link to reset your password.",
-      });
-      setShowForgotPassword(false);
-    }
-    
-    setForgotPasswordLoading(false);
-  };
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background py-6 px-4 sm:py-12">
-      {/* Logo and tagline above card */}
-      <div className="text-center mb-6 sm:mb-8">
-        <img 
-          src="/brand/learnd-logo-v6.png" 
-          alt="Learnd" 
-          className="mx-auto h-12 w-auto"
-        />
-        <p className="text-muted-foreground text-sm mt-4 sm:mt-6">Learn. Improve. Repeat.</p>
-      </div>
-
-      {/* Auth card */}
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
+ {/* Brand header */}
+<div className="text-center mb-8">
+  <img
+    src="/brand/learnd-logo-v6.png"
+    alt="Learnd"
+    className="mx-auto h-20 w-auto sm:h-16"
+  />
+  <p className="mt-4 text-center text-sm sm:text-base text-muted-foreground">
+    Learn. Improve. Repeat.
+  </p>
+</div>
         <Card>
           <CardHeader>
             <CardTitle>Authentication</CardTitle>
@@ -141,77 +113,30 @@ const Auth = () => {
               )}
 
               <TabsContent value="signin">
-                {!showForgotPassword ? (
-                  <div className="space-y-4">
-                    <form onSubmit={handleSignIn} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          name="email"
-                          type="email"
-                          placeholder="your@email.com"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
-                        <Input
-                          id="password"
-                          name="password"
-                          type="password"
-                          required
-                        />
-                      </div>
-                      <Button type="submit" className="w-full btn-brand" disabled={isLoading}>
-                        {isLoading ? "Signing in..." : "Sign In"}
-                      </Button>
-                    </form>
-                    <div className="text-center">
-                      <button
-                        type="button"
-                        onClick={() => setShowForgotPassword(true)}
-                        className="text-sm text-muted-foreground hover:text-foreground underline"
-                      >
-                        Forgot your password?
-                      </button>
-                    </div>
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      required
+                    />
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="text-center">
-                      <h3 className="text-lg font-medium">Reset Password</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Enter your email to receive a password reset link
-                      </p>
-                    </div>
-                    <form onSubmit={handleForgotPassword} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="forgotEmail">Email</Label>
-                        <Input
-                          id="forgotEmail"
-                          name="forgotEmail"
-                          type="email"
-                          placeholder="your@email.com"
-                          required
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          className="flex-1"
-                          onClick={() => setShowForgotPassword(false)}
-                        >
-                          Back
-                        </Button>
-                        <Button type="submit" className="flex-1 btn-brand" disabled={forgotPasswordLoading}>
-                          {forgotPasswordLoading ? "Sending..." : "Send Reset Email"}
-                        </Button>
-                      </div>
-                    </form>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      required
+                    />
                   </div>
-                )}
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Signing in..." : "Sign In"}
+                  </Button>
+                </form>
               </TabsContent>
 
               <TabsContent value="signup">
@@ -256,7 +181,7 @@ const Auth = () => {
                       minLength={6}
                     />
                   </div>
-                  <Button type="submit" className="w-full btn-brand" disabled={isLoading}>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating account..." : "Create Account"}
                   </Button>
                 </form>

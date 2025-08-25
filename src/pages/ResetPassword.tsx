@@ -1,75 +1,58 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase"; // this exists in your repo
 import { useToast } from "@/hooks/use-toast";
 
 const ResetPassword = () => {
-  const { toast } = useToast();
-  const navigate = useNavigate();
+  const [ready, setReady] = useState(false);     // becomes true when the recovery token is valid
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  // Robustly ensure the recovery session is set (covers both hash + state-change cases)
   useEffect(() => {
-    // 1) If Supabase redirected with tokens in the URL hash, set the session
-    const fragment = new URLSearchParams(window.location.hash.replace("#", ""));
-    const access_token = fragment.get("access_token");
-    const refresh_token = fragment.get("refresh_token");
-
-    (async () => {
-      try {
-        if (access_token && refresh_token) {
-          await supabase.auth.setSession({ access_token, refresh_token });
-        }
-      } catch {
-        // ignore; onAuthStateChange below may already handle it
+    // When redirected from email, Supabase will create a temporary session.
+    // We consider the page "ready" when a session is present OR the event says PASSWORD_RECOVERY.
+    const init = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        setReady(true);
       }
-    })();
+    };
 
-    // 2) Listen for PASSWORD_RECOVERY just in case the SDK fires it
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        // nothing specific to do; form is already visible
-      }
+      if (event === "PASSWORD_RECOVERY") setReady(true);
     });
 
+    init();
     return () => sub.subscription.unsubscribe();
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password || password.length < 6) {
-      toast({
-        title: "Password too short",
-        description: "Please enter at least 6 characters.",
-        variant: "destructive",
-      });
+    setError(null);
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
       return;
     }
     if (password !== confirm) {
-      toast({
-        title: "Passwords don’t match",
-        description: "Please retype your new password.",
-        variant: "destructive",
-      });
+      setError("Passwords do not match.");
       return;
     }
 
-    setWorking(true);
+    setSubmitting(true);
     const { error } = await supabase.auth.updateUser({ password });
-    setWorking(false);
+    setSubmitting(false);
 
     if (error) {
-      toast({
-        title: "Couldn’t update password",
-        description: error.message,
-        variant: "destructive",
-      });
+      setError(error.message);
       return;
     }
 
@@ -85,37 +68,44 @@ const ResetPassword = () => {
       <div className="w-full max-w-md">
         <Card>
           <CardHeader>
-            <CardTitle>Reset your password</CardTitle>
-            <CardDescription>Enter a new password below.</CardDescription>
+            <CardTitle>Set a new password</CardTitle>
+            <CardDescription>Enter and confirm your new password.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={onSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="password">New password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm">Confirm new password</Label>
-                <Input
-                  id="confirm"
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={working}>
-                {working ? "Updating..." : "Update Password"}
-              </Button>
-            </form>
+            {!ready ? (
+              <p className="text-muted-foreground">Validating reset link…</p>
+            ) : (
+              <form onSubmit={onSubmit} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div>
+                  <label className="block mb-1 text-sm">New password</label>
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm">Confirm password</label>
+                  <Input
+                    type="password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+                <Button className="w-full" type="submit" disabled={submitting}>
+                  {submitting ? "Saving…" : "Update Password"}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>

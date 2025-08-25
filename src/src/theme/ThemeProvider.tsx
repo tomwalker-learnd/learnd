@@ -1,39 +1,34 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "light" | "dark";
-
-interface ThemeContextType {
-  theme: Theme;
+type ThemeContextType = {
+  isDark: boolean;
   toggleTheme: () => void;
-}
+};
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [isDark, setIsDark] = useState(false);
 
+  // Detect system preference
   useEffect(() => {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setTheme(prefersDark ? "dark" : "light");
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDark(mediaQuery.matches);
 
-    const listener = (e: MediaQueryListEvent) => {
-      setTheme(e.matches ? "dark" : "light");
-    };
-
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    mq.addEventListener("change", listener);
-
-    return () => mq.removeEventListener("change", listener);
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
   }, []);
 
   useEffect(() => {
+    const theme = isDark ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+  }, [isDark]);
 
-  const toggleTheme = () => setTheme(theme === "light" ? "dark" : "light");
+  const toggleTheme = () => setIsDark((prev) => !prev);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -44,4 +39,3 @@ export const useTheme = () => {
   if (!context) throw new Error("useTheme must be used within a ThemeProvider");
   return context;
 };
-

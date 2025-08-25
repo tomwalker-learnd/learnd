@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,8 +8,8 @@ import { AuthProvider } from "@/hooks/useAuth";
 import Auth from "@/pages/Auth";
 import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
-import Submit from "@/pages/Submit";            // (kept in case you still use it elsewhere)
-import SubmitWizard from "@/pages/SubmitWizard"; // ← NEW
+import Submit from "@/pages/Submit";              // optional legacy form
+import SubmitWizard from "@/pages/SubmitWizard";  // new multi-step form
 import Lessons from "@/pages/Lessons";
 import Analytics from "@/pages/Analytics";
 import NotFound from "@/pages/NotFound";
@@ -29,12 +29,10 @@ const App = () => (
             <Route path="/auth/reset" element={<ResetPassword />} />
             <Route path="/dashboard" element={<Dashboard />} />
 
-            {/* Use the new multi-step wizard for submissions */}
+            {/* New multi-step submission wizard */}
             <Route path="/submit" element={<SubmitWizard />} />
-
-            {/* If you want to keep the old single-page form available temporarily:
-                <Route path="/submit-old" element={<Submit />} />
-            */}
+            {/* Keep old single-page form accessible (optional) */}
+            {/* <Route path="/submit-old" element={<Submit />} /> */}
 
             <Route path="/lessons" element={<Lessons />} />
             <Route path="/analytics" element={<Analytics />} />

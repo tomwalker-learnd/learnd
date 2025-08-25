@@ -11,6 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 type FormState = {
   // Step 1: Basics
@@ -92,7 +94,8 @@ const roles = [
   "Business Analyst",
 ];
 
-const numberOrUndefined = (v: any) => (v === "" || v === null || typeof v === "undefined" ? undefined : Number(v));
+const numberOrUndefined = (v: any) =>
+  v === "" || v === null || typeof v === "undefined" ? undefined : Number(v);
 
 const STEPS = [
   { key: "basics", title: "Project Basics" },
@@ -102,9 +105,44 @@ const STEPS = [
   { key: "team", title: "Team & Improvement" },
   { key: "review", title: "Review & Submit" },
 ] as const;
-type StepKey = typeof STEPS[number]["key"];
+type StepKey = (typeof STEPS)[number]["key"];
 
 const STORAGE_KEY = "learnd.submit.draft";
+
+const Help = ({ text }: { text: string }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <button
+        type="button"
+        className="text-muted-foreground hover:text-foreground"
+        aria-label="More info"
+      >
+        <Info className="h-4 w-4" />
+      </button>
+    </TooltipTrigger>
+    <TooltipContent className="max-w-xs">{text}</TooltipContent>
+  </Tooltip>
+);
+
+const Labeled = ({
+  children,
+  label,
+  help,
+  htmlFor,
+}: {
+  children: React.ReactNode;
+  label: string;
+  help?: string;
+  htmlFor?: string;
+}) => (
+  <div>
+    <div className="flex items-center gap-2 mb-1">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {help ? <Help text={help} /> : null}
+    </div>
+    {children}
+  </div>
+);
 
 const SubmitWizard = () => {
   const { user } = useAuth();
@@ -130,7 +168,10 @@ const SubmitWizard = () => {
     return () => clearTimeout(id);
   }, [form]);
 
-  const progress = useMemo(() => Math.round(((stepIndex + 1) / STEPS.length) * 100), [stepIndex]);
+  const progress = useMemo(
+    () => Math.round(((stepIndex + 1) / STEPS.length) * 100),
+    [stepIndex]
+  );
 
   const next = () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
   const back = () => setStepIndex((i) => Math.max(i - 1, 0));
@@ -156,7 +197,10 @@ const SubmitWizard = () => {
 
   const handleNext = () => {
     const v = validateStep();
-    if (v) { setError(v); return; }
+    if (v) {
+      setError(v);
+      return;
+    }
     setError(null);
     next();
   };
@@ -168,8 +212,12 @@ const SubmitWizard = () => {
   };
 
   const submitAll = async () => {
-    if (!user?.id) { setError("You must be signed in."); return; }
-    setSaving(true); setError(null);
+    if (!user?.id) {
+      setError("You must be signed in.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
 
     const payload = {
       project_name: form.project_name,
@@ -186,6 +234,7 @@ const SubmitWizard = () => {
       planned_days: form.planned_days ?? null,
       actual_days: form.actual_days ?? null,
 
+      // Delivery & client
       change_control_effectiveness: form.change_control_effectiveness ?? null,
       requirements_clarity: form.requirements_clarity ?? null,
       resource_availability: form.resource_availability ?? null,
@@ -194,6 +243,7 @@ const SubmitWizard = () => {
       client_responsiveness: form.client_responsiveness ?? null,
       expectation_alignment: form.expectation_alignment ?? null,
 
+      // Scope & change control
       scope_baseline_quality: form.scope_baseline_quality ?? null,
       acceptance_criteria_completeness: form.acceptance_criteria_completeness ?? null,
       assumptions_documented: form.assumptions_documented ?? null,
@@ -208,10 +258,12 @@ const SubmitWizard = () => {
       scope_dispute_severity: form.scope_dispute_severity ?? null,
       scope_dispute_resolution_days: form.scope_dispute_resolution_days ?? null,
 
+      // Profitability extras
       effort_variance_pct: form.effort_variance_pct ?? null,
       rework_pct: form.rework_pct ?? null,
       discounts_concessions_usd: form.discounts_concessions_usd ?? null,
 
+      // Team & improvement
       team_morale: form.team_morale ?? null,
       tooling_effectiveness: form.tooling_effectiveness ?? null,
       internal_comms_effectiveness: form.internal_comms_effectiveness ?? null,
@@ -219,14 +271,19 @@ const SubmitWizard = () => {
       avoid_this: form.avoid_this?.trim() || null,
       suggested_improvement_area: form.suggested_improvement_area?.trim() || null,
 
+      // Notes
       notes: form.notes?.trim() || null,
+
       created_by: user.id,
     };
 
     const { error } = await supabase.from("lessons").insert(payload);
     setSaving(false);
 
-    if (error) { setError(error.message); return; }
+    if (error) {
+      setError(error.message);
+      return;
+    }
     toast({ title: "Saved", description: "Lesson captured." });
     resetDraft();
   };
@@ -241,9 +298,12 @@ const SubmitWizard = () => {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm text-muted-foreground">
-                Step {stepIndex + 1} of {STEPS.length}: <strong>{STEPS[stepIndex].title}</strong>
+                Step {stepIndex + 1} of {STEPS.length}:{" "}
+                <strong>{STEPS[stepIndex].title}</strong>
               </div>
-              <Button variant="ghost" size="sm" onClick={resetDraft}>Clear draft</Button>
+              <Button variant="ghost" size="sm" onClick={resetDraft}>
+                Clear draft
+              </Button>
             </div>
             <Progress value={Math.max(0, Math.min(100, progress))} />
           </div>
@@ -254,295 +314,908 @@ const SubmitWizard = () => {
             </Alert>
           )}
 
-          {/* Step 1: Basics */}
+          {/* STEP 1: Basics (no tooltips requested here) */}
           {STEPS[stepIndex].key === "basics" && (
             <div className="grid gap-4">
-              <div>
-                <Label>Project name *</Label>
-                <Input value={form.project_name} onChange={(e) => setForm({ ...form, project_name: e.target.value })} required />
-              </div>
-              <div>
-                <Label>Client (optional)</Label>
-                <Input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
-              </div>
+              <Labeled label="Project name *" htmlFor="project_name">
+                <Input
+                  id="project_name"
+                  value={form.project_name}
+                  onChange={(e) =>
+                    setForm({ ...form, project_name: e.target.value })
+                  }
+                  required
+                />
+              </Labeled>
+
+              <Labeled label="Client (optional)" htmlFor="client_name">
+                <Input
+                  id="client_name"
+                  value={form.client_name}
+                  onChange={(e) =>
+                    setForm({ ...form, client_name: e.target.value })
+                  }
+                />
+              </Labeled>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Role *</Label>
-                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                <Labeled label="Role *">
+                  <Select
+                    value={form.role}
+                    onValueChange={(v) => setForm({ ...form, role: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      {roles.map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {r}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div>
-                  <Label>Project type</Label>
-                  <Select value={form.project_type} onValueChange={(v: any) => setForm({ ...form, project_type: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                </Labeled>
+
+                <Labeled label="Project type">
+                  <Select
+                    value={form.project_type}
+                    onValueChange={(v: any) =>
+                      setForm({ ...form, project_type: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {["ERP","Web","Mobile","Migration","Security","Data/BI","CRM","Infra","AI/ML","Other"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      {[
+                        "ERP",
+                        "Web",
+                        "Mobile",
+                        "Migration",
+                        "Security",
+                        "Data/BI",
+                        "CRM",
+                        "Infra",
+                        "AI/ML",
+                        "Other",
+                      ].map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div>
-                  <Label>Phase</Label>
-                  <Select value={form.phase} onValueChange={(v: any) => setForm({ ...form, phase: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select phase" /></SelectTrigger>
+                </Labeled>
+
+                <Labeled label="Phase">
+                  <Select
+                    value={form.phase}
+                    onValueChange={(v: any) =>
+                      setForm({ ...form, phase: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select phase" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {["Initiation","Planning","Execution","Closure"].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                      {["Initiation", "Planning", "Execution", "Closure"].map(
+                        (p) => (
+                          <SelectItem key={p} value={p}>
+                            {p}
+                          </SelectItem>
+                        )
+                      )}
                     </SelectContent>
                   </Select>
-                </div>
-                <div>
-                  <Label>Industry</Label>
-                  <Select value={form.industry} onValueChange={(v: any) => setForm({ ...form, industry: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select industry" /></SelectTrigger>
+                </Labeled>
+
+                <Labeled label="Industry">
+                  <Select
+                    value={form.industry}
+                    onValueChange={(v: any) =>
+                      setForm({ ...form, industry: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select industry" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {["Manufacturing","Healthcare","Finance","Technology","Retail","Gov/Nonprofit","Other"].map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+                      {[
+                        "Manufacturing",
+                        "Healthcare",
+                        "Finance",
+                        "Technology",
+                        "Retail",
+                        "Gov/Nonprofit",
+                        "Other",
+                      ].map((i) => (
+                        <SelectItem key={i} value={i}>
+                          {i}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div>
-                  <Label>Region</Label>
-                  <Select value={form.region} onValueChange={(v: any) => setForm({ ...form, region: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select region" /></SelectTrigger>
+                </Labeled>
+
+                <Labeled label="Region">
+                  <Select
+                    value={form.region}
+                    onValueChange={(v: any) =>
+                      setForm({ ...form, region: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select region" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {["NA","EMEA","APAC","LATAM","Other"].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      {["NA", "EMEA", "APAC", "LATAM", "Other"].map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {r}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </Labeled>
               </div>
             </div>
           )}
 
-          {/* Step 2: Delivery & Client */}
+          {/* STEP 2: Delivery & Client (with tooltips) */}
           {STEPS[stepIndex].key === "delivery" && (
             <div className="grid gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Satisfaction (1–5) *</Label>
-                  <Input type="number" min={1} max={5} value={form.satisfaction ?? ""} onChange={(e) => setForm({ ...form, satisfaction: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Requirements clarity (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.requirements_clarity ?? ""} onChange={(e) => setForm({ ...form, requirements_clarity: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Change control effectiveness (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.change_control_effectiveness ?? ""} onChange={(e) => setForm({ ...form, change_control_effectiveness: numberOrUndefined(e.target.value) })} />
-                </div>
+                <Labeled
+                  label="Satisfaction (1–5) *"
+                  help="Overall satisfaction rating from the client team with project outcomes."
+                  htmlFor="satisfaction"
+                >
+                  <Input
+                    id="satisfaction"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.satisfaction ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        satisfaction: numberOrUndefined(e.target.value),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Requirements clarity (1–5)"
+                  help="How clear and complete were the requirements at project start?"
+                  htmlFor="requirements_clarity"
+                >
+                  <Input
+                    id="requirements_clarity"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.requirements_clarity ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        requirements_clarity: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Change control effectiveness (1–5)"
+                  help="How well changes were managed and communicated to all stakeholders."
+                  htmlFor="change_control_effectiveness"
+                >
+                  <Input
+                    id="change_control_effectiveness"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.change_control_effectiveness ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        change_control_effectiveness: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Resource availability (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.resource_availability ?? ""} onChange={(e) => setForm({ ...form, resource_availability: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Skill alignment (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.skill_alignment ?? ""} onChange={(e) => setForm({ ...form, skill_alignment: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Expectation alignment (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.expectation_alignment ?? ""} onChange={(e) => setForm({ ...form, expectation_alignment: numberOrUndefined(e.target.value) })} />
-                </div>
+                <Labeled
+                  label="Resource availability (1–5)"
+                  help="Did team members, tools, and environments remain available when needed?"
+                  htmlFor="resource_availability"
+                >
+                  <Input
+                    id="resource_availability"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.resource_availability ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        resource_availability: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Skill alignment (1–5)"
+                  help="How well team members’ skills matched the tasks assigned."
+                  htmlFor="skill_alignment"
+                >
+                  <Input
+                    id="skill_alignment"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.skill_alignment ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        skill_alignment: numberOrUndefined(e.target.value),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Expectation alignment (1–5)"
+                  help="Did the client’s expectations match what was delivered?"
+                  htmlFor="expectation_alignment"
+                >
+                  <Input
+                    id="expectation_alignment"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.expectation_alignment ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        expectation_alignment: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Stakeholder engagement (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.stakeholder_engagement ?? ""} onChange={(e) => setForm({ ...form, stakeholder_engagement: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Client responsiveness (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.client_responsiveness ?? ""} onChange={(e) => setForm({ ...form, client_responsiveness: numberOrUndefined(e.target.value) })} />
-                </div>
+                <Labeled
+                  label="Stakeholder engagement (1–5)"
+                  help="How responsive and engaged were stakeholders throughout the project?"
+                  htmlFor="stakeholder_engagement"
+                >
+                  <Input
+                    id="stakeholder_engagement"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.stakeholder_engagement ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        stakeholder_engagement: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Client responsiveness (1–5)"
+                  help="Did the client respond promptly to questions, approvals, and feedback?"
+                  htmlFor="client_responsiveness"
+                >
+                  <Input
+                    id="client_responsiveness"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.client_responsiveness ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        client_responsiveness: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
               </div>
             </div>
           )}
 
-          {/* Step 3: Scope & Change Control */}
+          {/* STEP 3: Scope & Change Control (with tooltips) */}
           {STEPS[stepIndex].key === "scope" && (
             <div className="grid gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Scope baseline quality (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.scope_baseline_quality ?? ""} onChange={(e) => setForm({ ...form, scope_baseline_quality: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Acceptance criteria completeness (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.acceptance_criteria_completeness ?? ""} onChange={(e) => setForm({ ...form, acceptance_criteria_completeness: numberOrUndefined(e.target.value) })} />
-                </div>
+                <Labeled
+                  label="Scope baseline quality (1–5)"
+                  help="Clarity and completeness of the initial scope definition."
+                  htmlFor="scope_baseline_quality"
+                >
+                  <Input
+                    id="scope_baseline_quality"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.scope_baseline_quality ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        scope_baseline_quality: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Acceptance criteria completeness (1–5)"
+                  help="Were acceptance criteria defined clearly enough for sign-off?"
+                  htmlFor="acceptance_criteria_completeness"
+                >
+                  <Input
+                    id="acceptance_criteria_completeness"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.acceptance_criteria_completeness ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        acceptance_criteria_completeness: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
                 <div className="flex items-center gap-2 h-10 mt-6">
-                  <Checkbox checked={!!form.assumptions_documented} onCheckedChange={(v) => setForm({ ...form, assumptions_documented: Boolean(v) })} />
-                  <span className="text-sm">Assumptions documented</span>
+                  <Checkbox
+                    id="assumptions_documented"
+                    checked={!!form.assumptions_documented}
+                    onCheckedChange={(v) =>
+                      setForm({
+                        ...form,
+                        assumptions_documented: Boolean(v),
+                      })
+                    }
+                  />
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="assumptions_documented">Assumptions documented</Label>
+                    <Help text="Were key project assumptions recorded early in the project?" />
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Requirements volatility (count)</Label>
-                  <Input type="number" min={0} value={form.requirements_volatility_count ?? ""} onChange={(e) => setForm({ ...form, requirements_volatility_count: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Scope authority clarity (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.scope_authority_clarity ?? ""} onChange={(e) => setForm({ ...form, scope_authority_clarity: numberOrUndefined(e.target.value) })} />
-                </div>
+                <Labeled
+                  label="Requirements volatility (count)"
+                  help="How many times requirements changed after initial agreement."
+                  htmlFor="requirements_volatility_count"
+                >
+                  <Input
+                    id="requirements_volatility_count"
+                    type="number"
+                    min={0}
+                    value={form.requirements_volatility_count ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        requirements_volatility_count: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Scope authority clarity (1–5)"
+                  help="How clearly was decision authority over scope defined?"
+                  htmlFor="scope_authority_clarity"
+                >
+                  <Input
+                    id="scope_authority_clarity"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.scope_authority_clarity ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        scope_authority_clarity: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
                 <div className="flex items-center gap-2 h-10 mt-6">
-                  <Checkbox checked={!!form.change_control_process_used} onCheckedChange={(v) => setForm({ ...form, change_control_process_used: Boolean(v) })} />
-                  <span className="text-sm">Formal change control process used</span>
+                  <Checkbox
+                    id="change_control_process_used"
+                    checked={!!form.change_control_process_used}
+                    onCheckedChange={(v) =>
+                      setForm({
+                        ...form,
+                        change_control_process_used: Boolean(v),
+                      })
+                    }
+                  />
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="change_control_process_used">Formal change control process used</Label>
+                    <Help text="Was a formal, documented change control process followed?" />
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Change requests (count)</Label>
-                  <Input type="number" min={0} value={form.change_request_count ?? ""} onChange={(e) => setForm({ ...form, change_request_count: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Change orders approved (count)</Label>
-                  <Input type="number" min={0} value={form.change_orders_approved_count ?? ""} onChange={(e) => setForm({ ...form, change_orders_approved_count: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Avg approval time (days)</Label>
-                  <Input type="number" min={0} value={form.change_approval_avg_days ?? ""} onChange={(e) => setForm({ ...form, change_approval_avg_days: numberOrUndefined(e.target.value) })} />
-                </div>
+                <Labeled
+                  label="Change requests (count)"
+                  help="How many change requests were logged during the project?"
+                  htmlFor="change_request_count"
+                >
+                  <Input
+                    id="change_request_count"
+                    type="number"
+                    min={0}
+                    value={form.change_request_count ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        change_request_count: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Change orders approved (count)"
+                  help="How many change requests were approved and became change orders."
+                  htmlFor="change_orders_approved_count"
+                >
+                  <Input
+                    id="change_orders_approved_count"
+                    type="number"
+                    min={0}
+                    value={form.change_orders_approved_count ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        change_orders_approved_count: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Avg approval time (days)"
+                  help="Average number of days required to approve a change request."
+                  htmlFor="change_approval_avg_days"
+                >
+                  <Input
+                    id="change_approval_avg_days"
+                    type="number"
+                    min={0}
+                    value={form.change_approval_avg_days ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        change_approval_avg_days: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex items-center gap-2 h-10">
-                  <Checkbox checked={!!form.scope_dispute_occurred} onCheckedChange={(v) => setForm({ ...form, scope_dispute_occurred: Boolean(v) })} />
-                  <span className="text-sm">Scope dispute occurred</span>
+                  <Checkbox
+                    id="scope_dispute_occurred"
+                    checked={!!form.scope_dispute_occurred}
+                    onCheckedChange={(v) =>
+                      setForm({
+                        ...form,
+                        scope_dispute_occurred: Boolean(v),
+                      })
+                    }
+                  />
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="scope_dispute_occurred">Scope dispute occurred</Label>
+                    <Help text="Did the client and delivery team have disputes over scope?" />
+                  </div>
                 </div>
+
                 {form.scope_dispute_occurred ? (
                   <>
-                    <div>
-                      <Label>Dispute severity (1–5)</Label>
-                      <Input type="number" min={1} max={5} value={form.scope_dispute_severity ?? ""} onChange={(e) => setForm({ ...form, scope_dispute_severity: numberOrUndefined(e.target.value) })} />
-                    </div>
-                    <div>
-                      <Label>Resolution time (days)</Label>
-                      <Input type="number" min={0} value={form.scope_dispute_resolution_days ?? ""} onChange={(e) => setForm({ ...form, scope_dispute_resolution_days: numberOrUndefined(e.target.value) })} />
-                    </div>
+                    <Labeled
+                      label="Dispute severity (1–5)"
+                      help="How severe were scope disputes, if any occurred?"
+                      htmlFor="scope_dispute_severity"
+                    >
+                      <Input
+                        id="scope_dispute_severity"
+                        type="number"
+                        min={1}
+                        max={5}
+                        value={form.scope_dispute_severity ?? ""}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            scope_dispute_severity: numberOrUndefined(
+                              e.target.value
+                            ),
+                          })
+                        }
+                      />
+                    </Labeled>
+
+                    <Labeled
+                      label="Resolution time (days)"
+                      help="How many days were required to resolve scope disputes?"
+                      htmlFor="scope_dispute_resolution_days"
+                    >
+                      <Input
+                        id="scope_dispute_resolution_days"
+                        type="number"
+                        min={0}
+                        value={form.scope_dispute_resolution_days ?? ""}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            scope_dispute_resolution_days: numberOrUndefined(
+                              e.target.value
+                            ),
+                          })
+                        }
+                      />
+                    </Labeled>
                   </>
                 ) : null}
               </div>
             </div>
           )}
 
-          {/* Step 4: Profitability & Delivery */}
+          {/* STEP 4: Profitability & Delivery (with tooltips) */}
           {STEPS[stepIndex].key === "profit" && (
             <div className="grid gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Budget status *</Label>
-                  <Select value={form.budget_status} onValueChange={(v: any) => setForm({ ...form, budget_status: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                <Labeled
+                  label="Budget status *"
+                  help="Did the project finish under, on, or over budget?"
+                >
+                  <Select
+                    value={form.budget_status}
+                    onValueChange={(v: any) =>
+                      setForm({ ...form, budget_status: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="under">Under</SelectItem>
                       <SelectItem value="on">On</SelectItem>
                       <SelectItem value="over">Over</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div>
-                  <Label>Timeline status *</Label>
-                  <Select value={form.timeline_status} onValueChange={(v: any) => setForm({ ...form, timeline_status: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                </Labeled>
+
+                <Labeled
+                  label="Timeline status *"
+                  help="Was the project delivered earlier than planned, on time, or late?"
+                >
+                  <Select
+                    value={form.timeline_status}
+                    onValueChange={(v: any) =>
+                      setForm({ ...form, timeline_status: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="early">Early</SelectItem>
                       <SelectItem value="on">On</SelectItem>
                       <SelectItem value="late">Late</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </Labeled>
+
                 <div className="flex items-center gap-2 h-10 mt-6">
-                  <Checkbox checked={!!form.scope_change} onCheckedChange={(v) => setForm({ ...form, scope_change: Boolean(v) })} />
-                  <span className="text-sm">Scope changed</span>
+                  <Checkbox
+                    id="scope_change"
+                    checked={!!form.scope_change}
+                    onCheckedChange={(v) =>
+                      setForm({ ...form, scope_change: Boolean(v) })
+                    }
+                  />
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="scope_change">Scope changed</Label>
+                    <Help text="Did the project scope expand or change beyond the baseline?" />
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Effort variance %</Label>
-                  <Input type="number" step="0.01" value={form.effort_variance_pct ?? ""} onChange={(e) => setForm({ ...form, effort_variance_pct: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Rework %</Label>
-                  <Input type="number" step="0.01" value={form.rework_pct ?? ""} onChange={(e) => setForm({ ...form, rework_pct: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Discounts / concessions (USD)</Label>
-                  <Input type="number" step="0.01" value={form.discounts_concessions_usd ?? ""} onChange={(e) => setForm({ ...form, discounts_concessions_usd: numberOrUndefined(e.target.value) })} />
-                </div>
+                <Labeled
+                  label="Effort variance %"
+                  help="% difference between estimated vs. actual effort expended."
+                  htmlFor="effort_variance_pct"
+                >
+                  <Input
+                    id="effort_variance_pct"
+                    type="number"
+                    step="0.01"
+                    value={form.effort_variance_pct ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        effort_variance_pct: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Rework %"
+                  help="% of effort spent on rework (fixes, re-doing tasks)."
+                  htmlFor="rework_pct"
+                >
+                  <Input
+                    id="rework_pct"
+                    type="number"
+                    step="0.01"
+                    value={form.rework_pct ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        rework_pct: numberOrUndefined(e.target.value),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Discounts / concessions (USD)"
+                  help="Value of discounts or concessions given to the client."
+                  htmlFor="discounts_concessions_usd"
+                >
+                  <Input
+                    id="discounts_concessions_usd"
+                    type="number"
+                    step="0.01"
+                    value={form.discounts_concessions_usd ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        discounts_concessions_usd: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Planned duration (days)</Label>
-                  <Input type="number" min={0} value={form.planned_days ?? ""} onChange={(e) => setForm({ ...form, planned_days: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Actual duration (days)</Label>
-                  <Input type="number" min={0} value={form.actual_days ?? ""} onChange={(e) => setForm({ ...form, actual_days: numberOrUndefined(e.target.value) })} />
-                </div>
+                <Labeled
+                  label="Planned duration (days)"
+                  help="Planned project length in days."
+                  htmlFor="planned_days"
+                >
+                  <Input
+                    id="planned_days"
+                    type="number"
+                    min={0}
+                    value={form.planned_days ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        planned_days: numberOrUndefined(e.target.value),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Actual duration (days)"
+                  help="Actual project length in days."
+                  htmlFor="actual_days"
+                >
+                  <Input
+                    id="actual_days"
+                    type="number"
+                    min={0}
+                    value={form.actual_days ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        actual_days: numberOrUndefined(e.target.value),
+                      })
+                    }
+                  />
+                </Labeled>
               </div>
 
-              <div>
-                <Label>Change order revenue (USD)</Label>
-                <Input type="number" step="0.01" value={form.change_orders_revenue_usd ?? ""} onChange={(e) => setForm({ ...form, change_orders_revenue_usd: numberOrUndefined(e.target.value) })} />
-              </div>
+              <Labeled
+                label="Change order revenue (USD)"
+                help="Additional revenue generated through approved change orders."
+                htmlFor="change_orders_revenue_usd"
+              >
+                <Input
+                  id="change_orders_revenue_usd"
+                  type="number"
+                  step="0.01"
+                  value={form.change_orders_revenue_usd ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      change_orders_revenue_usd: numberOrUndefined(
+                        e.target.value
+                      ),
+                    })
+                  }
+                />
+              </Labeled>
             </div>
           )}
 
-          {/* Step 5: Team & Improvement */}
+          {/* STEP 5: Team & Improvement */}
           {STEPS[stepIndex].key === "team" && (
             <div className="grid gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Team morale (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.team_morale ?? ""} onChange={(e) => setForm({ ...form, team_morale: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Tooling effectiveness (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.tooling_effectiveness ?? ""} onChange={(e) => setForm({ ...form, tooling_effectiveness: numberOrUndefined(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Internal comms effectiveness (1–5)</Label>
-                  <Input type="number" min={1} max={5} value={form.internal_comms_effectiveness ?? ""} onChange={(e) => setForm({ ...form, internal_comms_effectiveness: numberOrUndefined(e.target.value) })} />
-                </div>
+                <Labeled label="Team morale (1–5)" htmlFor="team_morale">
+                  <Input
+                    id="team_morale"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.team_morale ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        team_morale: numberOrUndefined(e.target.value),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled label="Tooling effectiveness (1–5)" htmlFor="tooling_effectiveness">
+                  <Input
+                    id="tooling_effectiveness"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.tooling_effectiveness ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        tooling_effectiveness: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label="Internal comms effectiveness (1–5)"
+                  htmlFor="internal_comms_effectiveness"
+                >
+                  <Input
+                    id="internal_comms_effectiveness"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.internal_comms_effectiveness ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        internal_comms_effectiveness: numberOrUndefined(
+                          e.target.value
+                        ),
+                      })
+                    }
+                  />
+                </Labeled>
               </div>
 
-              <div>
-                <Label>What should we repeat?</Label>
-                <Textarea rows={3} value={form.repeat_this ?? ""} onChange={(e) => setForm({ ...form, repeat_this: e.target.value })} />
-              </div>
-              <div>
-                <Label>What should we avoid?</Label>
-                <Textarea rows={3} value={form.avoid_this ?? ""} onChange={(e) => setForm({ ...form, avoid_this: e.target.value })} />
-              </div>
-              <div>
-                <Label>Suggested improvement area</Label>
-                <Input value={form.suggested_improvement_area ?? ""} onChange={(e) => setForm({ ...form, suggested_improvement_area: e.target.value })} placeholder="process, tooling, staffing, client, risk, comms, other" />
-              </div>
+              <Labeled label="What should we repeat?">
+                <Textarea
+                  rows={3}
+                  value={form.repeat_this ?? ""}
+                  onChange={(e) =>
+                    setForm({ ...form, repeat_this: e.target.value })
+                  }
+                />
+              </Labeled>
 
-              <div>
-                <Label>General notes</Label>
-                <Textarea rows={4} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-              </div>
+              <Labeled label="What should we avoid?">
+                <Textarea
+                  rows={3}
+                  value={form.avoid_this ?? ""}
+                  onChange={(e) =>
+                    setForm({ ...form, avoid_this: e.target.value })
+                  }
+                />
+              </Labeled>
+
+              <Labeled label="Suggested improvement area">
+                <Input
+                  value={form.suggested_improvement_area ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      suggested_improvement_area: e.target.value,
+                    })
+                  }
+                  placeholder="process, tooling, staffing, client, risk, comms, other"
+                />
+              </Labeled>
+
+              <Labeled label="General notes">
+                <Textarea
+                  rows={4}
+                  value={form.notes ?? ""}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                />
+              </Labeled>
             </div>
           )}
 
-          {/* Step 6: Review */}
+          {/* STEP 6: Review */}
           {STEPS[stepIndex].key === "review" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Review your entries. When you submit, we’ll create a single record in <code>public.lessons</code>.
+                Review your entries. When you submit, we’ll create a single
+                record in <code>public.lessons</code>.
               </p>
-              <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">{JSON.stringify(form, null, 2)}</pre>
+              <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
+                {JSON.stringify(form, null, 2)}
+              </pre>
               <div className="flex items-center gap-2">
-                <Button onClick={submitAll} disabled={saving}>{saving ? "Saving…" : "Submit Lesson"}</Button>
-                <Button type="button" variant="outline" onClick={() => setStepIndex(stepIndex - 1)}>Back</Button>
+                <Button onClick={submitAll} disabled={saving}>
+                  {saving ? "Saving…" : "Submit Lesson"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStepIndex(stepIndex - 1)}
+                >
+                  Back
+                </Button>
               </div>
             </div>
           )}
@@ -550,8 +1223,17 @@ const SubmitWizard = () => {
           {/* NAV */}
           {STEPS[stepIndex].key !== "review" && (
             <div className="mt-6 flex items-center justify-between">
-              <Button type="button" variant="outline" onClick={() => setStepIndex(stepIndex - 1)} disabled={stepIndex === 0}>Back</Button>
-              <Button type="button" onClick={handleNext}>Next</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStepIndex(stepIndex - 1)}
+                disabled={stepIndex === 0}
+              >
+                Back
+              </Button>
+              <Button type="button" onClick={handleNext}>
+                Next
+              </Button>
             </div>
           )}
         </CardContent>

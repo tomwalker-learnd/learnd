@@ -1,111 +1,97 @@
-import { useState, useEffect } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const ResetPassword = () => {
-  const { user, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isValidReset, setIsValidReset] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [working, setWorking] = useState(false);
 
+  // Robustly ensure the recovery session is set (covers both hash + state-change cases)
   useEffect(() => {
-    // Check if this is a valid password reset session
-    const checkResetSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      // If we have a session and the URL contains reset-related parameters, it's valid
-      const urlParams = new URLSearchParams(window.location.search);
-      const hasResetParams = urlParams.has('access_token') || urlParams.has('refresh_token');
-      setIsValidReset(!!data.session && hasResetParams);
-    };
+    // 1) If Supabase redirected with tokens in the URL hash, set the session
+    const fragment = new URLSearchParams(window.location.hash.replace("#", ""));
+    const access_token = fragment.get("access_token");
+    const refresh_token = fragment.get("refresh_token");
 
-    checkResetSession();
+    (async () => {
+      try {
+        if (access_token && refresh_token) {
+          await supabase.auth.setSession({ access_token, refresh_token });
+        }
+      } catch {
+        // ignore; onAuthStateChange below may already handle it
+      }
+    })();
+
+    // 2) Listen for PASSWORD_RECOVERY just in case the SDK fires it
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        // nothing specific to do; form is already visible
+      }
+    });
+
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isValidReset && !loading) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    if (password !== confirmPassword) {
-      setError("Passwords don't match");
-      setIsLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      setIsLoading(false);
-      return;
-    }
-
-    const { error } = await supabase.auth.updateUser({ 
-      password: password 
-    });
-    
-    if (error) {
-      setError(error.message);
-    } else {
+    if (!password || password.length < 6) {
       toast({
-        title: "Password updated!",
-        description: "Your password has been successfully updated.",
+        title: "Password too short",
+        description: "Please enter at least 6 characters.",
+        variant: "destructive",
       });
-      navigate('/dashboard');
+      return;
     }
-    
-    setIsLoading(false);
+    if (password !== confirm) {
+      toast({
+        title: "Passwords don’t match",
+        description: "Please retype your new password.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setWorking(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setWorking(false);
+
+    if (error) {
+      toast({
+        title: "Couldn’t update password",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Password updated",
+      description: "You can now sign in with your new password.",
+    });
+    navigate("/auth");
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Learnd</h1>
-          <p className="text-muted-foreground mt-2">Set your new password</p>
-        </div>
-
         <Card>
           <CardHeader>
-            <CardTitle>Set New Password</CardTitle>
-            <CardDescription>
-              Enter your new password below
-            </CardDescription>
+            <CardTitle>Reset your password</CardTitle>
+            <CardDescription>Enter a new password below.</CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <form onSubmit={handleResetPassword} className="space-y-4">
+            <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password">New Password</Label>
+                <Label htmlFor="password">New password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -113,23 +99,21 @@ const ResetPassword = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  placeholder="Enter new password"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirm">Confirm new password</Label>
                 <Input
-                  id="confirmPassword"
+                  id="confirm"
                   type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
                   required
                   minLength={6}
-                  placeholder="Confirm new password"
                 />
               </div>
-              <Button type="submit" className="w-full btn-brand" disabled={isLoading}>
-                {isLoading ? "Updating password..." : "Update Password"}
+              <Button type="submit" className="w-full" disabled={working}>
+                {working ? "Updating..." : "Update Password"}
               </Button>
             </form>
           </CardContent>

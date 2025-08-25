@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client'; // ← added
 
 function useIsDark(): boolean {
   const getIsDark = () =>
@@ -76,8 +77,8 @@ const Auth = () => {
       setError(error.message);
     } else {
       toast({
-        title: "Welcome back!",
-        description: "You have successfully signed in.",
+        title: 'Welcome back!',
+        description: 'You have successfully signed in.',
       });
     }
 
@@ -101,23 +102,57 @@ const Auth = () => {
       setError(error.message);
     } else {
       toast({
-        title: "Account created!",
-        description: "Please check your email to verify your account.",
+        title: 'Account created!',
+        description: 'Please check your email to verify your account.',
       });
     }
 
     setIsLoading(false);
   };
 
+  // --- NEW: Forgot password handler
+  const handleForgotPassword = async () => {
+    const emailEl = document.getElementById('email') as HTMLInputElement | null;
+    const email = emailEl?.value?.trim();
+
+    if (!email) {
+      toast({
+        title: 'Enter your email',
+        description:
+          'Type your account email in the Email field, then click “Forgot your password?” again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const redirectTo = `${window.location.origin}/auth/reset`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) {
+      toast({
+        title: 'Couldn’t send reset link',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({
+      title: 'Check your email',
+      description: 'We sent you a password reset link.',
+    });
+  };
+  // --- end NEW
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <img
-            src={isDark ? "/brand/learnd-logo-v8_Lgt.png" : "/brand/learnd-logo-v8_Lgt.png"}
+            src={isDark ? '/brand/learnd-logo-v8_Lgt.png' : '/brand/learnd-logo-v8_Lgt.png'}
             alt="Learnd"
             className="mx-auto w-auto"
-            style={{ height: "90px", maxHeight: "20vh" }}
+            style={{ height: '90px', maxHeight: '20vh' }}
           />
           <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground">
             Learn. Improve. Repeat.
@@ -127,9 +162,7 @@ const Auth = () => {
         <Card>
           <CardHeader>
             <CardTitle>Authentication</CardTitle>
-            <CardDescription>
-              Sign in to your account or create a new one
-            </CardDescription>
+            <CardDescription>Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
@@ -158,15 +191,22 @@ const Auth = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      required
-                    />
+                    <Input id="password" name="password" type="password" required />
                   </div>
+
+                  {/* NEW: Forgot password link */}
+                  <p className="text-right -mt-2">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-brand hover:underline text-sm"
+                    >
+                      Forgot your password?
+                    </button>
+                  </p>
+
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Signing in..." : "Sign In"}
+                    {isLoading ? 'Signing in...' : 'Sign In'}
                   </Button>
                 </form>
               </TabsContent>
@@ -176,21 +216,11 @@ const Auth = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        type="text"
-                        placeholder="John"
-                      />
+                      <Input id="firstName" name="firstName" type="text" placeholder="John" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        type="text"
-                        placeholder="Doe"
-                      />
+                      <Input id="lastName" name="lastName" type="text" placeholder="Doe" />
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -214,7 +244,7 @@ const Auth = () => {
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Creating account..." : "Create Account"}
+                    {isLoading ? 'Creating account...' : 'Create Account'}
                   </Button>
                 </form>
               </TabsContent>

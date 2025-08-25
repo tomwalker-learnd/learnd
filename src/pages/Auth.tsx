@@ -117,7 +117,7 @@ const Auth = () => {
             src={isDark ? "/brand/learnd-logo-v8_Lgt.png" : "/brand/learnd-logo-v8_Lgt.png"}
             alt="Learnd"
             className="mx-auto w-auto"
-            style={{ height: "120px", maxHeight: "20vh" }}
+            style={{ height: "90px", maxHeight: "20vh" }}
           />
           <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground">
             Learn. Improve. Repeat.

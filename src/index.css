@@ -133,22 +133,3 @@ All colors MUST be HSL.
   text-align: center; color: #6B7280; margin-bottom: 24px; font-size: 16px;
 }
 @media (max-width: 640px) { .auth-tagline { margin-bottom: 16px; font-size: 14px; } }
-/* Light (default) */
-:root[data-theme="light"] {
-  --background: #ffffff;
-  --foreground: #111111;
-}
-
-/* Dark */
-:root[data-theme="dark"] {
-  --background: #0a0f2c; /* midnight blue */
-  --foreground: #f5f7fb;
-}
-
-html, body, #root { height: 100%; }
-
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  transition: background-color .3s ease, color .3s ease;
-}

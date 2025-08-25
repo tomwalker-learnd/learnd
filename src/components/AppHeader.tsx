@@ -5,22 +5,26 @@ const AppHeader = () => {
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b">
       <div className="mx-auto max-w-7xl px-3 sm:px-4">
         <div className="h-12 flex items-center justify-between">
-          {/* Left: Logo */}
-          <Link to="/dashboard" className="inline-flex items-center gap-2">
+          {/* Left: Logo + Tagline */}
+          <Link to="/dashboard" className="inline-flex items-center gap-3">
             <img
               src="/brand/learnd-logo-v8_Lgt.png"
               alt="Learnd"
               className="h-6 w-auto"
             />
-            {/* If you want a tiny wordmark next to the icon later, add it here */}
+            <span className="hidden sm:inline text-sm sm:text-base text-muted-foreground">
+              Learn. Improve. Repeat.
+            </span>
           </Link>
 
-          {/* Right: (optional) quick links — easy to enable later */}
+          {/* Right: Nav links */}
           <nav className="hidden sm:flex items-center gap-5 text-sm">
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
-                `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
+                `hover:text-foreground ${
+                  isActive ? "text-foreground" : "text-muted-foreground"
+                }`
               }
             >
               Dashboard
@@ -28,7 +32,9 @@ const AppHeader = () => {
             <NavLink
               to="/submit"
               className={({ isActive }) =>
-                `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
+                `hover:text-foreground ${
+                  isActive ? "text-foreground" : "text-muted-foreground"
+                }`
               }
             >
               Capture
@@ -36,7 +42,9 @@ const AppHeader = () => {
             <NavLink
               to="/lessons"
               className={({ isActive }) =>
-                `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
+                `hover:text-foreground ${
+                  isActive ? "text-foreground" : "text-muted-foreground"
+                }`
               }
             >
               Lessons
@@ -44,7 +52,9 @@ const AppHeader = () => {
             <NavLink
               to="/analytics"
               className={({ isActive }) =>
-                `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
+                `hover:text-foreground ${
+                  isActive ? "text-foreground" : "text-muted-foreground"
+                }`
               }
             >
               Analytics

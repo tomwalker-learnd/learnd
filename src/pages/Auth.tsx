@@ -114,7 +114,7 @@ const Auth = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <img
-            src={isDark ? "/brand/learnd-logo-v8_Dk.png" : "/brand/learnd-logo-v8_Lgt.png"}
+            src={isDark ? "/brand/learnd-logo-v8_Lgt.png" : "/brand/learnd-logo-v8_Lgt.png"}
             alt="Learnd"
             className="mx-auto w-auto"
             style={{ height: "120px", maxHeight: "20vh" }}

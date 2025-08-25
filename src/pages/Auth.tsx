@@ -1,50 +1,20 @@
-import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
-
-function useIsDark(): boolean {
-  const getIsDark = () =>
-    document.documentElement.classList.contains('dark') ||
-    window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    try {
-      return getIsDark();
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
-    const onMQ = () => setIsDark(getIsDark());
-    mq?.addEventListener?.('change', onMQ);
-
-    const obs = new MutationObserver(() => setIsDark(getIsDark()));
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-
-    return () => {
-      mq?.removeEventListener?.('change', onMQ);
-      obs.disconnect();
-    };
-  }, []);
-
-  return isDark;
-}
+import { useState } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import Logo from "@/components/Logo"; // if no alias, use: ../components/Logo
 
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isDark = useIsDark();
 
   if (loading) {
     return (
@@ -67,20 +37,15 @@ const Auth = () => {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
 
     const { error } = await signIn(email, password);
-
     if (error) {
       setError(error.message);
     } else {
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully signed in.",
-      });
+      toast({ title: "Welcome back!", description: "You have successfully signed in." });
     }
-
     setIsLoading(false);
   };
 
@@ -90,36 +55,27 @@ const Auth = () => {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-    const firstName = formData.get('firstName') as string;
-    const lastName = formData.get('lastName') as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const firstName = formData.get("firstName") as string;
+    const lastName = formData.get("lastName") as string;
 
     const { error } = await signUp(email, password, firstName, lastName);
-
     if (error) {
       setError(error.message);
     } else {
-      toast({
-        title: "Account created!",
-        description: "Please check your email to verify your account.",
-      });
+      toast({ title: "Account created!", description: "Please check your email to verify your account." });
     }
-
     setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
+        {/* Brand header */}
         <div className="text-center mb-6">
-          <img
-            src={isDark ? "/brand/learnd-logo-v8_Dk.png" : "/brand/learnd-logo-v8_Lgt.png"}
-            alt="Learnd"
-            className="mx-auto w-auto"
-            style={{ height: "120px", maxHeight: "20vh" }}
-          />
-          <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground">
+          <Logo height={120} className="mb-1" />
+          <p className="text-center text-sm sm:text-base text-muted-foreground">
             Learn. Improve. Repeat.
           </p>
         </div>
@@ -127,9 +83,7 @@ const Auth = () => {
         <Card>
           <CardHeader>
             <CardTitle>Authentication</CardTitle>
-            <CardDescription>
-              Sign in to your account or create a new one
-            </CardDescription>
+            <CardDescription>Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
@@ -148,22 +102,16 @@ const Auth = () => {
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      required
-                    />
+                    <Input id="email" name="email" type="email" placeholder="your@email.com" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      required
-                    />
+                    <Input id="password" name="password" type="password" required />
+                  </div>
+                  <div className="flex justify-end">
+                    <a href="/auth/reset" className="text-sm text-destructive/80 hover:underline">
+                      Forgot your password?
+                    </a>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Signing in..." : "Sign In"}
@@ -176,42 +124,20 @@ const Auth = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        type="text"
-                        placeholder="John"
-                      />
+                      <Input id="firstName" name="firstName" type="text" placeholder="John" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        type="text"
-                        placeholder="Doe"
-                      />
+                      <Input id="lastName" name="lastName" type="text" placeholder="Doe" />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      required
-                    />
+                    <Input id="signup-email" name="email" type="email" placeholder="your@email.com" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      required
-                      minLength={6}
-                    />
+                    <Input id="signup-password" name="password" type="password" required minLength={6} />
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating account..." : "Create Account"}

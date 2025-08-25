@@ -14,6 +14,8 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 
+type BillingModel = "T&M" | "Fixed Fee";
+
 type FormState = {
   // Step 1: Basics
   project_name: string;
@@ -58,6 +60,9 @@ type FormState = {
   discounts_concessions_usd?: number;
   planned_days?: number;
   actual_days?: number;
+  // NEW:
+  billing_model?: BillingModel;
+  initial_budget_usd?: number;
 
   // Step 5: Team & Improvement
   team_morale?: number;
@@ -82,6 +87,8 @@ const emptyState: FormState = {
   satisfaction: undefined,
   budget_status: "",
   timeline_status: "",
+  billing_model: undefined,
+  initial_budget_usd: undefined,
 };
 
 const roles = [
@@ -144,6 +151,18 @@ const Labeled = ({
   </div>
 );
 
+// small formatters for the Review step
+const fmtCurrency = (n?: number) =>
+  typeof n === "number"
+    ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
+    : "—";
+
+const fmtPct = (n?: number) => (typeof n === "number" ? `${n}%` : "—");
+const fmtNum = (n?: number) => (typeof n === "number" ? String(n) : "—");
+const fmtText = (s?: string) => (s && s.trim() ? s : "—");
+const fmtBool = (b?: boolean) => (typeof b === "boolean" ? (b ? "Yes" : "No") : "—");
+const fmt = (v: any) => (v ? String(v) : "—");
+
 const SubmitWizard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -190,6 +209,7 @@ const SubmitWizard = () => {
     if (s === "profit") {
       if (!form.budget_status) return "Budget status is required.";
       if (!form.timeline_status) return "Timeline status is required.";
+      if (!form.billing_model) return "Billing model is required.";
       return null;
     }
     return null;
@@ -262,6 +282,8 @@ const SubmitWizard = () => {
       effort_variance_pct: form.effort_variance_pct ?? null,
       rework_pct: form.rework_pct ?? null,
       discounts_concessions_usd: form.discounts_concessions_usd ?? null,
+      billing_model: form.billing_model ?? null,           // NEW
+      initial_budget_usd: form.initial_budget_usd ?? null, // NEW
 
       // Team & improvement
       team_morale: form.team_morale ?? null,
@@ -314,7 +336,7 @@ const SubmitWizard = () => {
             </Alert>
           )}
 
-          {/* STEP 1: Basics (no tooltips requested here) */}
+          {/* STEP 1: Basics */}
           {STEPS[stepIndex].key === "basics" && (
             <div className="grid gap-4">
               <Labeled label="Project name *" htmlFor="project_name">
@@ -644,7 +666,7 @@ const SubmitWizard = () => {
             </div>
           )}
 
-          {/* STEP 3: Scope & Change Control (with tooltips) */}
+          {/* STEP 3: Scope & Change Control */}
           {STEPS[stepIndex].key === "scope" && (
             <div className="grid gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -905,7 +927,7 @@ const SubmitWizard = () => {
             </div>
           )}
 
-          {/* STEP 4: Profitability & Delivery (with tooltips) */}
+          {/* STEP 4: Profitability & Delivery (with new fields) */}
           {STEPS[stepIndex].key === "profit" && (
             <div className="grid gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -964,6 +986,49 @@ const SubmitWizard = () => {
                     <Help text="Did the project scope expand or change beyond the baseline?" />
                   </div>
                 </div>
+              </div>
+
+              {/* NEW ROW: Billing model & Initial budget */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Labeled
+                  label="Billing model *"
+                  help="Contract type for the project: Time & Materials or Fixed Fee."
+                >
+                  <Select
+                    value={form.billing_model}
+                    onValueChange={(v: BillingModel) =>
+                      setForm({ ...form, billing_model: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="T&M">T&amp;M</SelectItem>
+                      <SelectItem value="Fixed Fee">Fixed Fee</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Labeled>
+
+                <Labeled
+                  label="Initial budget (USD)"
+                  help="The project’s initial approved budget before change orders."
+                  htmlFor="initial_budget_usd"
+                >
+                  <Input
+                    id="initial_budget_usd"
+                    type="number"
+                    step="1"
+                    min={0}
+                    value={form.initial_budget_usd ?? ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        initial_budget_usd: numberOrUndefined(e.target.value),
+                      })
+                    }
+                  />
+                </Labeled>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1195,16 +1260,94 @@ const SubmitWizard = () => {
             </div>
           )}
 
-          {/* STEP 6: Review */}
+          {/* STEP 6: Review – grouped, readable summary */}
           {STEPS[stepIndex].key === "review" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Review your entries. When you submit, we’ll create a single
-                record in <code>public.lessons</code>.
+                Review your entries. When you submit, we’ll create a single record in <code>public.lessons</code>.
               </p>
-              <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-                {JSON.stringify(form, null, 2)}
-              </pre>
+
+              <div className="grid gap-4">
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Project Basics</CardTitle></CardHeader>
+                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <div><span className="text-muted-foreground">Project:</span> {fmtText(form.project_name)}</div>
+                    <div><span className="text-muted-foreground">Client:</span> {fmtText(form.client_name)}</div>
+                    <div><span className="text-muted-foreground">Role:</span> {fmtText(form.role)}</div>
+                    <div><span className="text-muted-foreground">Type:</span> {fmtText(form.project_type)}</div>
+                    <div><span className="text-muted-foreground">Phase:</span> {fmtText(form.phase)}</div>
+                    <div><span className="text-muted-foreground">Industry:</span> {fmtText(form.industry)}</div>
+                    <div><span className="text-muted-foreground">Region:</span> {fmtText(form.region)}</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Delivery & Client</CardTitle></CardHeader>
+                  <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                    <div><span className="text-muted-foreground">Satisfaction:</span> {fmtNum(form.satisfaction)}</div>
+                    <div><span className="text-muted-foreground">Req clarity:</span> {fmtNum(form.requirements_clarity)}</div>
+                    <div><span className="text-muted-foreground">Change control eff.:</span> {fmtNum(form.change_control_effectiveness)}</div>
+                    <div><span className="text-muted-foreground">Resource availability:</span> {fmtNum(form.resource_availability)}</div>
+                    <div><span className="text-muted-foreground">Skill alignment:</span> {fmtNum(form.skill_alignment)}</div>
+                    <div><span className="text-muted-foreground">Expectation alignment:</span> {fmtNum(form.expectation_alignment)}</div>
+                    <div><span className="text-muted-foreground">Stakeholder engagement:</span> {fmtNum(form.stakeholder_engagement)}</div>
+                    <div><span className="text-muted-foreground">Client responsiveness:</span> {fmtNum(form.client_responsiveness)}</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Scope & Change Control</CardTitle></CardHeader>
+                  <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                    <div><span className="text-muted-foreground">Baseline quality:</span> {fmtNum(form.scope_baseline_quality)}</div>
+                    <div><span className="text-muted-foreground">Acceptance criteria:</span> {fmtNum(form.acceptance_criteria_completeness)}</div>
+                    <div><span className="text-muted-foreground">Assumptions documented:</span> {fmtBool(form.assumptions_documented)}</div>
+                    <div><span className="text-muted-foreground">Req volatility (cnt):</span> {fmtNum(form.requirements_volatility_count)}</div>
+                    <div><span className="text-muted-foreground">Scope authority clarity:</span> {fmtNum(form.scope_authority_clarity)}</div>
+                    <div><span className="text-muted-foreground">Formal change control:</span> {fmtBool(form.change_control_process_used)}</div>
+                    <div><span className="text-muted-foreground">Change requests:</span> {fmtNum(form.change_request_count)}</div>
+                    <div><span className="text-muted-foreground">Change orders approved:</span> {fmtNum(form.change_orders_approved_count)}</div>
+                    <div><span className="text-muted-foreground">Avg approval (days):</span> {fmtNum(form.change_approval_avg_days)}</div>
+                    <div><span className="text-muted-foreground">Scope dispute:</span> {fmtBool(form.scope_dispute_occurred)}</div>
+                    {form.scope_dispute_occurred ? (
+                      <>
+                        <div><span className="text-muted-foreground">Dispute severity:</span> {fmtNum(form.scope_dispute_severity)}</div>
+                        <div><span className="text-muted-foreground">Resolution (days):</span> {fmtNum(form.scope_dispute_resolution_days)}</div>
+                      </>
+                    ) : null}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Profitability & Delivery</CardTitle></CardHeader>
+                  <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                    <div><span className="text-muted-foreground">Budget status:</span> {fmtText(form.budget_status)}</div>
+                    <div><span className="text-muted-foreground">Timeline status:</span> {fmtText(form.timeline_status)}</div>
+                    <div><span className="text-muted-foreground">Scope changed:</span> {fmtBool(form.scope_change)}</div>
+                    <div><span className="text-muted-foreground">Billing model:</span> {fmtText(form.billing_model)}</div>
+                    <div><span className="text-muted-foreground">Initial budget:</span> {fmtCurrency(form.initial_budget_usd)}</div>
+                    <div><span className="text-muted-foreground">Effort variance:</span> {fmtPct(form.effort_variance_pct)}</div>
+                    <div><span className="text-muted-foreground">Rework:</span> {fmtPct(form.rework_pct)}</div>
+                    <div><span className="text-muted-foreground">Discounts:</span> {fmtCurrency(form.discounts_concessions_usd)}</div>
+                    <div><span className="text-muted-foreground">Planned days:</span> {fmtNum(form.planned_days)}</div>
+                    <div><span className="text-muted-foreground">Actual days:</span> {fmtNum(form.actual_days)}</div>
+                    <div><span className="text-muted-foreground">CO revenue:</span> {fmtCurrency(form.change_orders_revenue_usd)}</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle className="text-base">Team & Improvement</CardTitle></CardHeader>
+                  <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                    <div><span className="text-muted-foreground">Team morale:</span> {fmtNum(form.team_morale)}</div>
+                    <div><span className="text-muted-foreground">Tooling effectiveness:</span> {fmtNum(form.tooling_effectiveness)}</div>
+                    <div><span className="text-muted-foreground">Comms effectiveness:</span> {fmtNum(form.internal_comms_effectiveness)}</div>
+                    <div className="sm:col-span-3"><span className="text-muted-foreground">Repeat:</span> {fmtText(form.repeat_this)}</div>
+                    <div className="sm:col-span-3"><span className="text-muted-foreground">Avoid:</span> {fmtText(form.avoid_this)}</div>
+                    <div className="sm:col-span-3"><span className="text-muted-foreground">Suggested improvement:</span> {fmtText(form.suggested_improvement_area)}</div>
+                    <div className="sm:col-span-3"><span className="text-muted-foreground">Notes:</span> {fmtText(form.notes)}</div>
+                  </CardContent>
+                </Card>
+              </div>
+
               <div className="flex items-center gap-2">
                 <Button onClick={submitAll} disabled={saving}>
                   {saving ? "Saving…" : "Submit Lesson"}

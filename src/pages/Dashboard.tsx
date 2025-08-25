@@ -1,134 +1,66 @@
-import { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { BookOpen, TrendingUp, BarChart3 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const Dashboard = () => {
-  const { user, loading, profile } = useAuth();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState({ totalLessons: 0, avgSatisfaction: '0.0' });
-
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!user) return;
-      
-      try {
-        let query = (supabase as any).from('lessons').select('satisfaction');
-        
-        // If user is not admin or power_user, filter by created_by
-        if (profile?.role === 'basic_user') {
-          query = query.eq('created_by', user.id);
-        }
-        
-        const { data: lessons } = await query;
-        
-        if (lessons) {
-          const totalLessons = lessons.length;
-          const avgSatisfaction = totalLessons > 0 
-            ? (lessons.reduce((acc: number, lesson: any) => acc + lesson.satisfaction, 0) / totalLessons).toFixed(1)
-            : '0.0';
-          
-          setStats({ totalLessons, avgSatisfaction });
-        }
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      }
-    };
-
-    if (user && profile) {
-      fetchStats();
-    }
-  }, [user, profile]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
+  const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader />
-      
-      <main className="container mx-auto px-4 py-8">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 font-poppins text-brand">
-            Welcome to Your Learning Dashboard
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-inter">
-            Capture insights, track progress, and analyze your project experiences
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      {/* Page header (no logo here; AppHeader handles branding) */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            Welcome{user?.email ? `, ${user.email}` : ""}. Quick snapshot of your lessons and analytics.
           </p>
         </div>
-
-        {/* Primary CTA - Centered on desktop, full-width on mobile */}
-        <div className="max-w-md mx-auto mb-8">
-          <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group w-full border-primary/20 hover:border-primary/40" 
-                onClick={() => navigate('/submit')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-full flex items-center justify-center mb-4 group-hover:from-primary/20 group-hover:to-secondary/20 transition-all duration-300">
-                <BookOpen className="h-8 w-8 text-primary" />
-              </div>
-              <CardTitle className="text-xl font-poppins">Capture New Lessons</CardTitle>
-              <CardDescription>
-                Document insights and learnings from your projects
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full btn-brand" size="lg">
-                Start Capturing
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Stats Chips - Left aligned under the card */}
-        <div className="max-w-md mx-auto mb-8">
-          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground justify-center sm:justify-start">
-            <span className="px-4 py-2 bg-muted/50 rounded-full backdrop-blur-sm">
-              Total Lessons: {stats.totalLessons}
-            </span>
-            <span className="px-4 py-2 bg-muted/50 rounded-full backdrop-blur-sm">
-              Avg. Satisfaction: {stats.avgSatisfaction}
-            </span>
-          </div>
-        </div>
-
-        {/* Secondary Links */}
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6">
-          <Button 
-            variant="ghost" 
-            className="text-muted-foreground hover:text-foreground w-full sm:w-auto"
-            onClick={() => navigate('/lessons')}
-          >
-            <BookOpen className="h-4 w-4 mr-2" />
-            View Lessons
+        <div className="flex items-center gap-2">
+          <Button asChild>
+            <Link to="/submit">Capture New Lesson</Link>
           </Button>
-          <Button 
-            variant="ghost" 
-            className="text-muted-foreground hover:text-foreground w-full sm:w-auto"
-            onClick={() => navigate('/analytics')}
-          >
-            <BarChart3 className="h-4 w-4 mr-2" />
-            View Analytics
+          <Button asChild variant="outline">
+            <Link to="/analytics">View Analytics</Link>
           </Button>
         </div>
-      </main>
+      </div>
+
+      {/* Example content grid — replace with your real widgets */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Lessons</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Your latest submitted lessons will appear here.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Delivery Health</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Aggregate satisfaction, timeline, and budget signals.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Change Control</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Requests, approvals, and revenue from change orders.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

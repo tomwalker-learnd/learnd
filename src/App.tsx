@@ -10,7 +10,7 @@ import AppHeader from "@/components/AppHeader";
 import Auth from "@/pages/Auth";
 import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
-import Submit from "@/pages/Submit";            // (kept if referenced elsewhere)
+import Submit from "@/pages/Submit";            // keep if referenced elsewhere
 import SubmitWizard from "@/pages/SubmitWizard";
 import Lessons from "@/pages/Lessons";
 import Analytics from "@/pages/Analytics";
@@ -20,7 +20,7 @@ const queryClient = new QueryClient();
 
 function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  // Hide header on auth screens
+  // Hide header on auth routes
   const hideHeader = location.pathname.startsWith("/auth");
   return (
     <>
@@ -44,7 +44,8 @@ const App = () => (
               <Route path="/auth/reset" element={<ResetPassword />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/submit" element={<SubmitWizard />} />
-              {/* If you want to keep the old form: <Route path="/submit-old" element={<Submit />} /> */}
+              {/* If you still want the old form temporarily:
+                  <Route path="/submit-old" element={<Submit />} /> */}
               <Route path="/lessons" element={<Lessons />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="*" element={<NotFound />} />

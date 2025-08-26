@@ -1,5 +1,5 @@
 // src/pages/SubmitWizard.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,15 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { InfoTip } from "@/components/ui/info-tip";
-// TEMP: safe placeholder for InfoTip to rule out hook-order bug
-const InfoTipSafe: React.FC<{ className?: string; children?: React.ReactNode }> = ({
-  className,
-  children,
-}) => (
-  <span className={className} title="info">
-    {children}
-  </span>
-);
+
 type BillingModel = "T&M" | "Fixed Fee";
 
 type FormState = {
@@ -137,7 +129,7 @@ const Labeled = ({
   <div>
     <div className="flex items-center gap-2 mb-1">
       <Label htmlFor={htmlFor}>{label}</Label>
-      {help ? <InfoTipSafe className="h-5 w-5">{help}</InfoTipSafe> : null}
+      {help ? <InfoTip className="h-5 w-5">{help}</InfoTip> : null}
     </div>
     {children}
   </div>
@@ -166,7 +158,7 @@ const SubmitWizard = () => {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyState);
 
-  // New: success state after submit (show friendly confirmation)
+  // Success state after submit
   const [submittedId, setSubmittedId] = useState<string | null>(null);
 
   // load draft
@@ -308,11 +300,11 @@ const SubmitWizard = () => {
     }
 
     toast({ title: "Saved", description: "Added to your Lessons Library." });
-    setSubmittedId(data?.id ?? null); // show a friendly success screen
+    setSubmittedId(data?.id ?? null);
     resetDraft();
   };
 
-  // Success screen after submission (friendly, mobile-safe)
+  // Success screen after submission
   if (submittedId) {
     return (
       <div className="p-4 max-w-3xl mx-auto overflow-x-hidden">
@@ -756,7 +748,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="assumptions_documented">Assumptions documented</Label>
-                    <InfoTipSafe>Were key project assumptions recorded early in the project?</InfoTipSafe>
+                    <InfoTip>Were key project assumptions recorded early in the project?</InfoTip>
                   </div>
                 </div>
               </div>
@@ -818,7 +810,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="change_control_process_used">Formal change control process used</Label>
-                    <InfoTipSafe>Was a formal, documented change control process followed?</InfoTipSafe>
+                    <InfoTip>Was a formal, documented change control process followed?</InfoTip>
                   </div>
                 </div>
               </div>
@@ -902,7 +894,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="scope_dispute_occurred">Scope dispute occurred</Label>
-                    <InfoTipSafe>Did the client and delivery team have disputes over scope?</InfoTipSafe>
+                    <InfoTip>Did the client and delivery team have disputes over scope?</InfoTip>
                   </div>
                 </div>
 
@@ -1012,7 +1004,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="scope_change">Scope changed</Label>
-                    <InfoTipSafe>Did the project scope expand or change beyond the baseline?</InfoTipSafe>
+                    <InfoTip>Did the project scope expand or change beyond the baseline?</InfoTip>
                   </div>
                 </div>
               </div>

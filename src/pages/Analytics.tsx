@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,11 +13,7 @@ import {
 } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { useToast } from "@/hooks/use-toast";
-import {
-  ArrowLeft,
-  RefreshCw,
-  TrendingUp,
-} from "lucide-react";
+import { ArrowLeft, RefreshCw, TrendingUp } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -32,7 +28,6 @@ import {
   Legend,
 } from "recharts";
 
-/** Small helper to adapt UI on phones */
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -101,83 +96,67 @@ const Analytics = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  // ---- Derived data (memoized) ----
+  // ---- Derived values (plain consts, no hooks) ----
   const totalLessons = lessons.length;
 
-  const avgSatisfaction = useMemo(() => {
-    if (!totalLessons) return "0";
-    const sum = lessons.reduce(
-      (acc, l) => acc + (typeof l.satisfaction === "number" ? l.satisfaction : 0),
-      0
-    );
-    return (sum / totalLessons).toFixed(1);
-  }, [lessons, totalLessons]);
+  const ratedCount = lessons.filter((l) => typeof l.satisfaction === "number").length;
+  const avgSatisfaction =
+    ratedCount > 0
+      ? (lessons.reduce((s, l) => s + (l.satisfaction || 0), 0) / ratedCount).toFixed(1)
+      : "0";
 
-  const onBudgetPercentage = useMemo(() => {
-    if (!totalLessons) return 0;
-    const onCount = lessons.filter((l) => l.budget_status === "on").length;
-    return Math.round((onCount / totalLessons) * 100);
-  }, [lessons, totalLessons]);
+  const onBudgetPercentage =
+    totalLessons > 0
+      ? Math.round(
+          (lessons.filter((l) => l.budget_status === "on").length / totalLessons) * 100
+        )
+      : 0;
 
-  const scopeChangePercentage = useMemo(() => {
-    if (!totalLessons) return 0;
-    const scoped = lessons.filter((l) => Boolean(l.scope_change)).length;
-    return Math.round((scoped / totalLessons) * 100);
-  }, [lessons, totalLessons]);
+  const scopeChangePercentage =
+    totalLessons > 0
+      ? Math.round(
+          (lessons.filter((l) => l.scope_change).length / totalLessons) * 100
+        )
+      : 0;
 
-  const satisfactionData = useMemo(
-    () =>
-      [1, 2, 3, 4, 5].map((rating) => ({
-        rating,
-        count: lessons.filter((l) => l.satisfaction === rating).length,
-        label: `${rating} Star${rating !== 1 ? "s" : ""}`,
-      })),
-    [lessons]
-  );
+  const satisfactionData = [1, 2, 3, 4, 5].map((rating) => ({
+    rating,
+    count: lessons.filter((l) => l.satisfaction === rating).length,
+    label: `${rating} Star${rating !== 1 ? "s" : ""}`,
+  }));
 
-  const budgetData = useMemo(
-    () =>
-      [
-        {
-          status: "Under Budget",
-          count: lessons.filter((l) => l.budget_status === "under").length,
-          color: "hsl(142 76% 36%)",
-        },
-        {
-          status: "On Budget",
-          count: lessons.filter((l) => l.budget_status === "on").length,
-          color: "hsl(218 27% 84%)",
-        },
-        {
-          status: "Over Budget",
-          count: lessons.filter((l) => l.budget_status === "over").length,
-          color: "hsl(250 91% 60%)",
-        },
-      ].filter((d) => d.count > 0),
-    [lessons]
-  );
+  const budgetData = [
+    {
+      status: "Under Budget",
+      count: lessons.filter((l) => l.budget_status === "under").length,
+      color: "hsl(142 76% 36%)",
+    },
+    {
+      status: "On Budget",
+      count: lessons.filter((l) => l.budget_status === "on").length,
+      color: "hsl(218 27% 84%)",
+    },
+    {
+      status: "Over Budget",
+      count: lessons.filter((l) => l.budget_status === "over").length,
+      color: "hsl(250 91% 60%)",
+    },
+  ].filter((d) => d.count > 0);
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <DashboardHeader />
 
-      {/* Tight, responsive page container; kill any potential overflow */}
       <main className="mx-auto w-full max-w-screen-sm md:max-w-4xl px-4 py-8 overflow-x-hidden">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/dashboard")}
-            >
+            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
             </Button>
             <div>
               <h1 className="text-3xl font-bold">Project Analytics</h1>
-              <p className="text-muted-foreground">
-                Insights from your project experiences
-              </p>
+              <p className="text-muted-foreground">Insights from your project experiences</p>
             </div>
           </div>
 
@@ -250,22 +229,14 @@ const Analytics = () => {
               <Card className="w-full overflow-hidden">
                 <CardHeader>
                   <CardTitle>Satisfaction Distribution</CardTitle>
-                  <CardDescription>
-                    Distribution of project satisfaction ratings
-                  </CardDescription>
+                  <CardDescription>Distribution of project satisfaction ratings</CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 overflow-x-hidden">
                   <div style={{ minHeight: isMobile ? 260 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={satisfactionData}>
                         <defs>
-                          <linearGradient
-                            id="satisfactionGradient"
-                            x1="0"
-                            y1="0"
-                            x2="1"
-                            y2="0"
-                          >
+                          <linearGradient id="satisfactionGradient" x1="0" y1="0" x2="1" y2="0">
                             <stop offset="0%" stopColor="hsl(7 100% 69%)" />
                             <stop offset="100%" stopColor="hsl(330 81% 60%)" />
                           </linearGradient>
@@ -294,9 +265,7 @@ const Analytics = () => {
               <Card className="w-full overflow-hidden">
                 <CardHeader>
                   <CardTitle>Budget Performance</CardTitle>
-                  <CardDescription>
-                    Project budget status distribution
-                  </CardDescription>
+                  <CardDescription>Project budget status distribution</CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 overflow-x-hidden">
                   <div style={{ minHeight: isMobile ? 260 : 320 }}>
@@ -338,9 +307,7 @@ const Analytics = () => {
             <Card className="w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Key Insights</CardTitle>
-                <CardDescription>
-                  Summary of your project performance
-                </CardDescription>
+                <CardDescription>Summary of your project performance</CardDescription>
               </CardHeader>
               <CardContent className="px-4 sm:px-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -360,7 +327,7 @@ const Analytics = () => {
                         • Early: {lessons.filter((l) => l.timeline_status === "early").length} projects
                       </li>
                       <li>
-                        • On Time: {lessons.filter((l) => l.timeline_status === "on-time").length} projects
+                        • On Time: {lessons.filter((l) => l.timeline_status === "on-time" || l.timeline_status === "on").length} projects
                       </li>
                       <li>
                         • Late: {lessons.filter((l) => l.timeline_status === "late").length} projects

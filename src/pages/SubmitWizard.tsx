@@ -185,10 +185,7 @@ const SubmitWizard = () => {
     return () => clearTimeout(id);
   }, [form]);
 
-  const progress = useMemo(
-    () => Math.round(((stepIndex + 1) / STEPS.length) * 100),
-    [stepIndex]
-  );
+  const progress = Math.round(((stepIndex + 1) / STEPS.length) * 100);
 
   const next = () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
   const back = () => setStepIndex((i) => Math.max(i - 1, 0));

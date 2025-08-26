@@ -39,11 +39,6 @@ const useIsMobile = () => {
   }, []);
   return isMobile;
 };
-  }, []);
-  // local tick to force re-render on orientation/resize
-  const [tick, setTick] = useState(0);
-  return isMobile;
-};
 
 // --- helpers to ensure charts render when container gains real size ---
 const hasPositiveArea = (el: HTMLElement | null) => {
@@ -342,7 +337,7 @@ const Analytics = () => {
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Legend verticalAlign={isMobile ? "bottom" : "right"} layout={isMobile ? "horizontal" : "vertical"} />
+                          <Legend verticalAlign="bottom" layout={isMobile ? "horizontal" : "vertical"} />
                           <Tooltip formatter={(value: number) => [`${value} project${value !== 1 ? "s" : ""}`, "Count"]} />
                         </PieChart>
                       </ResponsiveContainer>

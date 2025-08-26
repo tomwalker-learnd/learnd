@@ -9,7 +9,7 @@ export function DashboardSwitcher() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("saved_dashboards")
         .select("id,name")
         .eq("is_favorite", true)

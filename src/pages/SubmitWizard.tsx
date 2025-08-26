@@ -14,7 +14,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { InfoTip } from "@/components/ui/info-tip";
-
+// TEMP: safe placeholder for InfoTip to rule out hook-order bug
+const InfoTipSafe: React.FC<{ className?: string; children?: React.ReactNode }> = ({
+  className,
+  children,
+}) => (
+  <span className={className} title="info">
+    {children}
+  </span>
+);
 type BillingModel = "T&M" | "Fixed Fee";
 
 type FormState = {
@@ -129,7 +137,7 @@ const Labeled = ({
   <div>
     <div className="flex items-center gap-2 mb-1">
       <Label htmlFor={htmlFor}>{label}</Label>
-      {help ? <InfoTip className="h-5 w-5">{help}</InfoTip> : null}
+      {help ? <InfoTipSafe className="h-5 w-5">{help}</InfoTipSafe> : null}
     </div>
     {children}
   </div>
@@ -751,7 +759,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="assumptions_documented">Assumptions documented</Label>
-                    <InfoTip>Were key project assumptions recorded early in the project?</InfoTip>
+                    <InfoTipSafe>Were key project assumptions recorded early in the project?</InfoTipSafe>
                   </div>
                 </div>
               </div>
@@ -813,7 +821,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="change_control_process_used">Formal change control process used</Label>
-                    <InfoTip>Was a formal, documented change control process followed?</InfoTip>
+                    <InfoTipSafe>Was a formal, documented change control process followed?</InfoTipSafe>
                   </div>
                 </div>
               </div>
@@ -897,7 +905,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="scope_dispute_occurred">Scope dispute occurred</Label>
-                    <InfoTip>Did the client and delivery team have disputes over scope?</InfoTip>
+                    <InfoTipSafe>Did the client and delivery team have disputes over scope?</InfoTipSafe>
                   </div>
                 </div>
 
@@ -1007,7 +1015,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="scope_change">Scope changed</Label>
-                    <InfoTip>Did the project scope expand or change beyond the baseline?</InfoTip>
+                    <InfoTipSafe>Did the project scope expand or change beyond the baseline?</InfoTipSafe>
                   </div>
                 </div>
               </div>

@@ -10,7 +10,6 @@ import AppHeader from "@/components/AppHeader";
 import Auth from "@/pages/Auth";
 import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
-import Submit from "@/pages/Submit";
 import SubmitWizard from "@/pages/SubmitWizard";
 import Lessons from "@/pages/Lessons";
 import Analytics from "@/pages/Analytics";

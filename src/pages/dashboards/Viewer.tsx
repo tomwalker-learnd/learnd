@@ -1,5 +1,4 @@
 import { useParams } from "react-router-dom";
-
 export default function Viewer() {
   const { id } = useParams();
   return (

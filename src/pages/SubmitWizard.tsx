@@ -1,5 +1,6 @@
 // src/pages/SubmitWizard.tsx
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
-// NEW: mobile-friendly helper
 import { InfoTip } from "@/components/ui/info-tip";
 
 type BillingModel = "T&M" | "Fixed Fee";
@@ -61,7 +61,6 @@ type FormState = {
   discounts_concessions_usd?: number;
   planned_days?: number;
   actual_days?: number;
-  // NEW:
   billing_model?: BillingModel;
   initial_budget_usd?: number;
 
@@ -115,7 +114,7 @@ const STEPS = [
 ] as const;
 type StepKey = (typeof STEPS)[number]["key"];
 
-// Reusable label wrapper that now uses InfoTip (tap on mobile, hover on desktop)
+// Labeled wrapper with InfoTip
 const Labeled = ({
   children,
   label,
@@ -130,17 +129,13 @@ const Labeled = ({
   <div>
     <div className="flex items-center gap-2 mb-1">
       <Label htmlFor={htmlFor}>{label}</Label>
-      {help ? (
-        <InfoTip className="h-5 w-5">
-          {help}
-        </InfoTip>
-      ) : null}
+      {help ? <InfoTip className="h-5 w-5">{help}</InfoTip> : null}
     </div>
     {children}
   </div>
 );
 
-// small formatters for the Review step
+// Formatters for Review step
 const fmtCurrency = (n?: number) =>
   typeof n === "number"
     ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
@@ -150,17 +145,21 @@ const fmtPct = (n?: number) => (typeof n === "number" ? `${n}%` : "—");
 const fmtNum = (n?: number) => (typeof n === "number" ? String(n) : "—");
 const fmtText = (s?: string) => (s && s.trim() ? s : "—");
 const fmtBool = (b?: boolean) => (typeof b === "boolean" ? (b ? "Yes" : "No") : "—");
-const fmt = (v: any) => (v ? String(v) : "—");
 
 const STORAGE_KEY = "learnd.submit.draft";
 
 const SubmitWizard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
+
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyState);
+
+  // New: success state after submit (show friendly confirmation)
+  const [submittedId, setSubmittedId] = useState<string | null>(null);
 
   // load draft
   useEffect(() => {
@@ -273,8 +272,8 @@ const SubmitWizard = () => {
       effort_variance_pct: form.effort_variance_pct ?? null,
       rework_pct: form.rework_pct ?? null,
       discounts_concessions_usd: form.discounts_concessions_usd ?? null,
-      billing_model: form.billing_model ?? null,           // NEW
-      initial_budget_usd: form.initial_budget_usd ?? null, // NEW
+      billing_model: form.billing_model ?? null,
+      initial_budget_usd: form.initial_budget_usd ?? null,
 
       // Team & improvement
       team_morale: form.team_morale ?? null,
@@ -290,24 +289,58 @@ const SubmitWizard = () => {
       created_by: user.id,
     };
 
-    const { error } = await supabase.from("lessons").insert(payload);
+    const { data, error } = await supabase
+      .from("lessons")
+      .insert(payload)
+      .select("id")
+      .single();
+
     setSaving(false);
 
     if (error) {
       setError(error.message);
       return;
     }
-    toast({ title: "Saved", description: "Lesson captured." });
+
+    toast({ title: "Saved", description: "Added to your Lessons Library." });
+    setSubmittedId(data?.id ?? null); // show a friendly success screen
     resetDraft();
   };
 
+  // Success screen after submission (friendly, mobile-safe)
+  if (submittedId) {
+    return (
+      <div className="p-4 max-w-3xl mx-auto overflow-x-hidden">
+        <Card className="w-full overflow-hidden">
+          <CardHeader>
+            <CardTitle>Lesson added to your Lessons Library</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 px-4 sm:px-6">
+            <p className="text-muted-foreground">
+              Your insights help your team improve project by project. You can review analytics anytime or capture another lesson now.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => navigate("/analytics")}>View Analytics</Button>
+              <Button variant="outline" onClick={() => { setSubmittedId(null); setStepIndex(0); }}>
+                Add Another Lesson
+              </Button>
+              <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+                Back to Dashboard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 max-w-3xl mx-auto">
-      <Card>
+    <div className="p-4 max-w-3xl mx-auto overflow-x-hidden">
+      <Card className="w-full overflow-hidden">
         <CardHeader>
           <CardTitle>Capture New Lessons</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm text-muted-foreground">
@@ -979,7 +1012,7 @@ const SubmitWizard = () => {
                 </div>
               </div>
 
-              {/* NEW ROW: Billing model & Initial budget */}
+              {/* Billing model & Initial budget */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Labeled
                   label="Billing model *"
@@ -1255,11 +1288,12 @@ const SubmitWizard = () => {
           {STEPS[stepIndex].key === "review" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Review your entries. When you submit, we’ll create a single record in <code>public.lessons</code>.
+                Review your entries. When you submit, we’ll add one lesson to your team’s
+                <span className="font-medium"> Lessons Library</span>.
               </p>
 
               <div className="grid gap-4">
-                <Card>
+                <Card className="w-full overflow-hidden">
                   <CardHeader><CardTitle className="text-base">Project Basics</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                     <div><span className="text-muted-foreground">Project:</span> {fmtText(form.project_name)}</div>
@@ -1272,7 +1306,7 @@ const SubmitWizard = () => {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="w-full overflow-hidden">
                   <CardHeader><CardTitle className="text-base">Delivery & Client</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
                     <div><span className="text-muted-foreground">Satisfaction:</span> {fmtNum(form.satisfaction)}</div>
@@ -1286,7 +1320,7 @@ const SubmitWizard = () => {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="w-full overflow-hidden">
                   <CardHeader><CardTitle className="text-base">Scope & Change Control</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
                     <div><span className="text-muted-foreground">Baseline quality:</span> {fmtNum(form.scope_baseline_quality)}</div>
@@ -1308,7 +1342,7 @@ const SubmitWizard = () => {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="w-full overflow-hidden">
                   <CardHeader><CardTitle className="text-base">Profitability & Delivery</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
                     <div><span className="text-muted-foreground">Budget status:</span> {fmtText(form.budget_status)}</div>
@@ -1325,7 +1359,7 @@ const SubmitWizard = () => {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="w-full overflow-hidden">
                   <CardHeader><CardTitle className="text-base">Team & Improvement</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
                     <div><span className="text-muted-foreground">Team morale:</span> {fmtNum(form.team_morale)}</div>

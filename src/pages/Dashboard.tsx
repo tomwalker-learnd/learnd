@@ -55,7 +55,7 @@ const Dashboard = () => {
         setRecent(recentData as LessonRow[]);
       }
 
-      // Bulk set (for aggregates) – pull a reasonable cap
+      // Bulk set (for aggregates)
       const { data, error: aErr } = await supabase
         .from("lessons")
         .select(
@@ -83,15 +83,15 @@ const Dashboard = () => {
     if (!rows || rows.length === 0) return null;
 
     const count = rows.length;
-
+    const rated = rows.filter(r => r.satisfaction != null).length;
     const avgSatisfaction =
-      rows.reduce((s, r) => s + (r.satisfaction ?? 0), 0) / Math.max(1, rows.filter(r => r.satisfaction != null).length);
+      rows.reduce((s, r) => s + (r.satisfaction ?? 0), 0) / Math.max(1, rated);
 
     const bud = { under: 0, on: 0, over: 0 };
     const time = { early: 0, on: 0, late: 0 };
     rows.forEach((r) => {
-      if (r.budget_status && bud[r.budget_status] != null) bud[r.budget_status]++;
-      if (r.timeline_status && time[r.timeline_status] != null) time[r.timeline_status]++;
+      if (r.budget_status && (bud as any)[r.budget_status] != null) bud[r.budget_status]++;
+      if (r.timeline_status && (time as any)[r.timeline_status] != null) time[r.timeline_status]++;
     });
 
     const pct = (n: number) => (count ? Math.round((n / count) * 100) : 0);
@@ -139,21 +139,36 @@ const Dashboard = () => {
 
   return (
     <div className="mx-auto max-w-7xl px-3 sm:px-4 py-6">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          {user?.email && (
-            <p className="text-muted-foreground text-sm">
-              Welcome, {user.email}. Quick snapshot of your lessons and analytics.
-            </p>
-          )}
+      {/* HEADER (responsive) */}
+      <div className="mb-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold">Dashboard</h1>
+            {user?.email && (
+              <p className="text-muted-foreground text-sm">
+                Welcome, <span className="font-medium break-words">{user.email}</span>. Quick
+                snapshot of your lessons and analytics.
+              </p>
+            )}
+          </div>
+
+          {/* Actions (≥ sm) */}
+          <div className="hidden sm:flex gap-2 shrink-0">
+            <Button asChild>
+              <Link to="/submit">Capture New Lesson</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/analytics">View Analytics</Link>
+            </Button>
+          </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button asChild>
+        {/* Actions (mobile) */}
+        <div className="mt-3 flex sm:hidden flex-col gap-2">
+          <Button asChild size="lg" className="w-full">
             <Link to="/submit">Capture New Lesson</Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button asChild variant="outline" size="lg" className="w-full">
             <Link to="/analytics">View Analytics</Link>
           </Button>
         </div>
@@ -203,19 +218,25 @@ const Dashboard = () => {
             <CardContent className="text-sm">
               {delivery ? (
                 <div className="space-y-3">
-                  <div>Records analyzed: <strong>{delivery.count}</strong></div>
-                  <div>Avg Satisfaction: <strong>{delivery.avgSatisfaction.toFixed(2)}</strong></div>
+                  <div>
+                    Records analyzed: <strong>{delivery.count}</strong>
+                  </div>
+                  <div>
+                    Avg Satisfaction: <strong>{delivery.avgSatisfaction.toFixed(2)}</strong>
+                  </div>
 
                   <div className="mt-2">
                     <div className="font-medium">Budget</div>
                     <div className="text-muted-foreground">
-                      Under {delivery.budgetPct.under}% · On {delivery.budgetPct.on}% · Over {delivery.budgetPct.over}%
+                      Under {delivery.budgetPct.under}% · On {delivery.budgetPct.on}% · Over{" "}
+                      {delivery.budgetPct.over}%
                     </div>
                   </div>
                   <div className="mt-2">
                     <div className="font-medium">Timeline</div>
                     <div className="text-muted-foreground">
-                      Early {delivery.timelinePct.early}% · On {delivery.timelinePct.on}% · Late {delivery.timelinePct.late}%
+                      Early {delivery.timelinePct.early}% · On {delivery.timelinePct.on}% · Late{" "}
+                      {delivery.timelinePct.late}%
                     </div>
                   </div>
                 </div>
@@ -235,8 +256,12 @@ const Dashboard = () => {
             <CardContent className="text-sm">
               {change ? (
                 <div className="space-y-3">
-                  <div>Total Requests: <strong>{change.totalCR}</strong></div>
-                  <div>Approved: <strong>{change.totalApproved}</strong></div>
+                  <div>
+                    Total Requests: <strong>{change.totalCR}</strong>
+                  </div>
+                  <div>
+                    Approved: <strong>{change.totalApproved}</strong>
+                  </div>
                   <div>
                     Revenue from Change Orders:{" "}
                     <strong>

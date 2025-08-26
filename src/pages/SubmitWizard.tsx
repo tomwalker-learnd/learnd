@@ -1,3 +1,4 @@
+// src/pages/SubmitWizard.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,8 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+// NEW: mobile-friendly helper
+import { InfoTip } from "@/components/ui/info-tip";
 
 type BillingModel = "T&M" | "Fixed Fee";
 
@@ -114,23 +115,7 @@ const STEPS = [
 ] as const;
 type StepKey = (typeof STEPS)[number]["key"];
 
-const STORAGE_KEY = "learnd.submit.draft";
-
-const Help = ({ text }: { text: string }) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <button
-        type="button"
-        className="text-muted-foreground hover:text-foreground"
-        aria-label="More info"
-      >
-        <Info className="h-4 w-4" />
-      </button>
-    </TooltipTrigger>
-    <TooltipContent className="max-w-xs">{text}</TooltipContent>
-  </Tooltip>
-);
-
+// Reusable label wrapper that now uses InfoTip (tap on mobile, hover on desktop)
 const Labeled = ({
   children,
   label,
@@ -145,7 +130,11 @@ const Labeled = ({
   <div>
     <div className="flex items-center gap-2 mb-1">
       <Label htmlFor={htmlFor}>{label}</Label>
-      {help ? <Help text={help} /> : null}
+      {help ? (
+        <InfoTip className="h-5 w-5">
+          {help}
+        </InfoTip>
+      ) : null}
     </div>
     {children}
   </div>
@@ -162,6 +151,8 @@ const fmtNum = (n?: number) => (typeof n === "number" ? String(n) : "—");
 const fmtText = (s?: string) => (s && s.trim() ? s : "—");
 const fmtBool = (b?: boolean) => (typeof b === "boolean" ? (b ? "Yes" : "No") : "—");
 const fmt = (v: any) => (v ? String(v) : "—");
+
+const STORAGE_KEY = "learnd.submit.draft";
 
 const SubmitWizard = () => {
   const { user } = useAuth();
@@ -483,7 +474,7 @@ const SubmitWizard = () => {
             </div>
           )}
 
-          {/* STEP 2: Delivery & Client (with tooltips) */}
+          {/* STEP 2: Delivery & Client */}
           {STEPS[stepIndex].key === "delivery" && (
             <div className="grid gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -727,7 +718,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="assumptions_documented">Assumptions documented</Label>
-                    <Help text="Were key project assumptions recorded early in the project?" />
+                    <InfoTip>Were key project assumptions recorded early in the project?</InfoTip>
                   </div>
                 </div>
               </div>
@@ -789,7 +780,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="change_control_process_used">Formal change control process used</Label>
-                    <Help text="Was a formal, documented change control process followed?" />
+                    <InfoTip>Was a formal, documented change control process followed?</InfoTip>
                   </div>
                 </div>
               </div>
@@ -873,7 +864,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="scope_dispute_occurred">Scope dispute occurred</Label>
-                    <Help text="Did the client and delivery team have disputes over scope?" />
+                    <InfoTip>Did the client and delivery team have disputes over scope?</InfoTip>
                   </div>
                 </div>
 
@@ -927,7 +918,7 @@ const SubmitWizard = () => {
             </div>
           )}
 
-          {/* STEP 4: Profitability & Delivery (with new fields) */}
+          {/* STEP 4: Profitability & Delivery */}
           {STEPS[stepIndex].key === "profit" && (
             <div className="grid gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -983,7 +974,7 @@ const SubmitWizard = () => {
                   />
                   <div className="flex items-center gap-2">
                     <Label htmlFor="scope_change">Scope changed</Label>
-                    <Help text="Did the project scope expand or change beyond the baseline?" />
+                    <InfoTip>Did the project scope expand or change beyond the baseline?</InfoTip>
                   </div>
                 </div>
               </div>

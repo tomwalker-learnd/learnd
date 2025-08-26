@@ -232,7 +232,8 @@ const Analytics = () => {
                   <CardDescription>Distribution of project satisfaction ratings</CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 overflow-x-hidden">
-                  <div style={{ minHeight: isMobile ? 260 : 320 }}>
+                  {/* IMPORTANT: use a fixed height, not minHeight, so ResponsiveContainer has a concrete size */}
+                  <div className="w-full" style={{ height: isMobile ? 260 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={satisfactionData}>
                         <defs>
@@ -268,7 +269,8 @@ const Analytics = () => {
                   <CardDescription>Project budget status distribution</CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 overflow-x-hidden">
-                  <div style={{ minHeight: isMobile ? 260 : 320 }}>
+                  {/* IMPORTANT: use a fixed height, not minHeight */}
+                  <div className="w-full" style={{ height: isMobile ? 260 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie

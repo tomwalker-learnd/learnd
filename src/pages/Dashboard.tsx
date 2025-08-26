@@ -14,7 +14,6 @@ type LessonRow = {
   budget_status: "under" | "on" | "over" | null;
   timeline_status: "early" | "on" | "late" | null;
   created_by: string;
-
   // optional; not selected until your schema has them
   change_request_count?: number | null;
   change_orders_approved_count?: number | null;
@@ -40,7 +39,7 @@ const Dashboard = () => {
       setFetching(true);
       setError(null);
 
-      // --- Recent 5 (select only columns that exist in your 'lessons' table) ---
+      // Recent 5
       const { data: recentData, error: rErr } = await supabase
         .from("lessons")
         .select(
@@ -57,7 +56,7 @@ const Dashboard = () => {
         setRecent((recentData as unknown as LessonRow[]) ?? []);
       }
 
-      // --- Bulk set for aggregates (same safe select) ---
+      // Bulk set for aggregates
       const { data, error: aErr } = await supabase
         .from("lessons")
         .select(
@@ -126,11 +125,11 @@ const Dashboard = () => {
   const LoadingBlock = (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {[...Array(3)].map((_, i) => (
-        <Card key={i}>
+        <Card key={i} className="w-full overflow-hidden">
           <CardHeader>
             <Skeleton className="h-6 w-40" />
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 px-4 sm:px-6">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />
@@ -141,150 +140,154 @@ const Dashboard = () => {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-3 sm:px-4 py-6">
-      {/* HEADER (responsive) */}
-      <div className="mb-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold">Dashboard</h1>
-            {user?.email && (
-              <p className="text-muted-foreground text-sm">
-                Welcome, <span className="font-medium break-words">{user.email}</span>. Quick
-                snapshot of your lessons and analytics.
-              </p>
-            )}
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      <main className="mx-auto w-full max-w-screen-sm md:max-w-4xl px-4 py-6 overflow-x-hidden">
+        {/* HEADER (responsive) */}
+        <div className="mb-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold">Dashboard</h1>
+              {user?.email && (
+                <p className="text-muted-foreground text-sm">
+                  Welcome, <span className="font-medium break-words">{user.email}</span>. Quick
+                  snapshot of your lessons and analytics.
+                </p>
+              )}
+            </div>
+
+            {/* Actions (≥ sm) */}
+            <div className="hidden sm:flex gap-2 shrink-0">
+              <Button asChild>
+                <Link to="/submit">Capture New Lesson</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/analytics">View Analytics</Link>
+              </Button>
+            </div>
           </div>
 
-          {/* Actions (≥ sm) */}
-          <div className="hidden sm:flex gap-2 shrink-0">
-            <Button asChild>
+          {/* Actions (mobile) */}
+          <div className="mt-3 flex sm:hidden flex-col gap-2">
+            <Button asChild size="lg" className="w-full">
               <Link to="/submit">Capture New Lesson</Link>
             </Button>
-            <Button variant="outline" asChild>
+            <Button asChild variant="outline" size="lg" className="w-full">
               <Link to="/analytics">View Analytics</Link>
             </Button>
           </div>
         </div>
 
-        {/* Actions (mobile) */}
-        <div className="mt-3 flex sm:hidden flex-col gap-2">
-          <Button asChild size="lg" className="w-full">
-            <Link to="/submit">Capture New Lesson</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="w-full">
-            <Link to="/analytics">View Analytics</Link>
-          </Button>
-        </div>
-      </div>
+        {error && (
+          <Card className="mb-4 w-full overflow-hidden">
+            <CardContent className="text-sm text-red-600 py-4 px-4 sm:px-6">{error}</CardContent>
+          </Card>
+        )}
 
-      {error && (
-        <Card className="mb-4">
-          <CardContent className="text-sm text-red-600 py-4">{error}</CardContent>
-        </Card>
-      )}
+        {fetching && LoadingBlock}
 
-      {fetching && LoadingBlock}
+        {!fetching && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Recent Lessons */}
+            <Card className="w-full overflow-hidden">
+              <CardHeader>
+                <CardTitle>Recent Lessons</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm px-4 sm:px-6">
+                {recent && recent.length > 0 ? (
+                  <ul className="space-y-3">
+                    {recent.map((r) => (
+                      <li key={r.id} className="border rounded p-2">
+                        <div className="font-medium">
+                          {r.project_name || "Untitled project"}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {new Date(r.created_at).toLocaleDateString()} ·{" "}
+                          {r.satisfaction != null ? `Satisfaction ${r.satisfaction}/5` : "No rating"}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Your latest submitted lessons will appear here.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
-      {!fetching && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Recent Lessons */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Lessons</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {recent && recent.length > 0 ? (
-                <ul className="space-y-3">
-                  {recent.map((r) => (
-                    <li key={r.id} className="border rounded p-2">
-                      <div className="font-medium">{r.project_name || "Untitled project"}</div>
+            {/* Delivery Health */}
+            <Card className="w-full overflow-hidden">
+              <CardHeader>
+                <CardTitle>Delivery Health</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm px-4 sm:px-6">
+                {delivery ? (
+                  <div className="space-y-3">
+                    <div>
+                      Records analyzed: <strong>{delivery.count}</strong>
+                    </div>
+                    <div>
+                      Avg Satisfaction: <strong>{delivery.avgSatisfaction.toFixed(2)}</strong>
+                    </div>
+
+                    <div className="mt-2">
+                      <div className="font-medium">Budget</div>
                       <div className="text-muted-foreground">
-                        {new Date(r.created_at).toLocaleDateString()} ·{" "}
-                        {r.satisfaction != null ? `Satisfaction ${r.satisfaction}/5` : "No rating"}
+                        Under {delivery.budgetPct.under}% · On {delivery.budgetPct.on}% · Over{" "}
+                        {delivery.budgetPct.over}%
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted-foreground">
-                  Your latest submitted lessons will appear here.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Delivery Health */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Delivery Health</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {delivery ? (
-                <div className="space-y-3">
-                  <div>
-                    Records analyzed: <strong>{delivery.count}</strong>
-                  </div>
-                  <div>
-                    Avg Satisfaction: <strong>{delivery.avgSatisfaction.toFixed(2)}</strong>
-                  </div>
-
-                  <div className="mt-2">
-                    <div className="font-medium">Budget</div>
-                    <div className="text-muted-foreground">
-                      Under {delivery.budgetPct.under}% · On {delivery.budgetPct.on}% · Over{" "}
-                      {delivery.budgetPct.over}%
+                    </div>
+                    <div className="mt-2">
+                      <div className="font-medium">Timeline</div>
+                      <div className="text-muted-foreground">
+                        Early {delivery.timelinePct.early}% · On {delivery.timelinePct.on}% · Late{" "}
+                        {delivery.timelinePct.late}%
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-2">
-                    <div className="font-medium">Timeline</div>
-                    <div className="text-muted-foreground">
-                      Early {delivery.timelinePct.early}% · On {delivery.timelinePct.on}% · Late{" "}
-                      {delivery.timelinePct.late}%
+                ) : (
+                  <p className="text-muted-foreground">
+                    Aggregate satisfaction, timeline, and budget signals.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Change Control */}
+            <Card className="w-full overflow-hidden">
+              <CardHeader>
+                <CardTitle>Change Control</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm px-4 sm:px-6">
+                {change ? (
+                  <div className="space-y-3">
+                    <div>
+                      Total Requests: <strong>{change.totalCR}</strong>
+                    </div>
+                    <div>
+                      Approved: <strong>{change.totalApproved}</strong>
+                    </div>
+                    <div>
+                      Revenue from Change Orders:{" "}
+                      <strong>
+                        {change.totalRev.toLocaleString(undefined, {
+                          style: "currency",
+                          currency: "USD",
+                          maximumFractionDigits: 0,
+                        })}
+                      </strong>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground">
-                  Aggregate satisfaction, timeline, and budget signals.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Change Control */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Change Control</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {change ? (
-                <div className="space-y-3">
-                  <div>
-                    Total Requests: <strong>{change.totalCR}</strong>
-                  </div>
-                  <div>
-                    Approved: <strong>{change.totalApproved}</strong>
-                  </div>
-                  <div>
-                    Revenue from Change Orders:{" "}
-                    <strong>
-                      {change.totalRev.toLocaleString(undefined, {
-                        style: "currency",
-                        currency: "USD",
-                        maximumFractionDigits: 0,
-                      })}
-                    </strong>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground">
-                  Requests, approvals, and revenue from change orders.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                ) : (
+                  <p className="text-muted-foreground">
+                    Requests, approvals, and revenue from change orders.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </main>
     </div>
   );
 };

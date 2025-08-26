@@ -1,50 +1,87 @@
-import { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Lesson } from '@/types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, RefreshCw, TrendingUp } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { useEffect, useMemo, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Lesson } from "@/types";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { useToast } from "@/hooks/use-toast";
+import {
+  ArrowLeft,
+  RefreshCw,
+  TrendingUp,
+} from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
+
+/** Small helper to adapt UI on phones */
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const onChange = () => setIsMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isMobile;
+};
 
 const Analytics = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+  const isMobile = useIsMobile();
+
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/auth');
+      navigate("/auth");
     } else if (user) {
       fetchLessons();
     }
-  }, [user, loading, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loading]);
 
   const fetchLessons = async () => {
     if (!user) return;
-
     setIsLoading(true);
     try {
       const supabaseClient = supabase as any;
       const { data, error } = await supabaseClient
-        .from('lessons')
-        .select('*')
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false });
+        .from("lessons")
+        .select("*")
+        .eq("created_by", user.id)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setLessons(data || []);
     } catch (error) {
-      console.error('Error fetching lessons:', error);
+      console.error("Error fetching lessons:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch lessons for analytics. Please try again.",
+        description:
+          "Failed to fetch lessons for analytics. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -55,7 +92,7 @@ const Analytics = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary" />
       </div>
     );
   }
@@ -64,56 +101,88 @@ const Analytics = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  // Prepare satisfaction distribution data
-  const satisfactionData = [1, 2, 3, 4, 5].map(rating => ({
-    rating,
-    count: lessons.filter(lesson => lesson.satisfaction === rating).length,
-    label: `${rating} Star${rating !== 1 ? 's' : ''}`
-  }));
-
-  // Prepare budget status data
-  const budgetData = [
-    { status: 'Under Budget', count: lessons.filter(lesson => lesson.budget_status === 'under').length, color: 'hsl(142 76% 36%)' },
-    { status: 'On Budget', count: lessons.filter(lesson => lesson.budget_status === 'on').length, color: 'hsl(218 27% 84%)' },
-    { status: 'Over Budget', count: lessons.filter(lesson => lesson.budget_status === 'over').length, color: 'hsl(250 91% 60%)' }
-  ].filter(item => item.count > 0);
-
-  // Calculate summary statistics
+  // ---- Derived data (memoized) ----
   const totalLessons = lessons.length;
-  const avgSatisfaction = totalLessons > 0 ? 
-    (lessons.reduce((sum, lesson) => sum + lesson.satisfaction, 0) / totalLessons).toFixed(1) : '0';
-  const onBudgetPercentage = totalLessons > 0 ? 
-    Math.round((lessons.filter(lesson => lesson.budget_status === 'on').length / totalLessons) * 100) : 0;
-  const scopeChangePercentage = totalLessons > 0 ? 
-    Math.round((lessons.filter(lesson => lesson.scope_change).length / totalLessons) * 100) : 0;
+
+  const avgSatisfaction = useMemo(() => {
+    if (!totalLessons) return "0";
+    const sum = lessons.reduce(
+      (acc, l) => acc + (typeof l.satisfaction === "number" ? l.satisfaction : 0),
+      0
+    );
+    return (sum / totalLessons).toFixed(1);
+  }, [lessons, totalLessons]);
+
+  const onBudgetPercentage = useMemo(() => {
+    if (!totalLessons) return 0;
+    const onCount = lessons.filter((l) => l.budget_status === "on").length;
+    return Math.round((onCount / totalLessons) * 100);
+  }, [lessons, totalLessons]);
+
+  const scopeChangePercentage = useMemo(() => {
+    if (!totalLessons) return 0;
+    const scoped = lessons.filter((l) => Boolean(l.scope_change)).length;
+    return Math.round((scoped / totalLessons) * 100);
+  }, [lessons, totalLessons]);
+
+  const satisfactionData = useMemo(
+    () =>
+      [1, 2, 3, 4, 5].map((rating) => ({
+        rating,
+        count: lessons.filter((l) => l.satisfaction === rating).length,
+        label: `${rating} Star${rating !== 1 ? "s" : ""}`,
+      })),
+    [lessons]
+  );
+
+  const budgetData = useMemo(
+    () =>
+      [
+        {
+          status: "Under Budget",
+          count: lessons.filter((l) => l.budget_status === "under").length,
+          color: "hsl(142 76% 36%)",
+        },
+        {
+          status: "On Budget",
+          count: lessons.filter((l) => l.budget_status === "on").length,
+          color: "hsl(218 27% 84%)",
+        },
+        {
+          status: "Over Budget",
+          count: lessons.filter((l) => l.budget_status === "over").length,
+          color: "hsl(250 91% 60%)",
+        },
+      ].filter((d) => d.count > 0),
+    [lessons]
+  );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <DashboardHeader />
-      
-      <main className="container mx-auto px-4 py-8">
+
+      {/* Tight, responsive page container; kill any potential overflow */}
+      <main className="mx-auto w-full max-w-screen-sm md:max-w-4xl px-4 py-8 overflow-x-hidden">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate("/dashboard")}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
             </Button>
             <div>
               <h1 className="text-3xl font-bold">Project Analytics</h1>
-              <p className="text-muted-foreground">Insights from your project experiences</p>
+              <p className="text-muted-foreground">
+                Insights from your project experiences
+              </p>
             </div>
           </div>
-          
-          <Button
-            variant="outline"
-            onClick={fetchLessons}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+
+          <Button variant="outline" onClick={fetchLessons} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
@@ -121,7 +190,7 @@ const Analytics = () => {
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
               <p className="text-muted-foreground">Loading analytics...</p>
             </div>
           </div>
@@ -132,46 +201,44 @@ const Analytics = () => {
             <p className="text-muted-foreground mb-6">
               Start by adding some project lessons to see your analytics here.
             </p>
-            <Button onClick={() => navigate('/submit')}>
-              Add Your First Lesson
-            </Button>
+            <Button onClick={() => navigate("/submit")}>Add Your First Lesson</Button>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
+              <Card className="w-full overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">Total Lessons</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4">
                   <div className="text-3xl font-bold text-primary">{totalLessons}</div>
                 </CardContent>
               </Card>
-              
-              <Card>
+
+              <Card className="w-full overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">Avg Satisfaction</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4">
                   <div className="text-3xl font-bold text-primary">{avgSatisfaction}/5</div>
                 </CardContent>
               </Card>
-              
-              <Card>
+
+              <Card className="w-full overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">On Budget</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4">
                   <div className="text-3xl font-bold text-primary">{onBudgetPercentage}%</div>
                 </CardContent>
               </Card>
-              
-              <Card>
+
+              <Card className="w-full overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">Scope Changes</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4">
                   <div className="text-3xl font-bold text-primary">{scopeChangePercentage}%</div>
                 </CardContent>
               </Card>
@@ -180,68 +247,102 @@ const Analytics = () => {
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Satisfaction Distribution */}
-              <Card>
+              <Card className="w-full overflow-hidden">
                 <CardHeader>
                   <CardTitle>Satisfaction Distribution</CardTitle>
-                  <CardDescription>Distribution of project satisfaction ratings</CardDescription>
+                  <CardDescription>
+                    Distribution of project satisfaction ratings
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={satisfactionData}>
-                      <defs>
-                        <linearGradient id="satisfactionGradient" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor="hsl(7 100% 69%)" />
-                          <stop offset="100%" stopColor="hsl(330 81% 60%)" />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [`${value} project${value !== 1 ? 's' : ''}`, 'Count']} />
-                      <Bar dataKey="count" fill="url(#satisfactionGradient)" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <CardContent className="px-4 sm:px-6 overflow-x-hidden">
+                  <div style={{ minHeight: isMobile ? 260 : 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={satisfactionData}>
+                        <defs>
+                          <linearGradient
+                            id="satisfactionGradient"
+                            x1="0"
+                            y1="0"
+                            x2="1"
+                            y2="0"
+                          >
+                            <stop offset="0%" stopColor="hsl(7 100% 69%)" />
+                            <stop offset="100%" stopColor="hsl(330 81% 60%)" />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="label" />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip
+                          formatter={(value: number) => [
+                            `${value} project${value !== 1 ? "s" : ""}`,
+                            "Count",
+                          ]}
+                        />
+                        <Bar
+                          dataKey="count"
+                          fill="url(#satisfactionGradient)"
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
 
               {/* Budget Status */}
-              <Card>
+              <Card className="w-full overflow-hidden">
                 <CardHeader>
                   <CardTitle>Budget Performance</CardTitle>
-                  <CardDescription>Project budget status distribution</CardDescription>
+                  <CardDescription>
+                    Project budget status distribution
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={budgetData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ status, count, percent }) => `${status}: ${count} (${(percent * 100).toFixed(0)}%)`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="count"
-                      >
-                        {budgetData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`${value} project${value !== 1 ? 's' : ''}`, 'Count']} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <CardContent className="px-4 sm:px-6 overflow-x-hidden">
+                  <div style={{ minHeight: isMobile ? 260 : 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={budgetData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={isMobile ? 44 : 60}
+                          outerRadius={isMobile ? 100 : 120}
+                          dataKey="count"
+                          label={!isMobile}
+                          labelLine={!isMobile}
+                          isAnimationActive={false}
+                        >
+                          {budgetData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Legend
+                          verticalAlign={isMobile ? "bottom" : "right"}
+                          layout={isMobile ? "horizontal" : "vertical"}
+                        />
+                        <Tooltip
+                          formatter={(value: number) => [
+                            `${value} project${value !== 1 ? "s" : ""}`,
+                            "Count",
+                          ]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
             {/* Additional Insights */}
-            <Card>
+            <Card className="w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Key Insights</CardTitle>
-                <CardDescription>Summary of your project performance</CardDescription>
+                <CardDescription>
+                  Summary of your project performance
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 sm:px-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <h4 className="font-semibold mb-2">Project Health</h4>
@@ -255,9 +356,15 @@ const Analytics = () => {
                   <div>
                     <h4 className="font-semibold mb-2">Timeline Performance</h4>
                     <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li>• Early: {lessons.filter(l => l.timeline_status === 'early').length} projects</li>
-                      <li>• On Time: {lessons.filter(l => l.timeline_status === 'on-time').length} projects</li>
-                      <li>• Late: {lessons.filter(l => l.timeline_status === 'late').length} projects</li>
+                      <li>
+                        • Early: {lessons.filter((l) => l.timeline_status === "early").length} projects
+                      </li>
+                      <li>
+                        • On Time: {lessons.filter((l) => l.timeline_status === "on-time").length} projects
+                      </li>
+                      <li>
+                        • Late: {lessons.filter((l) => l.timeline_status === "late").length} projects
+                      </li>
                     </ul>
                   </div>
                 </div>

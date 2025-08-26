@@ -13,10 +13,12 @@ type LessonRow = {
   satisfaction: number | null;
   budget_status: "under" | "on" | "over" | null;
   timeline_status: "early" | "on" | "late" | null;
-  change_request_count: number | null;
-  change_orders_approved_count: number | null;
-  change_orders_revenue_usd: number | null;
   created_by: string;
+
+  // optional; not selected until your schema has them
+  change_request_count?: number | null;
+  change_orders_approved_count?: number | null;
+  change_orders_revenue_usd?: number | null;
 };
 
 const Dashboard = () => {
@@ -38,11 +40,11 @@ const Dashboard = () => {
       setFetching(true);
       setError(null);
 
-      // Recent 5
+      // --- Recent 5 (select only columns that exist in your 'lessons' table) ---
       const { data: recentData, error: rErr } = await supabase
         .from("lessons")
         .select(
-          "id,project_name,created_at,satisfaction,budget_status,timeline_status,change_request_count,change_orders_approved_count,change_orders_revenue_usd,created_by"
+          "id,project_name,created_at,satisfaction,budget_status,timeline_status,created_by"
         )
         .eq("created_by", user.id)
         .order("created_at", { ascending: false })
@@ -52,14 +54,14 @@ const Dashboard = () => {
         setError(rErr.message);
         setRecent([]);
       } else {
-        setRecent(recentData as LessonRow[]);
+        setRecent((recentData as unknown as LessonRow[]) ?? []);
       }
 
-      // Bulk set (for aggregates)
+      // --- Bulk set for aggregates (same safe select) ---
       const { data, error: aErr } = await supabase
         .from("lessons")
         .select(
-          "id,project_name,created_at,satisfaction,budget_status,timeline_status,change_request_count,change_orders_approved_count,change_orders_revenue_usd,created_by"
+          "id,project_name,created_at,satisfaction,budget_status,timeline_status,created_by"
         )
         .eq("created_by", user.id)
         .order("created_at", { ascending: false })
@@ -69,7 +71,7 @@ const Dashboard = () => {
         setError(aErr.message);
         setRows([]);
       } else {
-        setRows(data as LessonRow[]);
+        setRows((data as unknown as LessonRow[]) ?? []);
       }
 
       setFetching(false);
@@ -83,15 +85,15 @@ const Dashboard = () => {
     if (!rows || rows.length === 0) return null;
 
     const count = rows.length;
-    const rated = rows.filter(r => r.satisfaction != null).length;
+    const rated = rows.filter((r) => r.satisfaction != null).length;
     const avgSatisfaction =
       rows.reduce((s, r) => s + (r.satisfaction ?? 0), 0) / Math.max(1, rated);
 
-    const bud = { under: 0, on: 0, over: 0 };
-    const time = { early: 0, on: 0, late: 0 };
+    const bud = { under: 0, on: 0, over: 0 } as Record<string, number>;
+    const time = { early: 0, on: 0, late: 0 } as Record<string, number>;
     rows.forEach((r) => {
-      if (r.budget_status && (bud as any)[r.budget_status] != null) bud[r.budget_status]++;
-      if (r.timeline_status && (time as any)[r.timeline_status] != null) time[r.timeline_status]++;
+      if (r.budget_status && bud[r.budget_status] != null) bud[r.budget_status]++;
+      if (r.timeline_status && time[r.timeline_status] != null) time[r.timeline_status]++;
     });
 
     const pct = (n: number) => (count ? Math.round((n / count) * 100) : 0);
@@ -114,6 +116,7 @@ const Dashboard = () => {
 
   const change = useMemo(() => {
     if (!rows || rows.length === 0) return null;
+    // these will sum to 0 until you add those columns (or compute via a view/RPC)
     const totalCR = rows.reduce((s, r) => s + (r.change_request_count ?? 0), 0);
     const totalApproved = rows.reduce((s, r) => s + (r.change_orders_approved_count ?? 0), 0);
     const totalRev = rows.reduce((s, r) => s + (r.change_orders_revenue_usd ?? 0), 0);

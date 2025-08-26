@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,9 +35,50 @@ const useIsMobile = () => {
     const onChange = () => setIsMobile(mq.matches);
     onChange();
     mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    // iOS orientation + Safari address-bar collapse can throw off sizes; nudge on events
+    const nudge = () => setTick((t) => t + 1);
+    window.addEventListener("orientationchange", nudge);
+    window.addEventListener("resize", nudge);
+    return () => {
+      mq.removeEventListener("change", onChange);
+      window.removeEventListener("orientationchange", nudge);
+      window.removeEventListener("resize", nudge);
+    };
   }, []);
+  // local tick to force re-render on orientation/resize
+  const [tick, setTick] = useState(0);
   return isMobile;
+};
+
+// --- helpers to ensure charts render when container gains real size ---
+const hasPositiveArea = (el: HTMLElement | null) => {
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+};
+
+const useVisibleSize = (deps: React.DependencyList = []) => {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    let raf: number | null = null;
+    const ro = new ResizeObserver(() => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setTick((t) => t + 1));
+    });
+    ro.observe(node);
+    const t1 = setTimeout(() => setTick((t) => t + 1), 50);
+    const t2 = setTimeout(() => setTick((t) => t + 1), 250);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      ro.disconnect();
+    };
+  }, deps);
+  return { ref, tick } as const;
 };
 
 const Analytics = () => {
@@ -232,76 +273,81 @@ const Analytics = () => {
                   <CardDescription>Distribution of project satisfaction ratings</CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 overflow-x-hidden">
-                  {/* IMPORTANT: use a fixed height, not minHeight, so ResponsiveContainer has a concrete size */}
-                  <div className="w-full" style={{ height: isMobile ? 260 : 320 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={satisfactionData}>
-                        <defs>
-                          <linearGradient id="satisfactionGradient" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="hsl(7 100% 69%)" />
-                            <stop offset="100%" stopColor="hsl(330 81% 60%)" />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="label" />
-                        <YAxis allowDecimals={false} />
-                        <Tooltip
-                          formatter={(value: number) => [
-                            `${value} project${value !== 1 ? "s" : ""}`,
-                            "Count",
-                          ]}
-                        />
-                        <Bar
-                          dataKey="count"
-                          fill="url(#satisfactionGradient)"
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {/* Use fixed height + ResizeObserver to ensure container has concrete size on mobile */}
+                  {(() => {
+                    const { ref, tick } = useVisibleSize([isMobile, satisfactionData]);
+                    return (
+                      <div ref={ref} className="w-full" style={{ height: isMobile ? 260 : 320 }}>
+                        {hasPositiveArea(ref.current) ? (
+                          <ResponsiveContainer key={`bar-${tick}`} width="100%" height="100%">
+                            <BarChart data={satisfactionData}>
+                              <defs>
+                                <linearGradient id="satisfactionGradient" x1="0" y1="0" x2="1" y2="0">
+                                  <stop offset="0%" stopColor="hsl(7 100% 69%)" />
+                                  <stop offset="100%" stopColor="hsl(330 81% 60%)" />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="label" />
+                              <YAxis allowDecimals={false} />
+                              <Tooltip
+                                formatter={(value: number) => [
+                                  `${value} project${value !== 1 ? "s" : ""}`,
+                                  "Count",
+                                ]}
+                              />
+                              <Bar dataKey="count" fill="url(#satisfactionGradient)" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full" />
+                        )}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
               {/* Budget Status */}
               <Card className="w-full overflow-hidden">
                 <CardHeader>
-                  <CardTitle>Budget Performance</CardTitle>
-                  <CardDescription>Project budget status distribution</CardDescription>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-6 overflow-x-hidden">
-                  {/* IMPORTANT: use a fixed height, not minHeight */}
-                  <div className="w-full" style={{ height: isMobile ? 260 : 320 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={budgetData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={isMobile ? 44 : 60}
-                          outerRadius={isMobile ? 100 : 120}
-                          dataKey="count"
-                          label={!isMobile}
-                          labelLine={!isMobile}
-                          isAnimationActive={false}
-                        >
-                          {budgetData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Legend
-                          verticalAlign={isMobile ? "bottom" : "right"}
-                          layout={isMobile ? "horizontal" : "vertical"}
-                        />
-                        <Tooltip
-                          formatter={(value: number) => [
-                            `${value} project${value !== 1 ? "s" : ""}`,
-                            "Count",
-                          ]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
+                <CardTitle>Budget Performance</CardTitle>
+                <CardDescription>Project budget status distribution</CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 sm:px-6 overflow-x-hidden">
+                {(() => {
+                  const { ref, tick } = useVisibleSize([isMobile, budgetData]);
+                  return (
+                    <div ref={ref} className="w-full" style={{ height: isMobile ? 260 : 320 }}>
+                      {hasPositiveArea(ref.current) ? (
+                        <ResponsiveContainer key={`pie-${tick}`} width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={budgetData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={isMobile ? 44 : 60}
+                              outerRadius={isMobile ? 100 : 120}
+                              dataKey="count"
+                              label={!isMobile}
+                              labelLine={!isMobile}
+                              isAnimationActive={false}
+                            >
+                              {budgetData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Legend verticalAlign={isMobile ? "bottom" : "right"} layout={isMobile ? "horizontal" : "vertical"} />
+                            <Tooltip formatter={(value: number) => [`${value} project${value !== 1 ? "s" : ""}`, "Count"]} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full" />
+                      )}
+                    </div>
+                  );
+                })()}
+              </CardContent>
               </Card>
             </div>
 

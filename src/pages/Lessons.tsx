@@ -35,10 +35,12 @@ const Lessons = () => {
     } else if (user) {
       fetchLessons();
     }
-  }, [user, loading, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loading]);
 
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessons, filters, searchTerm]);
 
   const fetchLessons = async () => {
@@ -145,7 +147,7 @@ const Lessons = () => {
   const paginatedLessons = filteredLessons.slice(startIndex, startIndex + itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <DashboardHeader />
       
       <main className="container mx-auto px-4 py-8">
@@ -165,7 +167,7 @@ const Lessons = () => {
             </div>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
@@ -208,8 +210,12 @@ const Lessons = () => {
                 
                 <div>
                   <Label>Budget Status</Label>
-                  <Select value={filters.budget_status?.[0] || ''} 
-                          onValueChange={(value) => setFilters(prev => ({...prev, budget_status: value ? [value as any] : undefined}))}>
+                  <Select
+                    value={filters.budget_status?.[0] || ''} 
+                    onValueChange={(value) =>
+                      setFilters(prev => ({...prev, budget_status: value ? [value as any] : undefined}))
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="All statuses" />
                     </SelectTrigger>
@@ -224,8 +230,12 @@ const Lessons = () => {
 
                 <div>
                   <Label>Timeline Status</Label>
-                  <Select value={filters.timeline_status?.[0] || ''} 
-                          onValueChange={(value) => setFilters(prev => ({...prev, timeline_status: value ? [value] : undefined}))}>
+                  <Select
+                    value={filters.timeline_status?.[0] || ''} 
+                    onValueChange={(value) =>
+                      setFilters(prev => ({...prev, timeline_status: value ? [value] : undefined}))
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="All timelines" />
                     </SelectTrigger>
@@ -240,8 +250,12 @@ const Lessons = () => {
 
                 <div>
                   <Label>Satisfaction</Label>
-                  <Select value={filters.satisfaction?.[0]?.toString() || ''} 
-                          onValueChange={(value) => setFilters(prev => ({...prev, satisfaction: value ? [parseInt(value)] : undefined}))}>
+                  <Select
+                    value={filters.satisfaction?.[0]?.toString() || ''} 
+                    onValueChange={(value) =>
+                      setFilters(prev => ({...prev, satisfaction: value ? [parseInt(value)] : undefined}))
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="All ratings" />
                     </SelectTrigger>
@@ -279,6 +293,7 @@ const Lessons = () => {
               </div>
             </div>
           </CardHeader>
+
           <CardContent>
             {isLoading ? (
               <div className="text-center py-8">Loading lessons...</div>
@@ -296,39 +311,52 @@ const Lessons = () => {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <Table>
+                {/* Table with safe horizontal scroll and wrapping cells */}
+                <div className="-mx-4 overflow-x-auto md:mx-0">
+                  <Table className="min-w-full table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Project</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Client</TableHead>
-                        <TableHead>Satisfaction</TableHead>
-                        <TableHead>Budget</TableHead>
-                        <TableHead>Timeline</TableHead>
-                        <TableHead>Scope Change</TableHead>
-                        <TableHead>Created</TableHead>
+                        <TableHead className="w-40 md:w-auto">Project</TableHead>
+                        <TableHead className="w-36 md:w-auto">Role</TableHead>
+                        <TableHead className="w-40 md:w-auto">Client</TableHead>
+                        <TableHead className="w-32 md:w-auto">Satisfaction</TableHead>
+                        <TableHead className="w-36 md:w-auto">Budget</TableHead>
+                        <TableHead className="w-32 md:w-auto">Timeline</TableHead>
+                        <TableHead className="w-32 md:w-auto">Scope Change</TableHead>
+                        <TableHead className="w-32 md:w-auto">Created</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paginatedLessons.map((lesson) => (
-                        <TableRow key={lesson.id}>
-                          <TableCell className="font-medium">{lesson.project_name}</TableCell>
-                          <TableCell>{lesson.role}</TableCell>
-                          <TableCell>{lesson.client_name || '-'}</TableCell>
-                          <TableCell>{renderSatisfactionStars(lesson.satisfaction)}</TableCell>
+                        <TableRow key={lesson.id} className="[&>td]:align-top">
+                          <TableCell className="break-words max-w-[12rem]">
+                            {lesson.project_name}
+                          </TableCell>
+                          <TableCell className="break-words max-w-[10rem]">
+                            {lesson.role}
+                          </TableCell>
+                          <TableCell className="break-words max-w-[12rem]">
+                            {lesson.client_name || '-'}
+                          </TableCell>
+                          <TableCell>
+                            {renderSatisfactionStars(lesson.satisfaction)}
+                          </TableCell>
                           <TableCell>
                             <Badge className={getBudgetStatusColor(lesson.budget_status)}>
                               {formatBudgetStatus(lesson.budget_status)}
                             </Badge>
                           </TableCell>
-                          <TableCell className="capitalize">{lesson.timeline_status.replace('-', ' ')}</TableCell>
+                          <TableCell className="capitalize break-words">
+                            {lesson.timeline_status.replace('-', ' ')}
+                          </TableCell>
                           <TableCell>
                             <Badge variant={lesson.scope_change ? "destructive" : "secondary"}>
                               {lesson.scope_change ? 'Yes' : 'No'}
                             </Badge>
                           </TableCell>
-                          <TableCell>{new Date(lesson.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {new Date(lesson.created_at).toLocaleDateString()}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

@@ -1,70 +1,41 @@
-// src/App.tsx
+// src/App.tsx (temporary safe version)
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
-// PAGES
-import Dashboard from "@/pages/Dashboard";
-import Dashboards from "@/pages/Dashboards";
-import DashboardCustomizer from "@/pages/DashboardCustomizer";
-import Auth from "@/pages/Auth"; // <-- ensure this exists
-
-// GLOBAL TOP NAV
-import AppHeader from "@/components/AppHeader";
+// TEMP super-simple Auth page so /auth definitely exists
+function AuthPage() {
+  return (
+    <div className="p-6">
+      <h1 className="text-xl font-semibold mb-2">Sign in</h1>
+      <p className="text-sm text-muted-foreground">Auth screen placeholder.</p>
+    </div>
+  );
+}
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="p-6 text-sm text-muted-foreground">
-        Checking session…
-      </div>
-    );
-  }
+  if (loading) return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
   if (!user) return <Navigate to="/auth" replace />;
-
   return <>{children}</>;
 };
 
 export default function App() {
-  const { loading, user } = useAuth();
-
   return (
     <Router>
-      {/* Render header only when it's safe; guard against null user inside AppHeader as well */}
-      {!loading && <AppHeader />}
-
+      {/* remove <AppHeader /> for the moment */}
       <Routes>
-        {/* Public auth route */}
-        <Route path="/auth" element={<Auth />} />
-
-        {/* Protected */}
+        <Route path="/auth" element={<AuthPage />} />
         <Route
           path="/"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              {/* Keep your real Dashboard here */}
+              <div className="p-6">Home OK</div>
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/dashboards"
-          element={
-            <ProtectedRoute>
-              <Dashboards />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboards/customize"
-          element={
-            <ProtectedRoute>
-              <DashboardCustomizer />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Fallback */}
+        <Route path="/dashboards" element={<ProtectedRoute><div className="p-6">Dashboards OK</div></ProtectedRoute>} />
+        <Route path="/dashboards/customize" element={<ProtectedRoute><div className="p-6">Customize OK</div></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

@@ -3,28 +3,43 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { useAuth } from "@/hooks/useAuth";
 
 // PAGES
-import Dashboard from "@/pages/Dashboard";                  // "Home"
-import Dashboards from "@/pages/Dashboards";                // Hub
-import DashboardCustomizer from "@/pages/DashboardCustomizer"; // Builder
+import Dashboard from "@/pages/Dashboard";
+import Dashboards from "@/pages/Dashboards";
+import DashboardCustomizer from "@/pages/DashboardCustomizer";
+import Auth from "@/pages/Auth"; // ⬅️ add this import
 
 // GLOBAL TOP NAV
 import AppHeader from "@/components/AppHeader";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+
+  // Show a tiny loader instead of "null" to avoid a blank page during auth init
+  if (loading) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">
+        Checking session…
+      </div>
+    );
+  }
+
+  // If not logged in, go to /auth (which actually exists)
+  if (!user) return <Navigate to="/auth" replace />;
+
   return <>{children}</>;
 };
 
 export default function App() {
   return (
     <Router>
-      {/* Global top nav with compact avatar + links */}
+      {/* Top nav can stay outside protected areas if it can handle no-user state */}
       <AppHeader />
 
       <Routes>
-        {/* HOME: Dashboard page acts as "Home" */}
+        {/* Public auth route */}
+        <Route path="/auth" element={<Auth />} />
+
+        {/* Protected routes */}
         <Route
           path="/"
           element={
@@ -33,8 +48,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Dashboards hub */}
         <Route
           path="/dashboards"
           element={
@@ -43,8 +56,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Custom dashboard builder */}
         <Route
           path="/dashboards/customize"
           element={
@@ -54,7 +65,7 @@ export default function App() {
           }
         />
 
-        {/* keep your other routes here */}
+        {/* Fallback: if unknown path, go home (which is protected) */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

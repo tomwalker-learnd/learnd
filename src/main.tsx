@@ -1,11 +1,20 @@
-// src/main.tsx (Lovable)
+// src/main.tsx
 import React from "react";
-import { createRoot } from "react-dom/client";
+import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-createRoot(document.getElementById("root")!).render(
+// Adjust this import path if your provider lives elsewhere:
+import { AuthProvider } from "@/hooks/useAuth";
+
+// Optional: if you use shadcn/ui toasts
+import { Toaster } from "@/components/ui/toaster";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+      <Toaster />
+    </AuthProvider>
   </React.StrictMode>
 );

@@ -77,4 +77,36 @@ const AppHeader = () => {
                   `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
                 }
               >
-                Lesson
+                Lessons
+              </NavLink>
+            </nav>
+
+            {/* User Menu */}
+            {user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full">
+                    <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
+                      {initial}
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    {user.email || "User"}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default AppHeader;

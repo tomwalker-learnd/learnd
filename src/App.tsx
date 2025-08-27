@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "@/pages/Dashboard";
 import Dashboards from "@/pages/Dashboards";
 import DashboardCustomizer from "@/pages/DashboardCustomizer";
-import Auth from "@/pages/Auth"; // ⬅️ add this import
+import Auth from "@/pages/Auth"; // <-- ensure this exists
 
 // GLOBAL TOP NAV
 import AppHeader from "@/components/AppHeader";
@@ -14,7 +14,6 @@ import AppHeader from "@/components/AppHeader";
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
-  // Show a tiny loader instead of "null" to avoid a blank page during auth init
   if (loading) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
@@ -22,24 +21,24 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
       </div>
     );
   }
-
-  // If not logged in, go to /auth (which actually exists)
   if (!user) return <Navigate to="/auth" replace />;
 
   return <>{children}</>;
 };
 
 export default function App() {
+  const { loading, user } = useAuth();
+
   return (
     <Router>
-      {/* Top nav can stay outside protected areas if it can handle no-user state */}
-      <AppHeader />
+      {/* Render header only when it's safe; guard against null user inside AppHeader as well */}
+      {!loading && <AppHeader />}
 
       <Routes>
         {/* Public auth route */}
         <Route path="/auth" element={<Auth />} />
 
-        {/* Protected routes */}
+        {/* Protected */}
         <Route
           path="/"
           element={
@@ -65,7 +64,7 @@ export default function App() {
           }
         />
 
-        {/* Fallback: if unknown path, go home (which is protected) */}
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

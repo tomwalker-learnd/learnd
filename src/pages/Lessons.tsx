@@ -1,448 +1,364 @@
-import { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Lesson, LessonFilters } from '@/types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Filter, RefreshCw, Plus, Star } from 'lucide-react';
+// src/pages/Lessons.tsx
+import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Filter, RefreshCw } from "lucide-react";
+
+type BudgetStatus = "under" | "on" | "over";
+type TimelineStatus = "early" | "on" | "late";
+
+type LessonRow = {
+  id: string;
+  project_name: string | null;
+  client_name?: string | null;
+  created_at: string;
+  satisfaction: number | null;
+  budget_status: BudgetStatus | null;
+  timeline_status: TimelineStatus | null;
+  change_request_count: number | null;
+  change_orders_approved_count: number | null;
+  change_orders_revenue_usd: number | null;
+  created_by: string;
+};
+
+type LessonFilters = {
+  search: string;
+  budget: BudgetStatus | "any";
+  timeline: TimelineStatus | "any";
+  minSatisfaction: string; // keep as string for controlled input safety
+};
+
+const DEFAULT_FILTERS: LessonFilters = {
+  search: "",
+  budget: "any",
+  timeline: "any",
+  minSatisfaction: "",
+};
+
+// --- tiny error boundary to avoid whole-page blanking ---
+function PageErrorBoundary({ children }: { children: React.ReactNode }) {
+  const [err, setErr] = useState<Error | null>(null);
+  if (err) {
+    return (
+      <div className="p-6">
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle>Something went wrong</CardTitle>
+            <CardDescription>Reload the page or click “Reset”.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <pre className="text-sm text-muted-foreground whitespace-pre-wrap">{err.message}</pre>
+            <Button onClick={() => window.location.reload()}>Reset</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  return (
+    <ErrorCatcher onError={setErr}>
+      {children}
+    </ErrorCatcher>
+  );
+}
+
+function ErrorCatcher({
+  children,
+  onError,
+}: {
+  children: React.ReactNode;
+  onError: (e: Error) => void;
+}) {
+  // Render-only try/catch via error throwing boundary pattern
+  try {
+    return <>{children}</>;
+  } catch (e: any) {
+    onError(e);
+    return null;
+  }
+}
 
 const Lessons = () => {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [filteredLessons, setFilteredLessons] = useState<Lesson[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
-
-  const [filters, setFilters] = useState<LessonFilters>({});
-  const [searchTerm, setSearchTerm] = useState('');
+  const [rows, setRows] = useState<LessonRow[] | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [filters, setFilters] = useState<LessonFilters>(DEFAULT_FILTERS);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    } else if (user) {
-      fetchLessons();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loading]);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        // Adjust table name/columns to your schema
+        const { data, error } = await supabase
+          .from("lessons")
+          .select(
+            `
+            id,
+            project_name,
+            client_name,
+            created_at,
+            satisfaction,
+            budget_status,
+            timeline_status,
+            change_request_count,
+            change_orders_approved_count,
+            change_orders_revenue_usd,
+            created_by
+          `
+          )
+          .order("created_at", { ascending: false })
+          .limit(500);
 
-  useEffect(() => {
-    applyFilters();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessons, filters, searchTerm]);
+        if (error) throw error;
+        if (!cancelled) setRows((data as unknown as LessonRow[]) ?? []);
+      } catch (e: any) {
+        toast({
+          title: "Load failed",
+          description: e?.message ?? "Could not load lessons.",
+          variant: "destructive",
+        });
+        if (!cancelled) setRows([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
-  const fetchLessons = async () => {
-    if (!user) return;
+  const filtered = useMemo(() => {
+    if (!rows) return [];
+    const s = filters.search.trim().toLowerCase();
+    const minSat = filters.minSatisfaction ? Number(filters.minSatisfaction) : null;
 
-    setIsLoading(true);
-    try {
-      const supabaseClient = supabase as any;
-      const { data, error } = await supabaseClient
-        .from('lessons')
-        .select('*')
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setLessons(data || []);
-    } catch (error) {
-      console.error('Error fetching lessons:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch lessons. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const applyFilters = () => {
-    const filtered = lessons.filter((lesson) => {
+    return rows.filter((r) => {
       const matchesSearch =
-        searchTerm === '' ||
-        lesson.project_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lesson.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (lesson.client_name && lesson.client_name.toLowerCase().includes(searchTerm.toLowerCase()));
+        s.length === 0 ||
+        (r.project_name ?? "").toLowerCase().includes(s) ||
+        (r.client_name ?? "").toLowerCase().includes(s);
 
-      const matchesRole = !filters.role || lesson.role.toLowerCase().includes(filters.role.toLowerCase());
-      const matchesClient =
-        !filters.client_name ||
-        (lesson.client_name && lesson.client_name.toLowerCase().includes(filters.client_name.toLowerCase()));
-      const matchesBudget = !filters.budget_status || filters.budget_status.includes(lesson.budget_status);
+      const matchesBudget =
+        filters.budget === "any" || r.budget_status === filters.budget;
+
       const matchesTimeline =
-        !filters.timeline_status || filters.timeline_status.some((status) => lesson.timeline_status.includes(status));
-      const matchesSatisfaction = !filters.satisfaction || filters.satisfaction.includes(lesson.satisfaction);
-      const matchesScopeChange =
-        filters.scope_change === undefined || lesson.scope_change === filters.scope_change;
+        filters.timeline === "any" || r.timeline_status === filters.timeline;
 
-      return (
-        matchesSearch &&
-        matchesRole &&
-        matchesClient &&
-        matchesBudget &&
-        matchesTimeline &&
-        matchesSatisfaction &&
-        matchesScopeChange
-      );
+      const satVal = typeof r.satisfaction === "number" ? r.satisfaction : null;
+      const matchesSatisfaction =
+        minSat === null || (satVal !== null && satVal >= minSat);
+
+      return matchesSearch && matchesBudget && matchesTimeline && matchesSatisfaction;
     });
+  }, [rows, filters]);
 
-    setFilteredLessons(filtered);
-    setCurrentPage(1);
-  };
-
-  const clearFilters = () => {
-    setFilters({});
-    setSearchTerm('');
-  };
-
-  const getBudgetStatusColor = (status: string) => {
-    switch (status) {
-      case 'under':
-        return 'bg-green-100 text-green-800';
-      case 'on':
-        return 'bg-blue-100 text-blue-800';
-      case 'over':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatBudgetStatus = (status: string) => {
-    switch (status) {
-      case 'under':
-        return 'Under Budget';
-      case 'on':
-        return 'On Budget';
-      case 'over':
-        return 'Over Budget';
-      default:
-        return status;
-    }
-  };
-
-  const renderSatisfactionStars = (rating: number) => {
-    return (
-      <div className="flex">
-        {[...Array(5)].map((_, i) => (
-          <Star key={i} className={`h-4 w-4 ${i < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
-        ))}
-      </div>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  // Pagination
-  const totalPages = Math.ceil(filteredLessons.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedLessons = filteredLessons.slice(startIndex, startIndex + itemsPerPage);
+  // Auth gates
+  if (!loading && !user) return <Navigate to="/login" replace />;
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-background">
-      <DashboardHeader />
-
-      <main className="container mx-auto px-4 py-8">
-        {/* Header + Actions */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">Project Lessons</h1>
-              <p className="text-muted-foreground">Manage and review your captured insights</p>
-            </div>
-          </div>
-
-          {/* Responsive actions: centered/stacked on mobile, inline on md+ */}
-          <div className="py-4">
-            <div className="grid grid-cols-1 justify-items-center gap-3 md:flex md:flex-wrap md:justify-end">
+    <PageErrorBoundary>
+      <div className="space-y-6">
+        <DashboardHeader
+          title="My Lessons"
+          description="Browse and filter your submitted lessons."
+          actions={
+            <div className="flex gap-2">
               <Button
                 variant="outline"
-                className="w-full max-w-xs md:w-auto"
-                onClick={() => setShowFilters((s) => !s)}
+                onClick={() => {
+                  // IMPORTANT: no navigation; just toggle panel
+                  setShowFilters((v) => !v);
+                }}
               >
                 <Filter className="mr-2 h-4 w-4" />
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
+                {showFilters ? "Hide Filters" : "View Filters"}
               </Button>
               <Button
-                variant="outline"
-                className="w-full max-w-xs md:w-auto"
-                onClick={fetchLessons}
-                disabled={isLoading}
+                variant="secondary"
+                onClick={() => {
+                  setFilters(DEFAULT_FILTERS); // guaranteed safe defaults
+                }}
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button className="w-full max-w-xs md:w-auto" onClick={() => navigate('/submit')}>
-                <Plus className="mr-2 h-4 w-4" />
-                New Lesson
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reset
               </Button>
             </div>
-          </div>
-        </div>
+          }
+          backButton={{
+            to: "/",
+            icon: <ArrowLeft className="h-4 w-4" />,
+            label: "Back",
+          }}
+        />
 
-        {/* Filters */}
+        {/* Filter Panel (no route changes, no portals) */}
         {showFilters && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-lg">Filter Lessons</CardTitle>
+          <Card className="border-muted">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Filters</CardTitle>
+              <CardDescription>Refine results without leaving the page.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                <div>
-                  <Label htmlFor="search">Search</Label>
-                  <Input
-                    id="search"
-                    placeholder="Project, role, or client..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label>Budget Status</Label>
-                  <Select
-                    value={filters.budget_status?.[0] || ''}
-                    onValueChange={(value) =>
-                      setFilters((prev) => ({ ...prev, budget_status: value ? [value as any] : undefined }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All statuses</SelectItem>
-                      <SelectItem value="under">Under Budget</SelectItem>
-                      <SelectItem value="on">On Budget</SelectItem>
-                      <SelectItem value="over">Over Budget</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Timeline Status</Label>
-                  <Select
-                    value={filters.timeline_status?.[0] || ''}
-                    onValueChange={(value) =>
-                      setFilters((prev) => ({ ...prev, timeline_status: value ? [value] : undefined }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All timelines" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All timelines</SelectItem>
-                      <SelectItem value="early">Delivered Early</SelectItem>
-                      <SelectItem value="on-time">On Time</SelectItem>
-                      <SelectItem value="late">Delivered Late</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Satisfaction</Label>
-                  <Select
-                    value={filters.satisfaction?.[0]?.toString() || ''}
-                    onValueChange={(value) =>
-                      setFilters((prev) => ({ ...prev, satisfaction: value ? [parseInt(value)] : undefined }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All ratings" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All ratings</SelectItem>
-                      <SelectItem value="5">5 Stars</SelectItem>
-                      <SelectItem value="4">4 Stars</SelectItem>
-                      <SelectItem value="3">3 Stars</SelectItem>
-                      <SelectItem value="2">2 Stars</SelectItem>
-                      <SelectItem value="1">1 Star</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <CardContent className="grid gap-4 md:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="search">Search</Label>
+                <Input
+                  id="search"
+                  placeholder="Project or Client"
+                  value={filters.search}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, search: e.target.value ?? "" }))
+                  }
+                />
               </div>
 
-              <Button variant="outline" className="mt-4" onClick={clearFilters}>
-                Clear All Filters
-              </Button>
+              <div className="space-y-2">
+                <Label>Budget Status</Label>
+                <Select
+                  value={filters.budget}
+                  onValueChange={(v) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      budget: (v as LessonFilters["budget"]) ?? "any",
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Any</SelectItem>
+                    <SelectItem value="under">Under</SelectItem>
+                    <SelectItem value="on">On</SelectItem>
+                    <SelectItem value="over">Over</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Timeline Status</Label>
+                <Select
+                  value={filters.timeline}
+                  onValueChange={(v) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      timeline: (v as LessonFilters["timeline"]) ?? "any",
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Any</SelectItem>
+                    <SelectItem value="early">Early</SelectItem>
+                    <SelectItem value="on">On</SelectItem>
+                    <SelectItem value="late">Late</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="minSat">Min Satisfaction</Label>
+                <Input
+                  id="minSat"
+                  type="number"
+                  min={0}
+                  max={10}
+                  inputMode="numeric"
+                  placeholder="e.g. 7"
+                  value={filters.minSatisfaction}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      minSatisfaction: e.target.value ?? "",
+                    }))
+                  }
+                />
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Results */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Lessons ({filteredLessons.length})</CardTitle>
-                <CardDescription>
-                  {filteredLessons.length === lessons.length
-                    ? `Showing all ${lessons.length} lessons`
-                    : `Showing ${filteredLessons.length} of ${lessons.length} lessons`}
-                </CardDescription>
-              </div>
-            </div>
+          <CardHeader className="pb-2">
+            <CardTitle>Results</CardTitle>
+            <CardDescription>
+              {isLoading ? "Loading…" : `${filtered.length} item(s)`}
+            </CardDescription>
           </CardHeader>
-
           <CardContent>
-            {isLoading ? (
-              <div className="py-8 text-center">Loading lessons...</div>
-            ) : filteredLessons.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="mb-4 text-muted-foreground">
-                  {lessons.length === 0
-                    ? 'No lessons found. Create your first lesson!'
-                    : 'No lessons match your current filters.'}
-                </p>
-                {lessons.length === 0 && (
-                  <Button onClick={() => navigate('/submit')}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create First Lesson
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <>
-                {/* MOBILE: stacked list cards */}
-                <div className="space-y-3 md:hidden">
-                  {paginatedLessons.map((lesson) => (
-                    <div key={lesson.id} className="rounded-lg border p-4">
-                      <div className="text-base font-medium break-words">{lesson.project_name}</div>
-                      <div className="mt-1 text-sm text-muted-foreground break-words">
-                        <span className="font-medium">Role:</span> {lesson.role || '—'}
-                      </div>
-                      <div className="text-sm text-muted-foreground break-words">
-                        <span className="font-medium">Client:</span> {lesson.client_name || '—'}
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-sm">{renderSatisfactionStars(lesson.satisfaction)}</span>
-                        <Badge className={getBudgetStatusColor(lesson.budget_status)}>
-                          {formatBudgetStatus(lesson.budget_status)}
-                        </Badge>
-                        <Badge variant={lesson.scope_change ? 'destructive' : 'secondary'}>
-                          {lesson.scope_change ? 'Scope Change' : 'No Scope Change'}
-                        </Badge>
-                        <span className="text-sm capitalize">{lesson.timeline_status.replace('-', ' ')}</span>
-                      </div>
-                      <div className="mt-2 text-sm text-muted-foreground whitespace-nowrap">
-                        {new Date(lesson.created_at).toLocaleDateString()}
-                      </div>
-
-                      {/* Optional per-row actions; keep simple for now */}
-                      {/* <div className="mt-3 grid grid-cols-2 gap-2">
-                        <Button variant="outline" className="w-full">Open</Button>
-                        <Button className="w-full">Edit</Button>
-                      </div> */}
-                    </div>
+            <div className="w-full overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Satisfaction</TableHead>
+                    <TableHead>Budget</TableHead>
+                    <TableHead>Timeline</TableHead>
+                    <TableHead>CRs</TableHead>
+                    <TableHead>CO Rev</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(!isLoading && filtered.length === 0) && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        No results.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {filtered.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.project_name ?? "—"}</TableCell>
+                      <TableCell>{r.client_name ?? "—"}</TableCell>
+                      <TableCell>
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
+                      <TableCell className="capitalize">{r.budget_status ?? "—"}</TableCell>
+                      <TableCell className="capitalize">{r.timeline_status ?? "—"}</TableCell>
+                      <TableCell>{r.change_request_count ?? 0}</TableCell>
+                      <TableCell>
+                        {typeof r.change_orders_revenue_usd === "number"
+                          ? `$${r.change_orders_revenue_usd.toLocaleString()}`
+                          : "—"}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </div>
-
-                {/* DESKTOP/TABLET: table with safe horizontal scroll */}
-                <div className="hidden md:block">
-                  <div className="-mx-4 overflow-x-auto md:mx-0">
-                    <Table className="min-w-full table-fixed">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-40 md:w-auto">Project</TableHead>
-                          <TableHead className="w-36 md:w-auto">Role</TableHead>
-                          <TableHead className="w-40 md:w-auto">Client</TableHead>
-                          <TableHead className="w-32 md:w-auto">Satisfaction</TableHead>
-                          <TableHead className="w-36 md:w-auto">Budget</TableHead>
-                          <TableHead className="w-32 md:w-auto">Timeline</TableHead>
-                          <TableHead className="w-32 md:w-auto">Scope Change</TableHead>
-                          <TableHead className="w-32 md:w-auto">Created</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedLessons.map((lesson) => (
-                          <TableRow key={lesson.id} className="[&>td]:align-top">
-                            <TableCell className="max-w-[12rem] break-words">{lesson.project_name}</TableCell>
-                            <TableCell className="max-w-[10rem] break-words">{lesson.role}</TableCell>
-                            <TableCell className="max-w-[12rem] break-words">
-                              {lesson.client_name || '-'}
-                            </TableCell>
-                            <TableCell>{renderSatisfactionStars(lesson.satisfaction)}</TableCell>
-                            <TableCell>
-                              <Badge className={getBudgetStatusColor(lesson.budget_status)}>
-                                {formatBudgetStatus(lesson.budget_status)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="break-words capitalize">
-                              {lesson.timeline_status.replace('-', ' ')}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={lesson.scope_change ? 'destructive' : 'secondary'}>
-                                {lesson.scope_change ? 'Yes' : 'No'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {new Date(lesson.created_at).toLocaleDateString()}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="mt-6 flex items-center justify-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-
-                    <span className="px-4 text-sm text-muted-foreground">
-                      Page {currentPage} of {totalPages}
-                    </span>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
+      </div>
+    </PageErrorBoundary>
   );
 };
 

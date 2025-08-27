@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { Profile } from '@/types';
+// src/hooks/useAuth.tsx
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { User, Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { Profile } from "@/types";
 
-interface AuthContextType {
+type AuthContextType = {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
@@ -11,9 +12,9 @@ interface AuthContextType {
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
-}
+};
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -21,39 +22,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Load current session first, then subscribe to changes
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Fetch user profile
-          setTimeout(async () => {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-            setProfile(profileData);
-          }, 0);
+    let mounted = true;
+
+    async function prime() {
+      try {
+        setLoading(true);
+        const { data } = await supabase.auth.getSession();
+        const currSession = data?.session ?? null;
+        const currUser = currSession?.user ?? null;
+
+        if (!mounted) return;
+        setSession(currSession);
+        setUser(currUser);
+
+        if (currUser) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", currUser.id)
+            .maybeSingle();
+
+          if (!mounted) return;
+          setProfile(
+            profileData ?? {
+              id: currUser.id,
+              email: currUser.email,
+              first_name: currUser.user_metadata?.first_name ?? null,
+              last_name: currUser.user_metadata?.last_name ?? null,
+              role: (currUser.app_metadata as any)?.role ?? null,
+            }
+          );
         } else {
           setProfile(null);
         }
-        
-        setLoading(false);
+      } finally {
+        if (mounted) setLoading(false);
       }
-    );
+    }
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    prime();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      const nextUser = nextSession?.user ?? null;
+      setSession(nextSession ?? null);
+      setUser(nextUser);
+
+      if (nextUser) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", nextUser.id)
+          .maybeSingle();
+
+        setProfile(
+          profileData ?? {
+            id: nextUser.id,
+            email: nextUser.email,
+            first_name: nextUser.user_metadata?.first_name ?? null,
+            last_name: nextUser.user_metadata?.last_name ?? null,
+            role: (nextUser.app_metadata as any)?.role ?? null,
+          }
+        );
+      } else {
+        setProfile(null);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
@@ -62,20 +102,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/`,
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-        },
+        data: { first_name: firstName, last_name: lastName },
       },
     });
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
@@ -84,23 +118,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const value = {
-    user,
-    session,
-    profile,
-    loading,
-    signUp,
-    signIn,
-    signOut,
-  };
+  const value = useMemo<AuthContextType>(
+    () => ({ user, session, profile, loading, signUp, signIn, signOut }),
+    [user, session, profile, loading]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+export function useAuth(): AuthContextType {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
 }

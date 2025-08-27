@@ -9,7 +9,7 @@ import DashboardCustomizer from "@/pages/DashboardCustomizer";
 import Auth from "@/pages/Auth"; // <-- your real auth page
 
 // GLOBAL TOP NAV
-import AppHeader from "@/components/AppHeader";
+// import AppHeader from "@/components/AppHeader";  // <-- disabled for now
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -28,8 +28,8 @@ function Root() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Hide header on /auth; otherwise render after auth init */}
-      {!onAuthRoute && !loading && <AppHeader />}
+      {/* Header disabled for debugging */}
+      {/* {!onAuthRoute && !loading && <AppHeader />} */}
 
       <div className="flex-1">
         <Routes>

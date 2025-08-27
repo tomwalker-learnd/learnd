@@ -1,5 +1,14 @@
 // src/App.tsx
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import React from "react";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useInRouterContext,
+  HashRouter,
+} from "react-router-dom";
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,7 +25,6 @@ import Lessons from "@/pages/Lessons";
 import Analytics from "@/pages/Analytics";
 import NotFound from "@/pages/NotFound";
 
-// Custom dashboards
 import Builder from "@/pages/dashboards/Builder";
 import SavedList from "@/pages/dashboards/SavedList";
 import Viewer from "@/pages/dashboards/Viewer";
@@ -34,42 +42,65 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Shell>
-          <Routes>
-            {/* Redirect root to portfolio dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+function AppRoutes() {
+  return (
+    <Shell>
+      <Routes>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-            {/* Auth */}
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/reset" element={<ResetPassword />} />
+        {/* Auth */}
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/auth/reset" element={<ResetPassword />} />
 
-            {/* Core pages */}
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/lessons" element={<Lessons />} />
-            <Route path="/analytics" element={<Analytics />} />
+        {/* Core */}
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/lessons" element={<Lessons />} />
+        <Route path="/analytics" element={<Analytics />} />
 
-            {/* Submit */}
-            <Route path="/submit" element={<SubmitWizard />} />
+        {/* Submit */}
+        <Route path="/submit" element={<SubmitWizard />} />
 
-            {/* Custom Dashboards */}
-            <Route path="/dashboards" element={<Navigate to="/dashboards/saved" replace />} />
-            <Route path="/dashboards/builder" element={<Builder />} />
-            <Route path="/dashboards/saved" element={<SavedList />} />
-            <Route path="/dashboards/:id" element={<Viewer />} />
+        {/* Custom Dashboards */}
+        <Route path="/dashboards" element={<Navigate to="/dashboards/saved" replace />} />
+        <Route path="/dashboards/builder" element={<Builder />} />
+        <Route path="/dashboards/saved" element={<SavedList />} />
+        <Route path="/dashboards/:id" element={<Viewer />} />
 
-            {/* 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Shell>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Shell>
+  );
+}
 
-export default App;
+function AppInner() {
+  const inRouter = useInRouterContext();
+  const isLovableHost =
+    /lovable\./i.test(window.location.host) ||
+    import.meta.env.VITE_USE_HASH_ROUTER === "1";
+
+  // If no router above us and we're on Lovable (or forced), mount HashRouter.
+  if (!inRouter && isLovableHost) {
+    return (
+      <HashRouter>
+        <AppRoutes />
+      </HashRouter>
+    );
+  }
+  // Otherwise, assume a router is already provided (e.g., BrowserRouter in live).
+  return <AppRoutes />;
+}
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <AppInner />
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}

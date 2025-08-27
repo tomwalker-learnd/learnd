@@ -1,5 +1,5 @@
 // src/pages/Dashboard.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,7 @@ type LessonRow = {
   id: string;
   project_name: string | null;
   created_at: string;
-  satisfaction: number | null; // 1-5 or 1-10 in your schema; we'll average non-null
+  satisfaction: number | null;
   budget_status: BudgetStatus;
   timeline_status: TimelineStatus;
   change_request_count: number | null;
@@ -29,14 +29,17 @@ type LessonRow = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+
+  // renamed to avoid confusion with auth "loading"
+  const [dataLoading, setDataLoading] = useState<boolean>(true);
   const [rows, setRows] = useState<LessonRow[] | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const fetchedOnce = useRef(false);
 
   const fetchData = async () => {
     try {
-      setLoading(true);
+      setDataLoading(true);
       setError(null);
 
       // Pull the latest lessons; adjust 'limit' to taste
@@ -62,24 +65,31 @@ export default function Dashboard() {
       if (error) throw error;
       setRows((data as unknown as LessonRow[]) ?? []);
     } catch (e: any) {
+      // eslint-disable-next-line no-console
+      console.warn("[Dashboard] fetchData error:", e?.message || e);
       setError(e?.message ?? "Failed to load dashboard data.");
       setRows([]);
     } finally {
-      setLoading(false);
+      setDataLoading(false);
     }
   };
 
+  // Wait until auth finishes; then fetch once
   useEffect(() => {
-    if (user) fetchData();
-  }, [user]);
+    if (!authLoading && user && !fetchedOnce.current) {
+      fetchedOnce.current = true;
+      fetchData();
+    }
+  }, [authLoading, user]);
+
+  // Manual refresh still works
+  const onRefresh = () => {
+    fetchedOnce.current = true;
+    fetchData();
+  };
 
   // ---- KPIs (computed safely over non-null rows) ----
-  const {
-    totalLessons,
-    avgSatisfaction,
-    onBudgetRate,
-    onTimeRate,
-  } = useMemo(() => {
+  const { totalLessons, avgSatisfaction, onBudgetRate, onTimeRate } = useMemo(() => {
     const data = rows ?? [];
 
     const totalLessons = data.length;
@@ -89,20 +99,16 @@ export default function Dashboard() {
       .filter((v): v is number => v !== null);
     const avgSatisfaction =
       satisfactions.length > 0
-        ? Number(
-            (satisfactions.reduce((a, b) => a + b, 0) / satisfactions.length).toFixed(2)
-          )
+        ? Number((satisfactions.reduce((a, b) => a + b, 0) / satisfactions.length).toFixed(2))
         : null;
 
     const budgetDenom = data.filter((r) => r.budget_status !== null).length;
     const onBudgetCount = data.filter((r) => r.budget_status === "on").length;
-    const onBudgetRate =
-      budgetDenom > 0 ? Number(((onBudgetCount / budgetDenom) * 100).toFixed(1)) : null;
+    const onBudgetRate = budgetDenom > 0 ? Number(((onBudgetCount / budgetDenom) * 100).toFixed(1)) : null;
 
     const timeDenom = data.filter((r) => r.timeline_status !== null).length;
     const onTimeCount = data.filter((r) => r.timeline_status === "on").length;
-    const onTimeRate =
-      timeDenom > 0 ? Number(((onTimeCount / timeDenom) * 100).toFixed(1)) : null;
+    const onTimeRate = timeDenom > 0 ? Number(((onTimeCount / timeDenom) * 100).toFixed(1)) : null;
 
     return { totalLessons, avgSatisfaction, onBudgetRate, onTimeRate };
   }, [rows]);
@@ -120,7 +126,7 @@ export default function Dashboard() {
             <Button variant="outline" onClick={() => navigate("/dashboards")}>
               View Dashboards
             </Button>
-            <Button variant="ghost" size="icon" onClick={fetchData} title="Refresh">
+            <Button variant="ghost" size="icon" onClick={onRefresh} title="Refresh">
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
@@ -134,11 +140,7 @@ export default function Dashboard() {
             <CardTitle className="text-sm text-muted-foreground">Total Lessons</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <div className="text-3xl font-semibold">{kpiValue(totalLessons)}</div>
-            )}
+            {dataLoading ? <Skeleton className="h-7 w-16" /> : <div className="text-3xl font-semibold">{kpiValue(totalLessons)}</div>}
           </CardContent>
         </Card>
 
@@ -147,12 +149,10 @@ export default function Dashboard() {
             <CardTitle className="text-sm text-muted-foreground">Avg. Satisfaction</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {dataLoading ? (
               <Skeleton className="h-7 w-24" />
             ) : (
-              <div className="text-3xl font-semibold">
-                {kpiValue(avgSatisfaction ?? null)}
-              </div>
+              <div className="text-3xl font-semibold">{kpiValue(avgSatisfaction ?? null)}</div>
             )}
           </CardContent>
         </Card>
@@ -162,12 +162,10 @@ export default function Dashboard() {
             <CardTitle className="text-sm text-muted-foreground">On-Budget Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {dataLoading ? (
               <Skeleton className="h-7 w-20" />
             ) : (
-              <div className="text-3xl font-semibold">
-                {kpiValue(onBudgetRate ?? null, "%")}
-              </div>
+              <div className="text-3xl font-semibold">{kpiValue(onBudgetRate ?? null, "%")}</div>
             )}
           </CardContent>
         </Card>
@@ -177,12 +175,10 @@ export default function Dashboard() {
             <CardTitle className="text-sm text-muted-foreground">On-Time Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {dataLoading ? (
               <Skeleton className="h-7 w-20" />
             ) : (
-              <div className="text-3xl font-semibold">
-                {kpiValue(onTimeRate ?? null, "%")}
-              </div>
+              <div className="text-3xl font-semibold">{kpiValue(onTimeRate ?? null, "%")}</div>
             )}
           </CardContent>
         </Card>
@@ -193,14 +189,12 @@ export default function Dashboard() {
         <CardHeader className="flex items-center justify-between gap-2 sm:flex-row">
           <div>
             <CardTitle className="text-xl">Recent Lessons</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Latest records (up to 100). Add filters or links as needed.
-            </p>
+            <p className="text-sm text-muted-foreground">Latest records (up to 100). Add filters or links as needed.</p>
           </div>
           <TrendingUp className="h-5 w-5 opacity-70" />
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {dataLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-9 w-full" />
               <Skeleton className="h-9 w-full" />
@@ -224,9 +218,7 @@ export default function Dashboard() {
                   {rows.slice(0, 12).map((r) => (
                     <tr key={r.id} className="border-b last:border-0">
                       <td className="py-2 pr-3">{r.project_name ?? "—"}</td>
-                      <td className="py-2 px-3">
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </td>
+                      <td className="py-2 px-3">{new Date(r.created_at).toLocaleDateString()}</td>
                       <td className="py-2 px-3">{r.satisfaction ?? "—"}</td>
                       <td className="py-2 px-3">
                         {r.budget_status ? (

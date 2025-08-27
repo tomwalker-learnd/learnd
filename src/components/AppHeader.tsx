@@ -1,17 +1,10 @@
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+// src/components/AppHeader.tsx (minimal, safe)
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 
-function cx(...cls: Array<string | false | null | undefined>) {
-  return cls.filter(Boolean).join(" ");
-}
-
 export default function AppHeader() {
   const { user, loading, signOut } = useAuth();
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
 
-  // While auth initializes, render a thin shell (no user reads)
   if (loading) {
     return (
       <header className="border-b bg-background/50 backdrop-blur">
@@ -23,52 +16,39 @@ export default function AppHeader() {
     );
   }
 
-  // Public (no user) — simple header with Sign in
   if (!user) {
     return (
       <header className="border-b bg-background/50 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
           <div className="font-semibold">Learnd</div>
-          <Button size="sm" onClick={() => navigate("/auth")}>Sign in</Button>
+          <a href="/auth">
+            <Button size="sm">Sign in</Button>
+          </a>
         </div>
       </header>
     );
   }
 
-  // Authenticated
   const email = user.email ?? "user";
   const initials =
     (email[0]?.toUpperCase() ?? "U") +
     (email.split("@")[0]?.[1]?.toUpperCase() ?? "");
 
-  const link = (to: string, label: string) => (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        cx(
-          "px-2 py-1 rounded-md text-sm",
-          isActive ? "font-medium" : "text-muted-foreground hover:text-foreground"
-        )
-      }
-    >
-      {label}
-    </NavLink>
-  );
-
   const onLogout = async () => {
     await signOut();
-    if (pathname !== "/auth") navigate("/auth", { replace: true });
+    // Use hard redirect to avoid router hook issues
+    window.location.assign("/auth");
   };
 
   return (
     <header className="border-b bg-background/50 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="font-semibold">Learnd</div>
-          <nav className="hidden sm:flex items-center gap-1">
-            {link("/", "Home")}
-            {link("/dashboards", "Dashboards")}
-            {link("/dashboards/customize", "Customize")}
+          <a href="/" className="font-semibold">Learnd</a>
+          <nav className="hidden sm:flex items-center gap-2 text-sm">
+            <a href="/" className="px-2 py-1 rounded-md hover:underline">Home</a>
+            <a href="/dashboards" className="px-2 py-1 rounded-md hover:underline">Dashboards</a>
+            <a href="/dashboards/customize" className="px-2 py-1 rounded-md hover:underline">Customize</a>
           </nav>
         </div>
 

@@ -128,4 +128,150 @@ export default function Dashboard() {
       />
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Total Lessons</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-3xl font-semibold">{kpiValue(totalLessons)}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Avg. Satisfaction</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="text-3xl font-semibold">
+                {kpiValue(avgSatisfaction ?? null)}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">On-Budget Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-7 w-20" />
+            ) : (
+              <div className="text-3xl font-semibold">
+                {kpiValue(onBudgetRate ?? null, "%")}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">On-Time Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-7 w-20" />
+            ) : (
+              <div className="text-3xl font-semibold">
+                {kpiValue(onTimeRate ?? null, "%")}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Lessons */}
+      <Card className="shadow-sm">
+        <CardHeader className="flex items-center justify-between gap-2 sm:flex-row">
+          <div>
+            <CardTitle className="text-xl">Recent Lessons</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Latest records (up to 100). Add filters or links as needed.
+            </p>
+          </div>
+          <TrendingUp className="h-5 w-5 opacity-70" />
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ) : error ? (
+            <div className="text-sm text-destructive">{error}</div>
+          ) : rows && rows.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="py-2 pr-3 text-left">Project</th>
+                    <th className="py-2 px-3 text-left">Created</th>
+                    <th className="py-2 px-3 text-left">Satisfaction</th>
+                    <th className="py-2 px-3 text-left">Budget</th>
+                    <th className="py-2 pl-3 text-left">Timeline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.slice(0, 12).map((r) => (
+                    <tr key={r.id} className="border-b last:border-0">
+                      <td className="py-2 pr-3">{r.project_name ?? "—"}</td>
+                      <td className="py-2 px-3">
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="py-2 px-3">{r.satisfaction ?? "—"}</td>
+                      <td className="py-2 px-3">
+                        {r.budget_status ? (
+                          <Badge
+                            variant={
+                              r.budget_status === "on"
+                                ? "secondary"
+                                : r.budget_status === "under"
+                                ? "default"
+                                : "destructive"
+                            }
+                          >
+                            {r.budget_status}
+                          </Badge>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="py-2 pl-3">
+                        {r.timeline_status ? (
+                          <Badge
+                            variant={
+                              r.timeline_status === "on"
+                                ? "secondary"
+                                : r.timeline_status === "early"
+                                ? "default"
+                                : "destructive"
+                            }
+                          >
+                            {r.timeline_status}
+                          </Badge>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">No lessons yet.</div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

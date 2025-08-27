@@ -20,10 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Filter, RefreshCw } from "lucide-react";
+import { Filter, RefreshCw } from "lucide-react";
 
 type BudgetStatus = "under" | "on" | "over";
 type TimelineStatus = "early" | "on" | "late";
@@ -46,7 +52,7 @@ type LessonFilters = {
   search: string;
   budget: BudgetStatus | "any";
   timeline: TimelineStatus | "any";
-  minSatisfaction: string; // keep as string for controlled input safety
+  minSatisfaction: string;
 };
 
 const DEFAULT_FILTERS: LessonFilters = {
@@ -55,48 +61,6 @@ const DEFAULT_FILTERS: LessonFilters = {
   timeline: "any",
   minSatisfaction: "",
 };
-
-// --- tiny error boundary to avoid whole-page blanking ---
-function PageErrorBoundary({ children }: { children: React.ReactNode }) {
-  const [err, setErr] = useState<Error | null>(null);
-  if (err) {
-    return (
-      <div className="p-6">
-        <Card className="border-destructive">
-          <CardHeader>
-            <CardTitle>Something went wrong</CardTitle>
-            <CardDescription>Reload the page or click “Reset”.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <pre className="text-sm text-muted-foreground whitespace-pre-wrap">{err.message}</pre>
-            <Button onClick={() => window.location.reload()}>Reset</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-  return (
-    <ErrorCatcher onError={setErr}>
-      {children}
-    </ErrorCatcher>
-  );
-}
-
-function ErrorCatcher({
-  children,
-  onError,
-}: {
-  children: React.ReactNode;
-  onError: (e: Error) => void;
-}) {
-  // Render-only try/catch via error throwing boundary pattern
-  try {
-    return <>{children}</>;
-  } catch (e: any) {
-    onError(e);
-    return null;
-  }
-}
 
 const Lessons = () => {
   const { user, loading } = useAuth();
@@ -112,7 +76,6 @@ const Lessons = () => {
     const load = async () => {
       try {
         setIsLoading(true);
-        // Adjust table name/columns to your schema
         const { data, error } = await supabase
           .from("lessons")
           .select(
@@ -173,192 +136,201 @@ const Lessons = () => {
       const matchesSatisfaction =
         minSat === null || (satVal !== null && satVal >= minSat);
 
-      return matchesSearch && matchesBudget && matchesTimeline && matchesSatisfaction;
+      return (
+        matchesSearch &&
+        matchesBudget &&
+        matchesTimeline &&
+        matchesSatisfaction
+      );
     });
   }, [rows, filters]);
 
-  // Auth gates
   if (!loading && !user) return <Navigate to="/login" replace />;
 
   return (
-    <PageErrorBoundary>
-      <div className="space-y-6">
-        <DashboardHeader
-          title="My Lessons"
-          description="Browse and filter your submitted lessons."
-          actions={
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  // IMPORTANT: no navigation; just toggle panel
-                  setShowFilters((v) => !v);
-                }}
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                {showFilters ? "Hide Filters" : "View Filters"}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setFilters(DEFAULT_FILTERS); // guaranteed safe defaults
-                }}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Reset
-              </Button>
-            </div>
-          }
-          backButton={{
-            to: "/",
-            icon: <ArrowLeft className="h-4 w-4" />,
-            label: "Back",
-          }}
-        />
+    <div className="space-y-6">
+      {/* Page Heading (replaces DashboardHeader) */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">My Lessons</h1>
+        <p className="text-muted-foreground">
+          Browse and filter your submitted lessons.
+        </p>
+      </div>
 
-        {/* Filter Panel (no route changes, no portals) */}
-        {showFilters && (
-          <Card className="border-muted">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Filters</CardTitle>
-              <CardDescription>Refine results without leaving the page.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-4">
-              <div className="space-y-2">
-                <Label htmlFor="search">Search</Label>
-                <Input
-                  id="search"
-                  placeholder="Project or Client"
-                  value={filters.search}
-                  onChange={(e) =>
-                    setFilters((prev) => ({ ...prev, search: e.target.value ?? "" }))
-                  }
-                />
-              </div>
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          <Filter className="mr-2 h-4 w-4" />
+          {showFilters ? "Hide Filters" : "View Filters"}
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => setFilters(DEFAULT_FILTERS)}
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Reset
+        </Button>
+      </div>
 
-              <div className="space-y-2">
-                <Label>Budget Status</Label>
-                <Select
-                  value={filters.budget}
-                  onValueChange={(v) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      budget: (v as LessonFilters["budget"]) ?? "any",
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Any" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Any</SelectItem>
-                    <SelectItem value="under">Under</SelectItem>
-                    <SelectItem value="on">On</SelectItem>
-                    <SelectItem value="over">Over</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Timeline Status</Label>
-                <Select
-                  value={filters.timeline}
-                  onValueChange={(v) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      timeline: (v as LessonFilters["timeline"]) ?? "any",
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Any" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Any</SelectItem>
-                    <SelectItem value="early">Early</SelectItem>
-                    <SelectItem value="on">On</SelectItem>
-                    <SelectItem value="late">Late</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="minSat">Min Satisfaction</Label>
-                <Input
-                  id="minSat"
-                  type="number"
-                  min={0}
-                  max={10}
-                  inputMode="numeric"
-                  placeholder="e.g. 7"
-                  value={filters.minSatisfaction}
-                  onChange={(e) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      minSatisfaction: e.target.value ?? "",
-                    }))
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
+      {/* Filter Panel */}
+      {showFilters && (
+        <Card className="border-muted">
           <CardHeader className="pb-2">
-            <CardTitle>Results</CardTitle>
-            <CardDescription>
-              {isLoading ? "Loading…" : `${filtered.length} item(s)`}
-            </CardDescription>
+            <CardTitle className="text-base">Filters</CardTitle>
+            <CardDescription>Refine results without leaving the page.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="w-full overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Satisfaction</TableHead>
-                    <TableHead>Budget</TableHead>
-                    <TableHead>Timeline</TableHead>
-                    <TableHead>CRs</TableHead>
-                    <TableHead>CO Rev</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(!isLoading && filtered.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
-                        No results.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {filtered.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.project_name ?? "—"}</TableCell>
-                      <TableCell>{r.client_name ?? "—"}</TableCell>
-                      <TableCell>
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
-                      <TableCell className="capitalize">{r.budget_status ?? "—"}</TableCell>
-                      <TableCell className="capitalize">{r.timeline_status ?? "—"}</TableCell>
-                      <TableCell>{r.change_request_count ?? 0}</TableCell>
-                      <TableCell>
-                        {typeof r.change_orders_revenue_usd === "number"
-                          ? `$${r.change_orders_revenue_usd.toLocaleString()}`
-                          : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+          <CardContent className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="search">Search</Label>
+              <Input
+                id="search"
+                placeholder="Project or Client"
+                value={filters.search}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, search: e.target.value ?? "" }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Budget Status</Label>
+              <Select
+                value={filters.budget}
+                onValueChange={(v) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    budget: (v as LessonFilters["budget"]) ?? "any",
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any</SelectItem>
+                  <SelectItem value="under">Under</SelectItem>
+                  <SelectItem value="on">On</SelectItem>
+                  <SelectItem value="over">Over</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Timeline Status</Label>
+              <Select
+                value={filters.timeline}
+                onValueChange={(v) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    timeline: (v as LessonFilters["timeline"]) ?? "any",
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any</SelectItem>
+                  <SelectItem value="early">Early</SelectItem>
+                  <SelectItem value="on">On</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="minSat">Min Satisfaction</Label>
+              <Input
+                id="minSat"
+                type="number"
+                min={0}
+                max={10}
+                inputMode="numeric"
+                placeholder="e.g. 7"
+                value={filters.minSatisfaction}
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    minSatisfaction: e.target.value ?? "",
+                  }))
+                }
+              />
             </div>
           </CardContent>
         </Card>
-      </div>
-    </PageErrorBoundary>
+      )}
+
+      {/* Results */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>Results</CardTitle>
+          <CardDescription>
+            {isLoading ? "Loading…" : `${filtered.length} item(s)`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="w-full overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Satisfaction</TableHead>
+                  <TableHead>Budget</TableHead>
+                  <TableHead>Timeline</TableHead>
+                  <TableHead>CRs</TableHead>
+                  <TableHead>CO Rev</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {!isLoading && filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="text-center text-muted-foreground"
+                    >
+                      No results.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {filtered.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">
+                      {r.project_name ?? "—"}
+                    </TableCell>
+                    <TableCell>{r.client_name ?? "—"}</TableCell>
+                    <TableCell>
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      {typeof r.satisfaction === "number"
+                        ? r.satisfaction
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {r.budget_status ?? "—"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {r.timeline_status ?? "—"}
+                    </TableCell>
+                    <TableCell>{r.change_request_count ?? 0}</TableCell>
+                    <TableCell>
+                      {typeof r.change_orders_revenue_usd === "number"
+                        ? `$${r.change_orders_revenue_usd.toLocaleString()}`
+                        : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

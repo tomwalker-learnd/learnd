@@ -79,28 +79,59 @@ const AppHeader = () => {
               >
                 Lessons
               </NavLink>
+              <NavLink
+                to="/analytics"
+                className={({ isActive }) =>
+                  `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
+                }
+              >
+                Analytics
+              </NavLink>
             </nav>
 
-            {/* User Menu */}
-            {user && (
+            {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full">
-                    <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
+                  <Button variant="outline" className="h-8 w-8 rounded-full p-0" aria-label="User menu">
+                    <span className="inline-flex h-full w-full items-center justify-center text-sm font-medium">
                       {initial}
-                    </div>
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    {user.email || "User"}
+                  <DropdownMenuLabel className="truncate">
+                    {user.email || user.user_metadata?.full_name || "Signed in"}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/">Home</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/dashboards">Dashboards</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/dashboards/customize">Create Dashboard</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/submit">Capture New Lesson</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/lessons">My Lessons</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/analytics">Analytics</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
-                    Sign Out
+                    Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            ) : (
+              <Button asChild size="sm" variant="outline">
+                <Link to="/auth">Sign in</Link>
+              </Button>
             )}
           </div>
         </div>

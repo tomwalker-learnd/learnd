@@ -3,12 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { useAuth } from "@/hooks/useAuth";
 
 // PAGES
-import Dashboard from "@/pages/Dashboard";                 // keep your existing file
-import Dashboards from "@/pages/Dashboards";               // NEW (below)
-import DashboardCustomizer from "@/pages/DashboardCustomizer"; // NEW (below)
+import Dashboard from "@/pages/Dashboard";                  // "Home"
+import Dashboards from "@/pages/Dashboards";                // Hub
+import DashboardCustomizer from "@/pages/DashboardCustomizer"; // Builder
 
-// SHARED LAYOUT (if you have one)
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+// GLOBAL TOP NAV
+import AppHeader from "@/components/AppHeader";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -20,18 +20,21 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 export default function App() {
   return (
     <Router>
+      {/* Global top nav with compact avatar + links */}
+      <AppHeader />
+
       <Routes>
-        {/* HOME: point to your existing Dashboard page, but we’ll title it “Home” in-page */}
+        {/* HOME: Dashboard page acts as "Home" */}
         <Route
           path="/"
           element={
             <ProtectedRoute>
-              <DashboardHeader title="Home" />
               <Dashboard />
             </ProtectedRoute>
           }
         />
-        {/* New “Dashboards” hub page */}
+
+        {/* Dashboards hub */}
         <Route
           path="/dashboards"
           element={
@@ -40,6 +43,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
         {/* Custom dashboard builder */}
         <Route
           path="/dashboards/customize"

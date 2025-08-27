@@ -1,143 +1,89 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
+// src/components/AppHeader.tsx
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+// If you have shadcn Avatar, uncomment these 2 lines:
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// import { LogOut } from "lucide-react";
 
-const AppHeader = () => {
-  const { user, signOut } = useAuth();
+export default function AppHeader() {
+  const { user, loading, signOut } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
 
-  const handleSignOut = async () => {
-    try {
-      await signOut?.();
-    } finally {
-      navigate("/auth", { replace: true });
-    }
+  // 1) While auth is initializing, render a minimal, non-crashy shell
+  if (loading) {
+    return (
+      <header className="border-b bg-background/50 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
+          <Link to="/" className="font-semibold">Learnd</Link>
+          <div className="text-xs text-muted-foreground">Checking session…</div>
+        </div>
+      </header>
+    );
+  }
+
+  // 2) Not signed in → render a simple public header (NO user fields)
+  if (!user) {
+    return (
+      <header className="border-b bg-background/50 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
+          <Link to="/" className="font-semibold">Learnd</Link>
+          <nav className="flex items-center gap-2">
+            {/* If your login page is /auth */}
+            <Link to="/auth">
+              <Button size="sm" variant="default">Sign in</Button>
+            </Link>
+          </nav>
+        </div>
+      </header>
+    );
+  }
+
+  // 3) Signed in → safe to read user fields (always null-check)
+  const email = user.email ?? "user";
+  const initials =
+    (email?.[0]?.toUpperCase() ?? "U") +
+    (email?.split("@")[0]?.[1]?.toUpperCase() ?? "");
+
+  const onLogout = async () => {
+    await signOut();
+    // Send to auth page only if you’re not already there
+    if (location.pathname !== "/auth") navigate("/auth", { replace: true });
   };
 
-  const initial = (user?.email || user?.user_metadata?.full_name || "U")
-    .toString()
-    .trim()
-    .charAt(0)
-    .toUpperCase();
-
   return (
-    <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b">
-      <div className="mx-auto max-w-7xl px-3 sm:px-4">
-        <div className="h-12 flex items-center justify-between">
-          {/* Left: Logo + Tagline */}
-          <Link to="/" className="inline-flex items-center gap-3">
-            <img
-              src="/brand/learnd-logo-v8_Lgt.png"
-              alt="Learnd"
-              className="h-6 w-auto"
-            />
-            <span className="hidden sm:inline text-sm sm:text-base text-muted-foreground">
-              Learn. Improve. Repeat.
-            </span>
-          </Link>
+    <header className="border-b bg-background/50 backdrop-blur">
+      <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link to="/" className="font-semibold">Learnd</Link>
+          <nav className="hidden sm:flex items-center gap-3 text-sm">
+            <Link to="/" className="hover:underline">Home</Link>
+            <Link to="/dashboards" className="hover:underline">Dashboards</Link>
+            <Link to="/dashboards/customize" className="hover:underline">Customize</Link>
+          </nav>
+        </div>
 
-          {/* Right: Nav + User */}
-          <div className="flex items-center gap-3">
-            <nav className="hidden sm:flex items-center gap-5 text-sm mr-1">
-              <NavLink
-                to="/"
-                className={({ isActive }) =>
-                  `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
-                }
-              >
-                Home
-              </NavLink>
-              <NavLink
-                to="/dashboards"
-                className={({ isActive }) =>
-                  `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
-                }
-              >
-                Dashboards
-              </NavLink>
-              <NavLink
-                to="/submit"
-                className={({ isActive }) =>
-                  `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
-                }
-              >
-                Capture
-              </NavLink>
-              <NavLink
-                to="/lessons"
-                className={({ isActive }) =>
-                  `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
-                }
-              >
-                Lessons
-              </NavLink>
-              <NavLink
-                to="/analytics"
-                className={({ isActive }) =>
-                  `hover:text-foreground ${isActive ? "text-foreground" : "text-muted-foreground"}`
-                }
-              >
-                Analytics
-              </NavLink>
-            </nav>
-
-            {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-8 w-8 rounded-full p-0" aria-label="User menu">
-                    <span className="inline-flex h-full w-full items-center justify-center text-sm font-medium">
-                      {initial}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="truncate">
-                    {user.email || user.user_metadata?.full_name || "Signed in"}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/">Home</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/dashboards">Dashboards</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/dashboards/customize">Create Dashboard</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/submit">Capture New Lesson</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/lessons">My Lessons</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/analytics">Analytics</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button asChild size="sm" variant="outline">
-                <Link to="/auth">Sign in</Link>
-              </Button>
-            )}
+        <div className="flex items-center gap-2">
+          {/* If you have Avatar component, use it; otherwise simple fallback circle */}
+          {/* <Avatar className="h-8 w-8">
+            <AvatarImage src={user.user_metadata?.avatar_url} alt={email} />
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar> */}
+          <div
+            aria-label="avatar"
+            className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium"
+            title={email}
+          >
+            {initials}
           </div>
+          <span className="hidden sm:inline text-sm text-muted-foreground">{email}</span>
+          <Button size="sm" variant="outline" onClick={onLogout}>
+            {/* <LogOut className="mr-1 h-4 w-4" /> */}
+            Sign out
+          </Button>
         </div>
       </div>
     </header>
   );
-};
-
-export default AppHeader;
+}

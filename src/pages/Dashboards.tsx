@@ -1,4 +1,3 @@
-// src/pages/Dashboards.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,12 +27,7 @@ type PresetParams = {
 type Preset = { id: string; name: string; description: string; params: PresetParams };
 
 const PRESET_DASHBOARDS: Preset[] = [
-  {
-    id: "overall_health",
-    name: "Overall Delivery Health",
-    description: "All lessons from the last 90 days to assess satisfaction, budget, and timeline health.",
-    params: { timeRangeDays: 90 },
-  },
+  { id: "overall_health", name: "Overall Delivery Health", description: "All lessons from the last 90 days to assess satisfaction, budget, and timeline health.", params: { timeRangeDays: 90 } },
   { id: "budget_risk", name: "Budget at Risk", description: "Lessons marked Over budget in the last 90 days.", params: { timeRangeDays: 90, budget_status: "over" } },
   { id: "timeline_risk", name: "Timeline at Risk", description: "Lessons marked Late in the last 90 days.", params: { timeRangeDays: 90, timeline_status: "late" } },
   { id: "low_satisfaction", name: "Low Satisfaction", description: "Satisfaction ≤ 2 over the last 60 days.", params: { timeRangeDays: 60, max_satisfaction: 2 } },
@@ -45,7 +39,7 @@ type LessonRow = {
   id: string;
   created_at: string;
   project_name: string | null;
-  satisfaction: number | null; // 1..5
+  satisfaction: number | null;
   budget_status: "under" | "on" | "over" | null;
   timeline_status: "early" | "on" | "late" | null;
   change_request_count: number | null;
@@ -67,7 +61,7 @@ const SELECT_FIELDS = [
   "created_by",
 ].join(", ");
 
-type CustomDashboard = { id: string; name: string; params?: PresetParams }; // params optional for now
+type CustomDashboard = { id: string; name: string; params?: PresetParams };
 
 export default function Dashboards() {
   const navigate = useNavigate();
@@ -75,11 +69,11 @@ export default function Dashboards() {
   // TODO: replace with real data when you persist custom dashboards
   const customDashboards: CustomDashboard[] = [];
 
-  // State for dropdown selections
+  // Selection state
   const [presetId, setPresetId] = useState<string | null>(null);
   const [customId, setCustomId] = useState<string | null>(null);
 
-  // Loaded rows for selected preset preview
+  // Preview state
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<LessonRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +87,7 @@ export default function Dashboards() {
     [customId, customDashboards]
   );
 
-  // Build a query string for Lessons.tsx based on params
+  // Build lessons deep-link from params
   function buildLessonsQuery(params: PresetParams, source: "preset" | "custom", id?: string) {
     const qs = new URLSearchParams();
     qs.set("source", source);
@@ -108,7 +102,7 @@ export default function Dashboards() {
     return `/lessons?${qs.toString()}`;
   }
 
-  // Load data for preset preview (simple KPIs)
+  // Load preview data for selected preset
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -150,13 +144,11 @@ export default function Dashboards() {
     };
   }, [selectedPreset]);
 
-  // Simple KPI summary for preview
+  // Simple KPIs
   const kpis = useMemo(() => {
     const data = rows ?? [];
     const total = data.length;
-    const sats = data
-      .map((r) => (typeof r.satisfaction === "number" ? r.satisfaction : null))
-      .filter((x): x is number => x !== null);
+    const sats = data.map((r) => (typeof r.satisfaction === "number" ? r.satisfaction : null)).filter((x): x is number => x !== null);
     const avgSat = sats.length ? +(sats.reduce((a, b) => a + b, 0) / sats.length).toFixed(2) : null;
 
     const budget = data.reduce(
@@ -189,7 +181,7 @@ export default function Dashboards() {
         description="Select a standard dashboard or work with your custom dashboards."
       />
 
-      {/* STANDARD DASHBOARDS */}
+      {/* STANDARD */}
       <Card>
         <CardHeader>
           <CardTitle>Standard</CardTitle>
@@ -226,6 +218,7 @@ export default function Dashboards() {
                       Open in Customizer
                     </Button>
                     <Button
+                      variant="gradient"
                       onClick={() =>
                         navigate(buildLessonsQuery(selectedPreset.params, "preset", selectedPreset.id))
                       }
@@ -271,7 +264,7 @@ export default function Dashboards() {
         </CardContent>
       </Card>
 
-      {/* CUSTOM DASHBOARDS */}
+      {/* CUSTOM */}
       <Card>
         <CardHeader>
           <CardTitle>Custom</CardTitle>
@@ -307,7 +300,9 @@ export default function Dashboards() {
               </div>
 
               <div className="flex items-center gap-2">
-                <Button onClick={() => navigate("/dashboards/customize")}>Create dashboard</Button>
+                <Button variant="gradient" onClick={() => navigate("/dashboards/customize")}>
+                  Create dashboard
+                </Button>
                 {selectedCustom?.params && (
                   <Button
                     variant="outline"

@@ -31,7 +31,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
-  // renamed to avoid confusion with auth "loading"
   const [dataLoading, setDataLoading] = useState<boolean>(true);
   const [rows, setRows] = useState<LessonRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +72,7 @@ export default function Dashboard() {
     }
   };
 
-  // Wait until auth finishes; then fetch once
+  // Fetch once after auth is ready
   useEffect(() => {
     if (!authLoading && user && !fetchedOnce.current) {
       fetchedOnce.current = true;
@@ -81,20 +80,22 @@ export default function Dashboard() {
     }
   }, [authLoading, user]);
 
-  // Manual refresh still works
   const onRefresh = () => {
     fetchedOnce.current = true;
     fetchData();
   };
 
-  // ---- KPIs (computed safely over non-null rows) ----
+  // KPIs on full dataset
   const { totalLessons, avgSatisfaction, onBudgetRate, onTimeRate } = useMemo(() => {
     const data = rows ?? [];
-
     const totalLessons = data.length;
 
-    const sats = data.map((r) => (typeof r.satisfaction === "number" ? r.satisfaction : null)).filter((x): x is number => x !== null);
-    const avgSatisfaction = sats.length ? +(sats.reduce((a, b) => a + b, 0) / sats.length).toFixed(2) : null;
+    const sats = data
+      .map((r) => (typeof r.satisfaction === "number" ? r.satisfaction : null))
+      .filter((x): x is number => x !== null);
+    const avgSatisfaction = sats.length
+      ? +(sats.reduce((a, b) => a + b, 0) / sats.length).toFixed(2)
+      : null;
 
     const budgetCounts = data.reduce(
       (acc, r) => {
@@ -104,7 +105,9 @@ export default function Dashboard() {
       },
       { on: 0, total: 0 }
     );
-    const onBudgetRate = budgetCounts.total ? Math.round((budgetCounts.on / budgetCounts.total) * 100) : null;
+    const onBudgetRate = budgetCounts.total
+      ? Math.round((budgetCounts.on / budgetCounts.total) * 100)
+      : null;
 
     const timeCounts = data.reduce(
       (acc, r) => {
@@ -114,18 +117,23 @@ export default function Dashboard() {
       },
       { on: 0, total: 0 }
     );
-    const onTimeRate = timeCounts.total ? Math.round((timeCounts.on / timeCounts.total) * 100) : null;
+    const onTimeRate = timeCounts.total
+      ? Math.round((timeCounts.on / timeCounts.total) * 100)
+      : null;
 
     return { totalLessons, avgSatisfaction, onBudgetRate, onTimeRate };
   }, [rows]);
 
   const kpiValue = (v: number | null) => (v === null ? "—" : v);
 
+  // Only show 10 rows in the list
+  const recentRows = useMemo(() => (rows ?? []).slice(0, 10), [rows]);
+
   return (
     <div className="space-y-6">
       <DashboardHeader
-        title="Dashboard"
-        description="Snapshot of recent lessons & delivery performance."
+        title="Home"
+        description="High-level KPIs and your most recent lessons."
         actions={
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={onRefresh}>
@@ -179,7 +187,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Table */}
+      {/* Recent Lessons (max 10) */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Lessons</CardTitle>
@@ -189,7 +197,7 @@ export default function Dashboard() {
             <div className="text-sm text-red-600">{error}</div>
           ) : dataLoading ? (
             <Skeleton className="h-32 w-full" />
-          ) : rows && rows.length > 0 ? (
+          ) : recentRows.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-xs text-muted-foreground">
@@ -202,13 +210,15 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {recentRows.map((r) => (
                     <tr key={r.id} className="border-t">
                       <td className="py-2 pr-4">{r.project_name ?? "—"}</td>
                       <td className="py-2 pr-4">
                         {new Date(r.created_at).toLocaleDateString()}
                       </td>
-                      <td className="py-2 pr-4">{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</td>
+                      <td className="py-2 pr-4">
+                        {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
+                      </td>
                       <td className="py-2 pr-4 capitalize">{r.budget_status ?? "—"}</td>
                       <td className="py-2 pr-0 capitalize">{r.timeline_status ?? "—"}</td>
                     </tr>

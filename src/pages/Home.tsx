@@ -49,7 +49,7 @@ const statusBadge = (v?: string | null) => {
   return map[v] ?? "bg-muted text-foreground";
 };
 
-export default function Dashboard() {
+export default function Home() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();

@@ -8,7 +8,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+        default:
+          "bg-primary text-primary-foreground shadow hover:bg-primary/90",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline:
@@ -18,9 +19,10 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
 
-        // ⭐ Brand gradient
+        // Updated brand gradient: ensures both stops show on short buttons
+        // Endpoints: #F8791A → #CF1072
         gradient:
-          "text-white shadow bg-gradient-to-r from-brand-from to-brand-to hover:opacity-90",
+          "text-white shadow [background:linear-gradient(90deg,#F8791A_0%,#F8791A_40%,#CF1072_100%)] hover:opacity-90",
       },
       size: {
         default: "h-9 px-4 py-2",

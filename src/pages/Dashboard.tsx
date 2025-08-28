@@ -1,236 +1,274 @@
 // src/pages/Dashboard.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { RefreshCw, TrendingUp } from "lucide-react";
+import AnalyticsCta from "@/components/AnalyticsCta";
 
-type BudgetStatus = "under" | "on" | "over" | null;
-type TimelineStatus = "early" | "on" | "late" | null;
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { RefreshCw, ArrowRight } from "lucide-react";
+
+type BudgetStatus = "under" | "on" | "over";
+type TimelineStatus = "early" | "on" | "late";
 
 type LessonRow = {
   id: string;
   project_name: string | null;
+  client_name: string | null;
   created_at: string;
-  satisfaction: number | null;
-  budget_status: BudgetStatus;
-  timeline_status: TimelineStatus;
+  satisfaction: number | null; // 1..5
+  budget_status: BudgetStatus | null;
+  timeline_status: TimelineStatus | null;
   change_request_count: number | null;
   change_orders_approved_count: number | null;
   change_orders_revenue_usd: number | null;
   created_by: string;
 };
 
+const SELECT_FIELDS = [
+  "id",
+  "project_name",
+  "client_name",
+  "created_at",
+  "satisfaction",
+  "budget_status",
+  "timeline_status",
+  "change_request_count",
+  "change_orders_approved_count",
+  "change_orders_revenue_usd",
+  "created_by",
+].join(", ");
+
+const KPI_WINDOW_DAYS = 90;
+const RECENT_LIMIT = 10;
+
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
 
-  const [dataLoading, setDataLoading] = useState<boolean>(true);
   const [rows, setRows] = useState<LessonRow[] | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const fetchedOnce = useRef(false);
 
-  const fetchData = async () => {
+  const load = async () => {
     try {
-      setDataLoading(true);
+      setLoading(true);
       setError(null);
 
       const { data, error } = await supabase
         .from("lessons")
-        .select(
-          [
-            "id",
-            "project_name",
-            "created_at",
-            "satisfaction",
-            "budget_status",
-            "timeline_status",
-            "change_request_count",
-            "change_orders_approved_count",
-            "change_orders_revenue_usd",
-            "created_by",
-          ].join(", ")
-        )
+        .select(SELECT_FIELDS)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(500);
 
       if (error) throw error;
       setRows((data as unknown as LessonRow[]) ?? []);
     } catch (e: any) {
-      // eslint-disable-next-line no-console
-      console.warn("[Dashboard] fetchData error:", e?.message || e);
-      setError(e?.message ?? "Failed to load dashboard data.");
+      const msg = e?.message ?? "Failed to load dashboard data.";
+      setError(msg);
+      toast({ title: "Load failed", description: msg, variant: "destructive" });
       setRows([]);
     } finally {
-      setDataLoading(false);
+      setLoading(false);
     }
   };
 
-  // Fetch once after auth is ready
   useEffect(() => {
-    if (!authLoading && user && !fetchedOnce.current) {
-      fetchedOnce.current = true;
-      fetchData();
-    }
-  }, [authLoading, user]);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const onRefresh = () => {
-    fetchedOnce.current = true;
-    fetchData();
-  };
+  const onRefresh = () => load();
 
-  // KPIs on full dataset
-  const { totalLessons, avgSatisfaction, onBudgetRate, onTimeRate } = useMemo(() => {
-    const data = rows ?? [];
-    const totalLessons = data.length;
+  // KPIs over last KPI_WINDOW_DAYS
+  const { kpi, recent } = useMemo(() => {
+    const all = rows ?? [];
+    const sinceMs = Date.now() - KPI_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
-    const sats = data
+    const windowed = all.filter((r) => new Date(r.created_at).getTime() >= sinceMs);
+
+    const total = windowed.length;
+
+    const sats = windowed
       .map((r) => (typeof r.satisfaction === "number" ? r.satisfaction : null))
       .filter((x): x is number => x !== null);
-    const avgSatisfaction = sats.length
-      ? +(sats.reduce((a, b) => a + b, 0) / sats.length).toFixed(2)
-      : null;
+    const avgSat = sats.length ? +(sats.reduce((a, b) => a + b, 0) / sats.length).toFixed(2) : null;
 
-    const budgetCounts = data.reduce(
+    const budgetCounts = windowed.reduce(
       (acc, r) => {
-        if (r.budget_status === "on") acc.on += 1;
-        acc.total += 1;
+        if (r.budget_status === "under") acc.under += 1;
+        else if (r.budget_status === "on") acc.on += 1;
+        else if (r.budget_status === "over") acc.over += 1;
         return acc;
       },
-      { on: 0, total: 0 }
+      { under: 0, on: 0, over: 0 }
     );
-    const onBudgetRate = budgetCounts.total
-      ? Math.round((budgetCounts.on / budgetCounts.total) * 100)
-      : null;
 
-    const timeCounts = data.reduce(
+    const timelineCounts = windowed.reduce(
       (acc, r) => {
-        if (r.timeline_status === "on") acc.on += 1;
-        acc.total += 1;
+        if (r.timeline_status === "early") acc.early += 1;
+        else if (r.timeline_status === "on") acc.on += 1;
+        else if (r.timeline_status === "late") acc.late += 1;
         return acc;
       },
-      { on: 0, total: 0 }
+      { early: 0, on: 0, late: 0 }
     );
-    const onTimeRate = timeCounts.total
-      ? Math.round((timeCounts.on / timeCounts.total) * 100)
-      : null;
 
-    return { totalLessons, avgSatisfaction, onBudgetRate, onTimeRate };
+    const revenue = windowed
+      .map((r) =>
+        typeof r.change_orders_revenue_usd === "number" ? r.change_orders_revenue_usd : 0
+      )
+      .reduce((a, b) => a + b, 0);
+
+    const recent = all.slice(0, RECENT_LIMIT);
+
+    return {
+      kpi: { total, avgSat, budgetCounts, timelineCounts, revenue },
+      recent,
+    };
   }, [rows]);
-
-  const kpiValue = (v: number | null) => (v === null ? "—" : v);
-
-  // Only show 10 rows in the list
-  const recentRows = useMemo(() => (rows ?? []).slice(0, 10), [rows]);
 
   return (
     <div className="space-y-6">
       <DashboardHeader
         title="Home"
-        description="High-level KPIs and your most recent lessons."
+        description="High-level delivery health at a glance."
         actions={
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={onRefresh}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+            <AnalyticsCta size="sm" />
+            <Button variant="outline" onClick={() => navigate("/dashboards")}>
+              View Dashboards
             </Button>
-            <Button size="sm" onClick={() => navigate("/analytics")}>
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Analytics
+            <Button variant="ghost" size="icon" onClick={onRefresh} title="Refresh">
+              <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         }
       />
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Total Lessons</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{kpiValue(totalLessons)}</div>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Avg. Satisfaction</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{kpiValue(avgSatisfaction ?? null)}</div>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">On Budget</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{onBudgetRate === null ? "—" : `${onBudgetRate}%`}</div>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">On Time</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{onTimeRate === null ? "—" : `${onTimeRate}%`}</div>}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Lessons (max 10) */}
+      {/* KPIs */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Lessons</CardTitle>
+          <CardTitle>Key Metrics</CardTitle>
+          <CardDescription>
+            Last {KPI_WINDOW_DAYS} days · based on {rows?.length ?? 0} total records loaded
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {error ? (
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : error ? (
             <div className="text-sm text-red-600">{error}</div>
-          ) : dataLoading ? (
-            <Skeleton className="h-32 w-full" />
-          ) : recentRows.length > 0 ? (
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <KpiCard label="Total lessons" value={kpi.total ?? "—"} />
+              <KpiCard label="Avg. satisfaction" value={kpi.avgSat ?? "—"} />
+              <KpiCard label="On budget" value={kpi.budgetCounts.on} />
+              <KpiCard label="On time" value={kpi.timelineCounts.on} />
+              <KpiCard
+                label="Change order revenue"
+                value={
+                  typeof kpi.revenue === "number" ? `$${kpi.revenue.toLocaleString()}` : "—"
+                }
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Lessons (limit 10) */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Recent Lessons</CardTitle>
+            <CardDescription>Latest {RECENT_LIMIT} entries</CardDescription>
+          </div>
+          <Button variant="gradient" onClick={() => navigate("/lessons")}>
+            View all lessons <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : rows && rows.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-xs text-muted-foreground">
-                  <tr>
-                    <th className="text-left py-2 pr-4">Project</th>
-                    <th className="text-left py-2 pr-4">Date</th>
-                    <th className="text-left py-2 pr-4">Satisfaction</th>
-                    <th className="text-left py-2 pr-4">Budget</th>
-                    <th className="text-left py-2 pr-0">Timeline</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentRows.map((r) => (
-                    <tr key={r.id} className="border-t">
-                      <td className="py-2 pr-4">{r.project_name ?? "—"}</td>
-                      <td className="py-2 pr-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Satisfaction</TableHead>
+                    <TableHead>Budget</TableHead>
+                    <TableHead>Timeline</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recent.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="whitespace-nowrap">
+                        {r.project_name ?? "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {r.client_name ?? "—"}
+                      </TableCell>
+                      <TableCell>
                         {new Date(r.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-2 pr-4">
+                      </TableCell>
+                      <TableCell>
                         {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
-                      </td>
-                      <td className="py-2 pr-4 capitalize">{r.budget_status ?? "—"}</td>
-                      <td className="py-2 pr-0 capitalize">{r.timeline_status ?? "—"}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="capitalize">
+                        {r.budget_status ?? "—"}
+                      </TableCell>
+                      <TableCell className="capitalize">
+                        {r.timeline_status ?? "—"}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">No lessons yet.</div>
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function KpiCard({ label, value }: { label: string; value: number | string | null }) {
+  return (
+    <div className="border rounded-lg p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-2xl font-semibold mt-1">{value ?? "—"}</div>
     </div>
   );
 }

@@ -1,18 +1,30 @@
 // src/pages/Lessons.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { RefreshCw } from "lucide-react";
@@ -25,7 +37,7 @@ type LessonRow = {
   project_name: string | null;
   client_name: string | null;
   created_at: string;
-  satisfaction: number | null;
+  satisfaction: number | null; // 1..5
   budget_status: BudgetStatus | null;
   timeline_status: TimelineStatus | null;
   change_request_count: number | null;
@@ -38,7 +50,7 @@ type LessonFilters = {
   search: string;
   budget: BudgetStatus | "any";
   timeline: TimelineStatus | "any";
-  minSatisfaction: string;
+  minSatisfaction: string; // user input, parse to number
 };
 
 const DEFAULT_FILTERS: LessonFilters = {
@@ -48,7 +60,7 @@ const DEFAULT_FILTERS: LessonFilters = {
   minSatisfaction: "",
 };
 
-// ✅ Safe list of columns (no inline comments)
+// Safe list of columns (no inline comments)
 const SELECT_FIELDS = [
   "id",
   "project_name",
@@ -99,9 +111,12 @@ export default function Lessons() {
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [toast]);
 
+  // Apply filters (includes client_name in search)
   const filtered = useMemo(() => {
     if (!rows) return [];
     const s = filters.search.trim().toLowerCase();
@@ -116,6 +131,7 @@ export default function Lessons() {
       if (filters.timeline !== "any" && r.timeline_status !== filters.timeline) return false;
 
       if (minSat !== null) {
+        // Satisfaction stored as 1..5; drop nulls and < min
         if (typeof r.satisfaction !== "number") return false;
         if (r.satisfaction < minSat) return false;
       }
@@ -123,15 +139,21 @@ export default function Lessons() {
     });
   }, [rows, filters]);
 
-  // Reset to page 1 when filters or page size change
-  useEffect(() => { setPage(1); }, [filters, pageSize]);
+  // Reset to page 1 when filters or page size changes
+  useEffect(() => {
+    setPage(1);
+  }, [filters, pageSize]);
 
+  // Client-side pagination
   const total = filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, pageCount);
   const startIndex = (safePage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, total);
-  const pageRows = useMemo(() => filtered.slice(startIndex, endIndex), [filtered, startIndex, endIndex]);
+  const pageRows = useMemo(
+    () => filtered.slice(startIndex, endIndex),
+    [filtered, startIndex, endIndex]
+  );
 
   const onRefresh = () => setFilters({ ...filters });
 
@@ -161,7 +183,9 @@ export default function Lessons() {
                 id="search"
                 placeholder="Project, client, budget, timeline..."
                 value={filters.search}
-                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, search: e.target.value }))
+                }
               />
             </div>
 
@@ -169,7 +193,12 @@ export default function Lessons() {
               <Label>Budget</Label>
               <Select
                 value={filters.budget}
-                onValueChange={(v) => setFilters((prev) => ({ ...prev, budget: (v as LessonFilters["budget"]) ?? "any" }))}
+                onValueChange={(v) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    budget: (v as LessonFilters["budget"]) ?? "any",
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Any" />
@@ -187,7 +216,12 @@ export default function Lessons() {
               <Label>Timeline</Label>
               <Select
                 value={filters.timeline}
-                onValueChange={(v) => setFilters((prev) => ({ ...prev, timeline: (v as LessonFilters["timeline"]) ?? "any" }))}
+                onValueChange={(v) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    timeline: (v as LessonFilters["timeline"]) ?? "any",
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Any" />
@@ -206,12 +240,18 @@ export default function Lessons() {
               <Input
                 id="minSat"
                 type="number"
-                min={0}
-                max={10}
+                min={1}
+                max={5}
+                step={1}
                 inputMode="numeric"
-                placeholder="e.g. 7"
+                placeholder="1–5 (e.g., 4)"
                 value={filters.minSatisfaction}
-                onChange={(e) => setFilters((prev) => ({ ...prev, minSatisfaction: e.target.value }))}
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    minSatisfaction: e.target.value,
+                  }))
+                }
               />
             </div>
           </div>
@@ -224,7 +264,11 @@ export default function Lessons() {
           <div className="flex items-center justify-between">
             <CardTitle>Results</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {isLoading ? "Loading…" : total === 0 ? "No results" : `${total} record${total === 1 ? "" : "s"}`}
+              {isLoading
+                ? "Loading…"
+                : total === 0
+                ? "No results"
+                : `${total} record${total === 1 ? "" : "s"}`}
             </div>
           </div>
         </CardHeader>
@@ -247,20 +291,38 @@ export default function Lessons() {
               <TableBody>
                 {pageRows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap">{r.project_name ?? "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell>
-                    <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
-                    <TableCell className="capitalize">{r.budget_status ?? "—"}</TableCell>
-                    <TableCell className="capitalize">{r.timeline_status ?? "—"}</TableCell>
-                    <TableCell className="text-right">
-                      {typeof r.change_request_count === "number" ? r.change_request_count : "—"}
+                    <TableCell className="whitespace-nowrap">
+                      {r.project_name ?? "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {r.client_name ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {r.budget_status ?? "—"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {r.timeline_status ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {typeof r.change_orders_approved_count === "number" ? r.change_orders_approved_count : "—"}
+                      {typeof r.change_request_count === "number"
+                        ? r.change_request_count
+                        : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {typeof r.change_orders_revenue_usd === "number" ? `$${r.change_orders_revenue_usd.toLocaleString()}` : "—"}
+                      {typeof r.change_orders_approved_count === "number"
+                        ? r.change_orders_approved_count
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {typeof r.change_orders_revenue_usd === "number"
+                        ? `$${r.change_orders_revenue_usd.toLocaleString()}`
+                        : "—"}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -270,10 +332,14 @@ export default function Lessons() {
 
           {/* Pagination controls */}
           <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            {/* Rows per page + range */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Rows per page</Label>
-                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => setPageSize(Number(v))}
+                >
                   <SelectTrigger className="w-[120px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -291,20 +357,47 @@ export default function Lessons() {
               </div>
             </div>
 
+            {/* Page selector */}
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={safePage <= 1} aria-label="First page" title="First page">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(1)}
+                disabled={safePage <= 1}
+                aria-label="First page"
+                title="First page"
+              >
                 «
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+              >
                 Prev
               </Button>
+
               <div className="px-2 text-sm text-muted-foreground">
                 Page {safePage} of {pageCount}
               </div>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount}>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={safePage >= pageCount}
+              >
                 Next
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPage(pageCount)} disabled={safePage >= pageCount} aria-label="Last page" title="Last page">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(pageCount)}
+                disabled={safePage >= pageCount}
+                aria-label="Last page"
+                title="Last page"
+              >
                 »
               </Button>
             </div>

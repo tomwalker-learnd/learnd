@@ -181,4 +181,101 @@ export default function Home() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-mute
+            <CardTitle className="text-sm text-muted-foreground">Avg. Satisfaction</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dataLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="text-3xl font-semibold">{kpiValue(avgSatisfaction ?? null)}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">On Budget</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dataLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="text-3xl font-semibold">
+                {onBudgetRate === null ? "—" : `${onBudgetRate}%`}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">On Time</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dataLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="text-3xl font-semibold">
+                {onTimeRate === null ? "—" : `${onTimeRate}%`}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Lessons (max 10) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Lessons</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {error ? (
+            <div className="text-sm text-red-600">{error}</div>
+          ) : dataLoading ? (
+            <Skeleton className="h-32 w-full" />
+          ) : recentRows.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs text-muted-foreground">
+                  <tr>
+                    <th className="text-left py-2 pr-4">Project</th>
+                    <th className="text-left py-2 pr-4">Date</th>
+                    <th className="text-left py-2 pr-4">Satisfaction</th>
+                    <th className="text-left py-2 pr-4">Budget</th>
+                    <th className="text-left py-2 pr-0">Timeline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentRows.map((r) => (
+                    <tr key={r.id} className="border-t">
+                      <td className="py-2 pr-4">{r.project_name ?? "—"}</td>
+                      <td className="py-2 pr-4">
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="py-2 pr-4">
+                        {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
+                      </td>
+                      <td className="py-2 pr-4 capitalize">{r.budget_status ?? "—"}</td>
+                      <td className="py-2 pr-0 capitalize">{r.timeline_status ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">No lessons yet.</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Keyframes for smooth gradient motion (scoped via arbitrary class above) */}
+      <style>{`
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
+    </div>
+  );
+}

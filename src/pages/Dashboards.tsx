@@ -12,53 +12,58 @@ export default function Dashboards() {
     <div className="space-y-6">
       <DashboardHeader
         title="Dashboards"
-        description="View the default dashboard or build a custom one for your team."
+        description="Browse the default dashboard and tailor custom dashboards for your team."
         actions={
-          <Button onClick={() => navigate("/dashboards/customize")}>
-            Create Dashboard
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => navigate("/dashboards/customize")}>
+              Customize
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/analytics")}>
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Analytics
+            </Button>
+          </div>
         }
       />
 
-      {/* Top: Default Dashboard (swap with your preferred default widgets/charts) */}
-      <Card className="shadow-sm">
-        <CardHeader className="flex items-center justify-between gap-2 sm:flex-row">
-          <div>
-            <CardTitle className="text-xl">Default Dashboard</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              A quick, read-only snapshot for everyone.
-            </p>
-          </div>
-          <TrendingUp className="h-5 w-5 opacity-70" />
+      {/* Default / Library card(s) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Default Dashboard</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border p-4">
-              <div className="text-sm text-muted-foreground">Open Projects</div>
-              <div className="text-2xl font-semibold">—</div>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Start with the default view and refine from there.
             </div>
-            <div className="rounded-2xl border p-4">
-              <div className="text-sm text-muted-foreground">Avg. Satisfaction</div>
-              <div className="text-2xl font-semibold">—</div>
-            </div>
-            <div className="rounded-2xl border p-4">
-              <div className="text-sm text-muted-foreground">On-Budget Rate</div>
-              <div className="text-2xl font-semibold">—</div>
-            </div>
-          </div>
-          <div className="mt-3 text-xs text-muted-foreground">
-            Tip: swap these for your existing KPI components or embed a compact chart.
+            <Button variant="outline" onClick={() => navigate("/")}>
+              Open
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Bottom: Custom Dashboards Pane */}
-      <Card className="shadow-sm">
+      {/* Lower Pane: Customization CTA / area */}
+      <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Custom Dashboards</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Build tailored views for roles, clients, or execs. Your saved custom dashboards will appear here.
-          </p>
+          <CardTitle>Customize</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Create and manage custom dashboards for specific roles, teams, or clients.
+            </div>
+            <Button onClick={() => navigate("/dashboards/customize")}>
+              Customize Dashboard
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lower Pane: (Optional) Saved custom dashboards list */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Custom Dashboards</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">

@@ -1,4 +1,4 @@
-// src/pages/Dashboard.tsx
+// src/pages/Home.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";

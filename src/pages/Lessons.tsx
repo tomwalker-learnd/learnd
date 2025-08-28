@@ -36,6 +36,7 @@ type TimelineStatus = "early" | "on" | "late";
 type LessonRow = {
   id: string;
   project_name: string | null;
+  client_name: string | null; // NEW
   created_at: string;
   satisfaction: number | null;
   budget_status: BudgetStatus | null;
@@ -72,6 +73,7 @@ export default function Lessons() {
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
 
+  // Load lessons
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -82,6 +84,7 @@ export default function Lessons() {
           .select(`
             id,
             project_name,
+            client_name,      -- NEW
             created_at,
             satisfaction,
             budget_status,
@@ -113,6 +116,7 @@ export default function Lessons() {
     };
   }, [toast]);
 
+  // Apply filters (now includes client_name in search)
   const filtered = useMemo(() => {
     if (!rows) return [];
     const s = filters.search.trim().toLowerCase();
@@ -120,7 +124,7 @@ export default function Lessons() {
 
     return rows.filter((r) => {
       if (s) {
-        const hay = `${r.project_name ?? ""} ${r.budget_status ?? ""} ${r.timeline_status ?? ""}`.toLowerCase();
+        const hay = `${r.project_name ?? ""} ${r.client_name ?? ""} ${r.budget_status ?? ""} ${r.timeline_status ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
       if (filters.budget !== "any" && r.budget_status !== filters.budget) return false;
@@ -139,6 +143,7 @@ export default function Lessons() {
     setPage(1);
   }, [filters, pageSize]);
 
+  // Client-side pagination
   const total = filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, pageCount);
@@ -175,7 +180,7 @@ export default function Lessons() {
               <Label htmlFor="search">Search</Label>
               <Input
                 id="search"
-                placeholder="Project, budget, timeline..."
+                placeholder="Project, client, budget, timeline..."
                 value={filters.search}
                 onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
               />
@@ -254,6 +259,7 @@ export default function Lessons() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Project</TableHead>
+                  <TableHead>Client</TableHead> {/* NEW */}
                   <TableHead>Date</TableHead>
                   <TableHead>Satisfaction</TableHead>
                   <TableHead>Budget</TableHead>
@@ -267,6 +273,7 @@ export default function Lessons() {
                 {pageRows.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="whitespace-nowrap">{r.project_name ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell> {/* NEW */}
                     <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
                     <TableCell className="capitalize">{r.budget_status ?? "—"}</TableCell>
@@ -301,7 +308,7 @@ export default function Lessons() {
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>
                     <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="250">250</SelectItem> {/* NEW */}
+                    <SelectItem value="250">250</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -351,3 +358,12 @@ export default function Lessons() {
                 aria-label="Last page"
                 title="Last page"
               >
+                »
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

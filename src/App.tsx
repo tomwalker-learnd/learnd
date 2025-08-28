@@ -6,10 +6,11 @@ import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "@/pages/Dashboard";
 import Dashboards from "@/pages/Dashboards";
 import DashboardCustomizer from "@/pages/DashboardCustomizer";
+import Analytics from "@/pages/Analytics";
 import Auth from "@/pages/Auth";
 
-// If you want a global header, re-enable this, but don’t render it while loading
-// import AppHeader from "@/components/AppHeader";
+// GLOBAL TOP NAV
+import AppHeader from "@/components/AppHeader";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -28,9 +29,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function Root() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Optional header — render only after auth is known to avoid “stuck” visuals */}
-      {/* {!loading && <AppHeader />} */}
-
+      <AppHeader />
       <div className="mx-auto w-full max-w-7xl px-4 py-6">
         <Routes>
           <Route
@@ -54,6 +53,14 @@ function Root() {
             element={
               <ProtectedRoute>
                 <DashboardCustomizer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <Analytics />
               </ProtectedRoute>
             }
           />

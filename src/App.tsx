@@ -33,6 +33,7 @@ function Root() {
       <AppHeader />
       <div className="mx-auto w-full max-w-7xl px-4 py-6">
         <Routes>
+          {/* Home */}
           <Route
             path="/"
             element={
@@ -41,6 +42,11 @@ function Root() {
               </ProtectedRoute>
             }
           />
+
+          {/* Legacy redirect from old /dashboard */}
+          <Route path="/dashboard" element={<Navigate to="/" replace />} />
+
+          {/* Dashboards (library) */}
           <Route
             path="/dashboards"
             element={
@@ -49,6 +55,8 @@ function Root() {
               </ProtectedRoute>
             }
           />
+
+          {/* Customizer (reachable via button, not nav) */}
           <Route
             path="/dashboards/customize"
             element={
@@ -57,6 +65,8 @@ function Root() {
               </ProtectedRoute>
             }
           />
+
+          {/* Lessons */}
           <Route
             path="/lessons"
             element={
@@ -65,6 +75,8 @@ function Root() {
               </ProtectedRoute>
             }
           />
+
+          {/* Analytics */}
           <Route
             path="/analytics"
             element={
@@ -73,7 +85,11 @@ function Root() {
               </ProtectedRoute>
             }
           />
+
+          {/* Auth */}
           <Route path="/auth" element={<Auth />} />
+
+          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

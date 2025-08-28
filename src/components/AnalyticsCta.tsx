@@ -1,3 +1,4 @@
+// src/components/AnalyticsCta.tsx
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
@@ -22,7 +23,7 @@ export default function AnalyticsCta({
   return (
     <Button
       asChild
-      variant="gradient"
+      variant="gradient"                 // <-- brand gradient (orange -> magenta)
       size={size}
       className={className}
       onClick={onClick}

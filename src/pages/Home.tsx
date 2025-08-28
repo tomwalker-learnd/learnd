@@ -14,39 +14,21 @@ import {
 } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 import { RefreshCw, TrendingUp } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
-type Lesson = {
+type BudgetStatus = "under" | "on" | "over";
+type TimelineStatus = "early" | "on" | "late";
+
+type LessonRow = {
   id: string;
-  project_name?: string | null;
-  created_at?: string | null;
-  date?: string | null;            // some rows may have a dedicated date field
-  satisfaction?: number | null;
-  budget_status?: "under" | "on" | "over" | null;
-  timeline_status?: "early" | "on" | "late" | null;
-};
-
-const fmtDate = (iso?: string | null) => {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString();
-  } catch {
-    return iso;
-  }
-};
-
-const statusBadge = (v?: string | null) => {
-  if (!v) return null;
-  const map: Record<string, string> = {
-    under: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-    on: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
-    over: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-    early: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-    late: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-  };
-  return map[v] ?? "bg-muted text-foreground";
+  project_name: string | null;
+  // NOTE: we alias created_at -> date so existing UI can keep using `date`
+  date: string; // ISO
+  created_at?: string; // not used by UI, but may come back in other queries
+  satisfaction: number | null;
+  budget_status: BudgetStatus | null;
+  timeline_status: TimelineStatus | null;
 };
 
 export default function Home() {
@@ -54,14 +36,14 @@ export default function Home() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const [busy, setBusy] = useState(false);
+  const [recent, setRecent] = useState<LessonRow[]>([]);
   const [kpis, setKpis] = useState({
     total: 0,
     avgSatisfaction: 0,
     onBudgetPct: 0,
     onTimePct: 0,
   });
-  const [recent, setRecent] = useState<Lesson[]>([]);
-  const [busy, setBusy] = useState(false);
 
   const initial = useMemo(() => {
     const src = user?.user_metadata?.full_name || user?.email || "U";
@@ -77,7 +59,7 @@ export default function Home() {
     try {
       setBusy(true);
 
-      // KPIs (adjust table/columns to match your schema)
+      // KPIs
       const { data: lessons, error } = await supabase
         .from("lessons")
         .select("id, satisfaction, budget_status, timeline_status")
@@ -88,11 +70,11 @@ export default function Home() {
       const total = lessons?.length ?? 0;
       const avgSatisfaction =
         total > 0
-          ? (lessons!.reduce((s, r) => s + (Number(r.satisfaction) || 0), 0) / total)
+          ? (lessons!.reduce((s, r: any) => s + (Number(r.satisfaction) || 0), 0) / total)
           : 0;
 
-      const onBudget = lessons?.filter((l) => l.budget_status === "on").length ?? 0;
-      const onTime = lessons?.filter((l) => l.timeline_status === "on").length ?? 0;
+      const onBudget = lessons?.filter((l: any) => l.budget_status === "on").length ?? 0;
+      const onTime = lessons?.filter((l: any) => l.timeline_status === "on").length ?? 0;
 
       setKpis({
         total,
@@ -101,17 +83,17 @@ export default function Home() {
         onTimePct: total ? Math.round((onTime / total) * 100) : 0,
       });
 
-      // Recent lessons (limit 8 so mobile cards scroll nicely)
+      // Recent lessons (alias created_at -> date to avoid schema diff)
       const { data: recentRows, error: rErr } = await supabase
         .from("lessons")
         .select(
-          "id, project_name, created_at, date, satisfaction, budget_status, timeline_status"
+          "id, project_name, date:created_at, satisfaction, budget_status, timeline_status"
         )
         .order("created_at", { ascending: false })
         .limit(8);
 
       if (rErr) throw rErr;
-      setRecent(recentRows || []);
+      setRecent((recentRows as unknown as LessonRow[]) || []);
     } catch (e: any) {
       toast({
         title: "Couldn’t refresh",
@@ -123,14 +105,29 @@ export default function Home() {
     }
   };
 
-  if (loading) {
-    return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
-  }
+  if (!user && !loading) return null;
 
-  if (!user) {
-    navigate("/auth");
-    return null;
-  }
+  const fmtDate = (iso?: string) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString();
+  };
+
+  const badgeTone = (val: BudgetStatus | TimelineStatus | null) => {
+    switch (val) {
+      case "under":
+      case "early":
+        return "bg-emerald-600/10 text-emerald-600 border-emerald-600/20";
+      case "on":
+        return "bg-blue-600/10 text-blue-600 border-blue-600/20";
+      case "over":
+      case "late":
+        return "bg-rose-600/10 text-rose-600 border-rose-600/20";
+      default:
+        return "bg-muted text-muted-foreground border-transparent";
+    }
+  };
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
@@ -151,17 +148,17 @@ export default function Home() {
         </div>
       </div>
 
-      {/* KPI tiles */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card>
           <CardHeader>
-            <CardDescription>Total Lessons</CardDescription>
+            <CardDescription>Total</CardDescription>
             <CardTitle className="text-3xl">{kpis.total}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
-            <CardDescription>Avg. Satisfaction</CardDescription>
+            <CardDescription>Avg Satisfaction</CardDescription>
             <CardTitle className="text-3xl">{kpis.avgSatisfaction}</CardTitle>
           </CardHeader>
         </Card>
@@ -185,48 +182,25 @@ export default function Home() {
 
         {/* MOBILE: cards */}
         <div className="md:hidden space-y-3">
-          {recent.length === 0 && (
-            <Card>
-              <CardContent className="py-6 text-sm text-muted-foreground">
-                No lessons yet.
-              </CardContent>
-            </Card>
-          )}
-          {recent.map((l) => (
-            <Card key={l.id} className="overflow-hidden">
-              <CardContent className="py-4">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0">
-                    <div className="truncate text-base font-semibold">
-                      {l.project_name || "Untitled Project"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {fmtDate(l.date || l.created_at)}
-                    </div>
+          {recent.length === 0 ? (
+            <Card><CardContent className="py-6 text-muted-foreground">No recent lessons.</CardContent></Card>
+          ) : (
+            recent.map((r) => (
+              <Card key={r.id}>
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{r.project_name || "Untitled Project"}</div>
+                    <div className="text-xs text-muted-foreground">{fmtDate(r.date)}</div>
                   </div>
-                  {typeof l.satisfaction === "number" && (
-                    <div className="ml-3 shrink-0 text-right">
-                      <div className="text-xs text-muted-foreground">Satisfaction</div>
-                      <div className="text-lg font-semibold">{l.satisfaction}</div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {l.budget_status && (
-                    <Badge className={statusBadge(l.budget_status)}>
-                      Budget: {l.budget_status}
-                    </Badge>
-                  )}
-                  {l.timeline_status && (
-                    <Badge className={statusBadge(l.timeline_status)}>
-                      Timeline: {l.timeline_status}
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="mt-2 flex items-center gap-2">
+                    <Badge variant="outline" className={badgeTone(r.budget_status)}>{r.budget_status ?? "—"}</Badge>
+                    <Badge variant="outline" className={badgeTone(r.timeline_status)}>{r.timeline_status ?? "—"}</Badge>
+                    <span className="text-xs text-muted-foreground">Sat: {r.satisfaction ?? "—"}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
 
         {/* DESKTOP: table */}
@@ -238,44 +212,30 @@ export default function Home() {
                   <TableRow>
                     <TableHead>Project</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Satisfaction</TableHead>
                     <TableHead>Budget</TableHead>
                     <TableHead>Timeline</TableHead>
+                    <TableHead>Satisfaction</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {recent.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-sm text-muted-foreground">
-                        No lessons yet.
+                      <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                        No recent lessons.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    recent.map((l) => (
-                      <TableRow key={l.id}>
-                        <TableCell className="font-medium">
-                          {l.project_name || "Untitled Project"}
-                        </TableCell>
-                        <TableCell>{fmtDate(l.date || l.created_at)}</TableCell>
-                        <TableCell>{l.satisfaction ?? ""}</TableCell>
+                    recent.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">{r.project_name || "Untitled Project"}</TableCell>
+                        <TableCell>{fmtDate(r.date)}</TableCell>
                         <TableCell>
-                          {l.budget_status ? (
-                            <Badge className={statusBadge(l.budget_status)}>
-                              {l.budget_status}
-                            </Badge>
-                          ) : (
-                            ""
-                          )}
+                          <Badge variant="outline" className={badgeTone(r.budget_status)}>{r.budget_status ?? "—"}</Badge>
                         </TableCell>
                         <TableCell>
-                          {l.timeline_status ? (
-                            <Badge className={statusBadge(l.timeline_status)}>
-                              {l.timeline_status}
-                            </Badge>
-                          ) : (
-                            ""
-                          )}
+                          <Badge variant="outline" className={badgeTone(r.timeline_status)}>{r.timeline_status ?? "—"}</Badge>
                         </TableCell>
+                        <TableCell>{r.satisfaction ?? "—"}</TableCell>
                       </TableRow>
                     ))
                   )}

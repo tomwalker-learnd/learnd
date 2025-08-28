@@ -8,85 +8,72 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import logo from "@/assets/learnd-logo.png";
 
 type Mode = "signin" | "signup";
 
 export default function Auth() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-
-  // UI state
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // If already logged in, bounce to home
-  if (!loading && user) {
-    return <Navigate to="/" replace />;
-  }
+  useEffect(() => {
+    if (!loading && user) navigate("/");
+  }, [loading, user, navigate]);
 
-  // Handle submit
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null);
     setSubmitting(true);
+    setError(null);
     try {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate("/", { replace: true });
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: { first_name: firstName || null, last_name: lastName || null },
-          },
-        });
+        const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // Inform user to check inbox
-        setMode("signin");
       }
     } catch (e: any) {
-      setErr(e?.message ?? "Authentication failed.");
+      setError(e?.message ?? "Authentication failed.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen grid place-items-center">
+        <div className="text-sm text-muted-foreground">Checking session…</div>
+      </div>
+    );
+  }
+  if (user) return <Navigate to="/" replace />;
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen grid place-items-center p-4">
+      <div className="mb-6 flex items-center justify-center">
+        <img src={logo} alt="Learnd" className="h-10 w-auto" />
+      </div>
+
+      <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>{mode === "signin" ? "Sign in" : "Create account"}</CardTitle>
+          <CardTitle className="text-center">
+            {mode === "signin" ? "Welcome back" : "Create your account"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {err && (
-            <Alert variant="destructive" className="mb-3">
-              <AlertDescription>{err}</AlertDescription>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          <form onSubmit={onSubmit} className="space-y-3">
-            {mode === "signup" && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="first">First name</Label>
-                  <Input id="first" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                </div>
-                <div>
-                  <Label htmlFor="last">Last name</Label>
-                  <Input id="last" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                </div>
-              </div>
-            )}
-
-            <div>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
@@ -97,7 +84,7 @@ export default function Auth() {
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
@@ -117,22 +104,14 @@ export default function Auth() {
             {mode === "signin" ? (
               <>
                 Don’t have an account?{" "}
-                <button
-                  className="underline"
-                  onClick={() => setMode("signup")}
-                  type="button"
-                >
+                <button className="underline" onClick={() => setMode("signup")} type="button">
                   Sign up
                 </button>
               </>
             ) : (
               <>
                 Already have an account?{" "}
-                <button
-                  className="underline"
-                  onClick={() => setMode("signin")}
-                  type="button"
-                >
+                <button className="underline" onClick={() => setMode("signin")} type="button">
                   Sign in
                 </button>
               </>

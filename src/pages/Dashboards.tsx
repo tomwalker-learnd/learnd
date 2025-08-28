@@ -34,36 +34,11 @@ const PRESET_DASHBOARDS: Preset[] = [
     description: "All lessons from the last 90 days to assess satisfaction, budget, and timeline health.",
     params: { timeRangeDays: 90 },
   },
-  {
-    id: "budget_risk",
-    name: "Budget at Risk",
-    description: "Lessons marked Over budget in the last 90 days.",
-    params: { timeRangeDays: 90, budget_status: "over" },
-  },
-  {
-    id: "timeline_risk",
-    name: "Timeline at Risk",
-    description: "Lessons marked Late in the last 90 days.",
-    params: { timeRangeDays: 90, timeline_status: "late" },
-  },
-  {
-    id: "low_satisfaction",
-    name: "Low Satisfaction",
-    description: "Satisfaction ≤ 2 over the last 60 days.",
-    params: { timeRangeDays: 60, max_satisfaction: 2 },
-  },
-  {
-    id: "change_orders_impact",
-    name: "Change Orders Impact",
-    description: "Lessons with non-zero change order revenue in the last 180 days.",
-    params: { timeRangeDays: 180, min_change_revenue_usd: 1 },
-  },
-  {
-    id: "high_change_requests",
-    name: "High Change Requests",
-    description: "Lessons with 3+ change requests in the last 90 days.",
-    params: { timeRangeDays: 90, min_change_requests: 3 },
-  },
+  { id: "budget_risk", name: "Budget at Risk", description: "Lessons marked Over budget in the last 90 days.", params: { timeRangeDays: 90, budget_status: "over" } },
+  { id: "timeline_risk", name: "Timeline at Risk", description: "Lessons marked Late in the last 90 days.", params: { timeRangeDays: 90, timeline_status: "late" } },
+  { id: "low_satisfaction", name: "Low Satisfaction", description: "Satisfaction ≤ 2 over the last 60 days.", params: { timeRangeDays: 60, max_satisfaction: 2 } },
+  { id: "change_orders_impact", name: "Change Orders Impact", description: "Lessons with non-zero change order revenue in the last 180 days.", params: { timeRangeDays: 180, min_change_revenue_usd: 1 } },
+  { id: "high_change_requests", name: "High Change Requests", description: "Lessons with 3+ change requests in the last 90 days.", params: { timeRangeDays: 90, min_change_requests: 3 } },
 ];
 
 type LessonRow = {
@@ -92,7 +67,7 @@ const SELECT_FIELDS = [
   "created_by",
 ].join(", ");
 
-type CustomDashboard = { id: string; name: string };
+type CustomDashboard = { id: string; name: string; params?: PresetParams }; // params optional for now
 
 export default function Dashboards() {
   const navigate = useNavigate();
@@ -113,8 +88,27 @@ export default function Dashboards() {
     () => PRESET_DASHBOARDS.find((p) => p.id === presetId) || null,
     [presetId]
   );
+  const selectedCustom = useMemo(
+    () => customDashboards.find((c) => c.id === customId) || null,
+    [customId, customDashboards]
+  );
 
-  // Load data for preset preview
+  // Build a query string for Lessons.tsx based on params
+  function buildLessonsQuery(params: PresetParams, source: "preset" | "custom", id?: string) {
+    const qs = new URLSearchParams();
+    qs.set("source", source);
+    if (id) qs.set("id", id);
+    if (params.budget_status) qs.set("budget", params.budget_status);
+    if (params.timeline_status) qs.set("timeline", params.timeline_status);
+    if (typeof params.min_satisfaction === "number") qs.set("minSat", String(params.min_satisfaction));
+    if (typeof params.max_satisfaction === "number") qs.set("maxSat", String(params.max_satisfaction));
+    if (typeof params.timeRangeDays === "number") qs.set("periodDays", String(params.timeRangeDays));
+    if (typeof params.min_change_requests === "number") qs.set("minChangeReqs", String(params.min_change_requests));
+    if (typeof params.min_change_revenue_usd === "number") qs.set("minChangeRevenue", String(params.min_change_revenue_usd));
+    return `/lessons?${qs.toString()}`;
+  }
+
+  // Load data for preset preview (simple KPIs)
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -206,10 +200,7 @@ export default function Dashboards() {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Standard dashboard</Label>
-                <Select
-                  value={presetId ?? ""}
-                  onValueChange={(v) => setPresetId(v || null)}
-                >
+                <Select value={presetId ?? ""} onValueChange={(v) => setPresetId(v || null)}>
                   <SelectTrigger className="w-[280px]">
                     <SelectValue placeholder="Select a standard dashboard" />
                   </SelectTrigger>
@@ -222,16 +213,28 @@ export default function Dashboards() {
                   </SelectContent>
                 </Select>
               </div>
-              {selectedPreset && (
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    navigate(`/dashboards/customize?preset=${encodeURIComponent(selectedPreset.id)}`)
-                  }
-                >
-                  Open in Customizer
-                </Button>
-              )}
+
+              <div className="flex items-center gap-2">
+                {selectedPreset && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        navigate(`/dashboards/customize?preset=${encodeURIComponent(selectedPreset.id)}`)
+                      }
+                    >
+                      Open in Customizer
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        navigate(buildLessonsQuery(selectedPreset.params, "preset", selectedPreset.id))
+                      }
+                    >
+                      View lessons
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Preview pane */}
@@ -249,9 +252,7 @@ export default function Dashboards() {
                 </div>
               </div>
             ) : error ? (
-              <div className="border rounded-lg p-6 text-sm text-red-600">
-                {error}
-              </div>
+              <div className="border rounded-lg p-6 text-sm text-red-600">{error}</div>
             ) : (
               <div className="border rounded-lg p-6">
                 <div className="mb-3">
@@ -305,9 +306,19 @@ export default function Dashboards() {
                 </Select>
               </div>
 
-              <Button onClick={() => navigate("/dashboards/customize")}>
-                Create dashboard
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => navigate("/dashboards/customize")}>Create dashboard</Button>
+                {selectedCustom?.params && (
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      navigate(buildLessonsQuery(selectedCustom.params!, "custom", selectedCustom.id))
+                    }
+                  >
+                    View lessons
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Preview pane */}
@@ -317,8 +328,8 @@ export default function Dashboards() {
               </div>
             ) : (
               <div className="border rounded-lg p-6 text-sm">
-                {/* You can fetch/render the saved dashboard definition here */}
                 Selected custom dashboard: <span className="font-medium">{customId}</span>
+                {/* TODO: render saved KPIs when custom definitions are persisted */}
               </div>
             )}
           </div>
@@ -332,9 +343,7 @@ function KpiCard({ label, value }: { label: string; value: number | string | nul
   return (
     <div className="border rounded-lg p-4">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-2xl font-semibold mt-1">
-        {value === null ? "—" : value}
-      </div>
+      <div className="text-2xl font-semibold mt-1">{value === null ? "—" : value}</div>
     </div>
   );
 }

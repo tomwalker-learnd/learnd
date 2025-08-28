@@ -1,4 +1,3 @@
-// src/pages/Auth.tsx
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,7 +11,7 @@ import logo from "@/assets/learnd-logo.png";
 
 type Mode = "signin" | "signup";
 
-// ✅ Official tagline
+// Official tagline
 const TAGLINE = "Learn. Improve. Repeat.";
 
 export default function Auth() {
@@ -103,7 +102,8 @@ export default function Auth() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={submitting}>
+              {/* Gradient primary CTA */}
+              <Button type="submit" className="w-full" variant="gradient" disabled={submitting}>
                 {submitting ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
               </Button>
             </form>

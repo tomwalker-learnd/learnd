@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { useAuth } from "@/hooks/useAuth";
 
 // PAGES
-import Dashboard from "@/pages/Dashboard";
+import Home from "@/pages/Home";
 import Dashboards from "@/pages/Dashboards";
 import DashboardCustomizer from "@/pages/DashboardCustomizer";
 import Lessons from "@/pages/Lessons";
@@ -37,7 +37,7 @@ function Root() {
             path="/"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <Home />
               </ProtectedRoute>
             }
           />
@@ -49,7 +49,6 @@ function Root() {
               </ProtectedRoute>
             }
           />
-          {/* Keep the customizer page reachable via button, not via nav */}
           <Route
             path="/dashboards/customize"
             element={

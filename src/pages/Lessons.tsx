@@ -39,8 +39,8 @@ type LessonRow = {
   client_name: string | null;
   created_at: string; // ISO
   satisfaction: number | null; // 1..5
-  budget_status: BudgetStatus | string | null; // may come back lowercase string
-  timeline_status: TimelineStatus | string | null; // idem
+  budget_status: BudgetStatus | string | null;
+  timeline_status: TimelineStatus | string | null;
 };
 
 type LessonFilters = {
@@ -86,7 +86,7 @@ export default function Lessons() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
-  // Parse URL params for deep-links (kept simple: budget/timeline/minSat/maxSat/periodDays)
+  // Parse URL params for deep-links (budget/timeline/minSat/maxSat/periodDays)
   const urlParams = useMemo(() => {
     const norm = (v: string | null) => (v ?? "").trim();
     const num = (v: string | null) => {
@@ -181,7 +181,7 @@ export default function Lessons() {
         if (!hay.includes(s)) return false;
       }
 
-      // budget (UI first, else URL) — normalized compare
+      // budget (UI first, else URL)
       if (filters.budget !== "any") {
         if (rBudget !== filters.budget) return false;
       } else if (urlParams.budget) {
@@ -209,7 +209,7 @@ export default function Lessons() {
           return false;
       }
 
-      // period window based on created_at
+      // period window
       if (sinceMs !== null) {
         const t = new Date(r.created_at).getTime();
         if (!(t >= sinceMs)) return false;
@@ -411,7 +411,7 @@ export default function Lessons() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</Item>
+                    <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>
                     <SelectItem value="100">100</SelectItem>
                     <SelectItem value="250">250</SelectItem>

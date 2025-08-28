@@ -68,11 +68,10 @@ export default function Lessons() {
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<LessonFilters>(DEFAULT_FILTERS);
 
-  // NEW: pagination state
+  // Pagination state
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
 
-  // Load
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -80,20 +79,18 @@ export default function Lessons() {
         setIsLoading(true);
         const { data, error } = await supabase
           .from("lessons")
-          .select(
-            `
-              id,
-              project_name,
-              created_at,
-              satisfaction,
-              budget_status,
-              timeline_status,
-              change_request_count,
-              change_orders_approved_count,
-              change_orders_revenue_usd,
-              created_by
-            `
-          )
+          .select(`
+            id,
+            project_name,
+            created_at,
+            satisfaction,
+            budget_status,
+            timeline_status,
+            change_request_count,
+            change_orders_approved_count,
+            change_orders_revenue_usd,
+            created_by
+          `)
           .order("created_at", { ascending: false })
           .limit(500);
 
@@ -116,7 +113,6 @@ export default function Lessons() {
     };
   }, [toast]);
 
-  // Filters
   const filtered = useMemo(() => {
     if (!rows) return [];
     const s = filters.search.trim().toLowerCase();
@@ -124,33 +120,25 @@ export default function Lessons() {
 
     return rows.filter((r) => {
       if (s) {
-        const hay =
-          `${r.project_name ?? ""} ${r.budget_status ?? ""} ${r.timeline_status ?? ""}`.toLowerCase();
+        const hay = `${r.project_name ?? ""} ${r.budget_status ?? ""} ${r.timeline_status ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
-      if (filters.budget !== "any") {
-        if (r.budget_status !== filters.budget) return false;
-      }
-      if (filters.timeline !== "any") {
-        if (r.timeline_status !== filters.timeline) return false;
-      }
-      if (minSat !== null && typeof r.satisfaction === "number") {
+      if (filters.budget !== "any" && r.budget_status !== filters.budget) return false;
+      if (filters.timeline !== "any" && r.timeline_status !== filters.timeline) return false;
+
+      if (minSat !== null) {
+        if (typeof r.satisfaction !== "number") return false;
         if (r.satisfaction < minSat) return false;
-      }
-      if (minSat !== null && r.satisfaction === null) {
-        // If user requires min satisfaction, drop nulls
-        return false;
       }
       return true;
     });
   }, [rows, filters]);
 
-  // When filters or page size change, go back to page 1
+  // Reset to page 1 when filters or page size changes
   useEffect(() => {
     setPage(1);
   }, [filters, pageSize]);
 
-  // Pagination over filtered
   const total = filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, pageCount);
@@ -161,10 +149,7 @@ export default function Lessons() {
     [filtered, startIndex, endIndex]
   );
 
-  const onRefresh = async () => {
-    // Simple reload by resetting filters (or you can re-run the query)
-    setFilters({ ...filters });
-  };
+  const onRefresh = () => setFilters({ ...filters });
 
   return (
     <div className="space-y-6">
@@ -192,9 +177,7 @@ export default function Lessons() {
                 id="search"
                 placeholder="Project, budget, timeline..."
                 value={filters.search}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, search: e.target.value }))
-                }
+                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
               />
             </div>
 
@@ -203,10 +186,7 @@ export default function Lessons() {
               <Select
                 value={filters.budget}
                 onValueChange={(v) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    budget: (v as LessonFilters["budget"]) ?? "any",
-                  }))
+                  setFilters((prev) => ({ ...prev, budget: (v as LessonFilters["budget"]) ?? "any" }))
                 }
               >
                 <SelectTrigger>
@@ -226,10 +206,7 @@ export default function Lessons() {
               <Select
                 value={filters.timeline}
                 onValueChange={(v) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    timeline: (v as LessonFilters["timeline"]) ?? "any",
-                  }))
+                  setFilters((prev) => ({ ...prev, timeline: (v as LessonFilters["timeline"]) ?? "any" }))
                 }
               >
                 <SelectTrigger>
@@ -254,12 +231,7 @@ export default function Lessons() {
                 inputMode="numeric"
                 placeholder="e.g. 7"
                 value={filters.minSatisfaction}
-                onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    minSatisfaction: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFilters((prev) => ({ ...prev, minSatisfaction: e.target.value }))}
               />
             </div>
           </div>
@@ -272,11 +244,7 @@ export default function Lessons() {
           <div className="flex items-center justify-between">
             <CardTitle>Results</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {isLoading
-                ? "Loading…"
-                : total === 0
-                ? "No results"
-                : `${total} record${total === 1 ? "" : "s"}`}
+              {isLoading ? "Loading…" : total === 0 ? "No results" : `${total} record${total === 1 ? "" : "s"}`}
             </div>
           </div>
         </CardHeader>
@@ -298,35 +266,19 @@ export default function Lessons() {
               <TableBody>
                 {pageRows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {r.project_name ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(r.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {r.budget_status ?? "—"}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {r.timeline_status ?? "—"}
+                    <TableCell className="whitespace-nowrap">{r.project_name ?? "—"}</TableCell>
+                    <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
+                    <TableCell className="capitalize">{r.budget_status ?? "—"}</TableCell>
+                    <TableCell className="capitalize">{r.timeline_status ?? "—"}</TableCell>
+                    <TableCell className="text-right">
+                      {typeof r.change_request_count === "number" ? r.change_request_count : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {typeof r.change_request_count === "number"
-                        ? r.change_request_count
-                        : "—"}
+                      {typeof r.change_orders_approved_count === "number" ? r.change_orders_approved_count : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {typeof r.change_orders_approved_count === "number"
-                        ? r.change_orders_approved_count
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {typeof r.change_orders_revenue_usd === "number"
-                        ? `$${r.change_orders_revenue_usd.toLocaleString()}`
-                        : "—"}
+                      {typeof r.change_orders_revenue_usd === "number" ? `$${r.change_orders_revenue_usd.toLocaleString()}` : "—"}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -334,16 +286,13 @@ export default function Lessons() {
             </Table>
           </div>
 
-          {/* NEW: Pagination controls */}
+          {/* Pagination controls */}
           <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             {/* Rows per page + range */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Rows per page</Label>
-                <Select
-                  value={String(pageSize)}
-                  onValueChange={(v) => setPageSize(Number(v))}
-                >
+                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
                   <SelectTrigger className="w-[120px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -352,13 +301,12 @@ export default function Lessons() {
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>
                     <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="250">250</SelectItem> {/* NEW */}
                   </SelectContent>
                 </Select>
               </div>
               <div className="text-xs text-muted-foreground">
-                {total === 0
-                  ? "0 of 0"
-                  : `${startIndex + 1}–${endIndex} of ${total}`}
+                {total === 0 ? "0 of 0" : `${startIndex + 1}–${endIndex} of ${total}`}
               </div>
             </div>
 
@@ -403,12 +351,3 @@ export default function Lessons() {
                 aria-label="Last page"
                 title="Last page"
               >
-                »
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}

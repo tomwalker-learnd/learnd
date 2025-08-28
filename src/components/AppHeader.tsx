@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import LearndLogo from "@/assets/Learnd_Logo_v4_Transparent.png"; // ✅ custom logo import
 
 // Edit this list to control your top-level nav
 const NAV_ITEMS = [
@@ -53,13 +54,14 @@ export default function AppHeader() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         {/* Left: logo */}
         <Link to="/" className="flex items-center gap-2">
-          {/* If you have an <img> logo, swap this span */}
-          <span className="text-xl font-extrabold tracking-tight">
-            <span className="align-middle">Learnd</span>
-          </span>
+          <img
+            src={LearndLogo}
+            alt="Learnd Logo"
+            className="h-8 w-auto"
+          />
         </Link>
 
-        {/* Center/Left: desktop links */}
+        {/* Center: desktop links */}
         <nav className="hidden md:flex items-center gap-1">
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.to} to={item.to} className={activeClass}>

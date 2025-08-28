@@ -42,7 +42,6 @@ export default function Dashboard() {
       setDataLoading(true);
       setError(null);
 
-      // Pull the latest lessons; adjust 'limit' to taste
       const { data, error } = await supabase
         .from("lessons")
         .select(
@@ -94,53 +93,61 @@ export default function Dashboard() {
 
     const totalLessons = data.length;
 
-    const satisfactions = data
-      .map((r) => (typeof r.satisfaction === "number" ? r.satisfaction : null))
-      .filter((v): v is number => v !== null);
-    const avgSatisfaction =
-      satisfactions.length > 0
-        ? Number((satisfactions.reduce((a, b) => a + b, 0) / satisfactions.length).toFixed(2))
-        : null;
+    const sats = data.map((r) => (typeof r.satisfaction === "number" ? r.satisfaction : null)).filter((x): x is number => x !== null);
+    const avgSatisfaction = sats.length ? +(sats.reduce((a, b) => a + b, 0) / sats.length).toFixed(2) : null;
 
-    const budgetDenom = data.filter((r) => r.budget_status !== null).length;
-    const onBudgetCount = data.filter((r) => r.budget_status === "on").length;
-    const onBudgetRate = budgetDenom > 0 ? Number(((onBudgetCount / budgetDenom) * 100).toFixed(1)) : null;
+    const budgetCounts = data.reduce(
+      (acc, r) => {
+        if (r.budget_status === "on") acc.on += 1;
+        acc.total += 1;
+        return acc;
+      },
+      { on: 0, total: 0 }
+    );
+    const onBudgetRate = budgetCounts.total ? Math.round((budgetCounts.on / budgetCounts.total) * 100) : null;
 
-    const timeDenom = data.filter((r) => r.timeline_status !== null).length;
-    const onTimeCount = data.filter((r) => r.timeline_status === "on").length;
-    const onTimeRate = timeDenom > 0 ? Number(((onTimeCount / timeDenom) * 100).toFixed(1)) : null;
+    const timeCounts = data.reduce(
+      (acc, r) => {
+        if (r.timeline_status === "on") acc.on += 1;
+        acc.total += 1;
+        return acc;
+      },
+      { on: 0, total: 0 }
+    );
+    const onTimeRate = timeCounts.total ? Math.round((timeCounts.on / timeCounts.total) * 100) : null;
 
     return { totalLessons, avgSatisfaction, onBudgetRate, onTimeRate };
   }, [rows]);
 
-  const kpiValue = (v: number | null | undefined, suffix = "") =>
-    v === null || v === undefined ? "—" : `${v}${suffix}`;
+  const kpiValue = (v: number | null) => (v === null ? "—" : v);
 
   return (
     <div className="space-y-6">
       <DashboardHeader
-        title="Home"
-        description="Overview of your current project stats."
+        title="Dashboard"
+        description="Snapshot of recent lessons & delivery performance."
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate("/dashboards")}>
-              View Dashboards
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={onRefresh}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
             </Button>
-            <Button variant="ghost" size="icon" onClick={onRefresh} title="Refresh">
-              <RefreshCw className="h-4 w-4" />
+            <Button size="sm" onClick={() => navigate("/analytics")}>
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Analytics
             </Button>
           </div>
         }
       />
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      {/* KPI Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Total Lessons</CardTitle>
           </CardHeader>
           <CardContent>
-            {dataLoading ? <Skeleton className="h-7 w-16" /> : <div className="text-3xl font-semibold">{kpiValue(totalLessons)}</div>}
+            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{kpiValue(totalLessons)}</div>}
           </CardContent>
         </Card>
 
@@ -149,111 +156,61 @@ export default function Dashboard() {
             <CardTitle className="text-sm text-muted-foreground">Avg. Satisfaction</CardTitle>
           </CardHeader>
           <CardContent>
-            {dataLoading ? (
-              <Skeleton className="h-7 w-24" />
-            ) : (
-              <div className="text-3xl font-semibold">{kpiValue(avgSatisfaction ?? null)}</div>
-            )}
+            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{kpiValue(avgSatisfaction ?? null)}</div>}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">On-Budget Rate</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">On Budget</CardTitle>
           </CardHeader>
           <CardContent>
-            {dataLoading ? (
-              <Skeleton className="h-7 w-20" />
-            ) : (
-              <div className="text-3xl font-semibold">{kpiValue(onBudgetRate ?? null, "%")}</div>
-            )}
+            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{onBudgetRate === null ? "—" : `${onBudgetRate}%`}</div>}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">On-Time Rate</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">On Time</CardTitle>
           </CardHeader>
           <CardContent>
-            {dataLoading ? (
-              <Skeleton className="h-7 w-20" />
-            ) : (
-              <div className="text-3xl font-semibold">{kpiValue(onTimeRate ?? null, "%")}</div>
-            )}
+            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{onTimeRate === null ? "—" : `${onTimeRate}%`}</div>}
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Lessons */}
-      <Card className="shadow-sm">
-        <CardHeader className="flex items-center justify-between gap-2 sm:flex-row">
-          <div>
-            <CardTitle className="text-xl">Recent Lessons</CardTitle>
-            <p className="text-sm text-muted-foreground">Latest records (up to 100). Add filters or links as needed.</p>
-          </div>
-          <TrendingUp className="h-5 w-5 opacity-70" />
+      {/* Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Lessons</CardTitle>
         </CardHeader>
         <CardContent>
-          {dataLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-            </div>
-          ) : error ? (
-            <div className="text-sm text-destructive">{error}</div>
+          {error ? (
+            <div className="text-sm text-red-600">{error}</div>
+          ) : dataLoading ? (
+            <Skeleton className="h-32 w-full" />
           ) : rows && rows.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="py-2 pr-3 text-left">Project</th>
-                    <th className="py-2 px-3 text-left">Created</th>
-                    <th className="py-2 px-3 text-left">Satisfaction</th>
-                    <th className="py-2 px-3 text-left">Budget</th>
-                    <th className="py-2 pl-3 text-left">Timeline</th>
+                <thead className="text-xs text-muted-foreground">
+                  <tr>
+                    <th className="text-left py-2 pr-4">Project</th>
+                    <th className="text-left py-2 pr-4">Date</th>
+                    <th className="text-left py-2 pr-4">Satisfaction</th>
+                    <th className="text-left py-2 pr-4">Budget</th>
+                    <th className="text-left py-2 pr-0">Timeline</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.slice(0, 12).map((r) => (
-                    <tr key={r.id} className="border-b last:border-0">
-                      <td className="py-2 pr-3">{r.project_name ?? "—"}</td>
-                      <td className="py-2 px-3">{new Date(r.created_at).toLocaleDateString()}</td>
-                      <td className="py-2 px-3">{r.satisfaction ?? "—"}</td>
-                      <td className="py-2 px-3">
-                        {r.budget_status ? (
-                          <Badge
-                            variant={
-                              r.budget_status === "on"
-                                ? "secondary"
-                                : r.budget_status === "under"
-                                ? "default"
-                                : "destructive"
-                            }
-                          >
-                            {r.budget_status}
-                          </Badge>
-                        ) : (
-                          "—"
-                        )}
+                  {rows.map((r) => (
+                    <tr key={r.id} className="border-t">
+                      <td className="py-2 pr-4">{r.project_name ?? "—"}</td>
+                      <td className="py-2 pr-4">
+                        {new Date(r.created_at).toLocaleDateString()}
                       </td>
-                      <td className="py-2 pl-3">
-                        {r.timeline_status ? (
-                          <Badge
-                            variant={
-                              r.timeline_status === "on"
-                                ? "secondary"
-                                : r.timeline_status === "early"
-                                ? "default"
-                                : "destructive"
-                            }
-                          >
-                            {r.timeline_status}
-                          </Badge>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
+                      <td className="py-2 pr-4">{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</td>
+                      <td className="py-2 pr-4 capitalize">{r.budget_status ?? "—"}</td>
+                      <td className="py-2 pr-0 capitalize">{r.timeline_status ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,30 +1,18 @@
 // src/pages/Lessons.tsx
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { RefreshCw } from "lucide-react";
@@ -50,7 +38,7 @@ type LessonFilters = {
   search: string;
   budget: BudgetStatus | "any";
   timeline: TimelineStatus | "any";
-  minSatisfaction: string; // user input, parse to number
+  minSatisfaction: string; // UI field
 };
 
 const DEFAULT_FILTERS: LessonFilters = {
@@ -60,7 +48,7 @@ const DEFAULT_FILTERS: LessonFilters = {
   minSatisfaction: "",
 };
 
-// Safe list of columns (no inline comments)
+// columns list (no inline comments)
 const SELECT_FIELDS = [
   "id",
   "project_name",
@@ -77,6 +65,32 @@ const SELECT_FIELDS = [
 
 export default function Lessons() {
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  // Parse URL params for deep-links from Dashboards
+  const urlParams = useMemo(() => {
+    const norm = (v: string | null) => (v ?? "").trim();
+    const num = (v: string | null) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const budget = norm(searchParams.get("budget")) as BudgetStatus | "";
+    const timeline = norm(searchParams.get("timeline")) as TimelineStatus | "";
+    const minSat = num(searchParams.get("minSat"));
+    const maxSat = num(searchParams.get("maxSat"));
+    const periodDays = num(searchParams.get("periodDays"));
+    const minChangeReqs = num(searchParams.get("minChangeReqs"));
+    const minChangeRevenue = num(searchParams.get("minChangeRevenue"));
+    return {
+      budget: budget === "under" || budget === "on" || budget === "over" ? budget : null,
+      timeline: timeline === "early" || timeline === "on" || timeline === "late" ? timeline : null,
+      minSat,
+      maxSat,
+      periodDays,
+      minChangeReqs,
+      minChangeRevenue,
+    };
+  }, [searchParams]);
 
   const [rows, setRows] = useState<LessonRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +110,6 @@ export default function Lessons() {
           .select(SELECT_FIELDS)
           .order("created_at", { ascending: false })
           .limit(500);
-
         if (error) throw error;
         if (!cancelled) setRows((data as unknown as LessonRow[]) ?? []);
       } catch (e: any) {
@@ -116,33 +129,73 @@ export default function Lessons() {
     };
   }, [toast]);
 
-  // Apply filters (includes client_name in search)
+  // Apply both UI filters and URL-derived filters (AND logic)
   const filtered = useMemo(() => {
     if (!rows) return [];
     const s = filters.search.trim().toLowerCase();
-    const minSat = filters.minSatisfaction ? Number(filters.minSatisfaction) : null;
+    const uiMinSat = filters.minSatisfaction ? Number(filters.minSatisfaction) : null;
+
+    const sinceMs =
+      urlParams.periodDays && urlParams.periodDays > 0
+        ? Date.now() - urlParams.periodDays * 24 * 60 * 60 * 1000
+        : null;
 
     return rows.filter((r) => {
+      // text search
       if (s) {
         const hay = `${r.project_name ?? ""} ${r.client_name ?? ""} ${r.budget_status ?? ""} ${r.timeline_status ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
-      if (filters.budget !== "any" && r.budget_status !== filters.budget) return false;
-      if (filters.timeline !== "any" && r.timeline_status !== filters.timeline) return false;
 
-      if (minSat !== null) {
-        // Satisfaction stored as 1..5; drop nulls and < min
-        if (typeof r.satisfaction !== "number") return false;
-        if (r.satisfaction < minSat) return false;
+      // budget (UI first, else URL)
+      if (filters.budget !== "any") {
+        if (r.budget_status !== filters.budget) return false;
+      } else if (urlParams.budget) {
+        if (r.budget_status !== urlParams.budget) return false;
       }
+
+      // timeline (UI first, else URL)
+      if (filters.timeline !== "any") {
+        if (r.timeline_status !== filters.timeline) return false;
+      } else if (urlParams.timeline) {
+        if (r.timeline_status !== urlParams.timeline) return false;
+      }
+
+      // satisfaction thresholds
+      if (uiMinSat !== null) {
+        if (typeof r.satisfaction !== "number" || r.satisfaction < uiMinSat) return false;
+      }
+      if (urlParams.minSat !== null) {
+        if (typeof r.satisfaction !== "number" || r.satisfaction < urlParams.minSat) return false;
+      }
+      if (urlParams.maxSat !== null) {
+        if (typeof r.satisfaction !== "number" || r.satisfaction > urlParams.maxSat) return false;
+      }
+
+      // change request / revenue thresholds
+      if (urlParams.minChangeReqs !== null) {
+        const v = typeof r.change_request_count === "number" ? r.change_request_count : -Infinity;
+        if (v < urlParams.minChangeReqs) return false;
+      }
+      if (urlParams.minChangeRevenue !== null) {
+        const v = typeof r.change_orders_revenue_usd === "number" ? r.change_orders_revenue_usd : -Infinity;
+        if (v < urlParams.minChangeRevenue) return false;
+      }
+
+      // period window
+      if (sinceMs !== null) {
+        const t = new Date(r.created_at).getTime();
+        if (!(t >= sinceMs)) return false;
+      }
+
       return true;
     });
-  }, [rows, filters]);
+  }, [rows, filters, urlParams]);
 
-  // Reset to page 1 when filters or page size changes
+  // Reset to page 1 when filters, page size, or URL params change
   useEffect(() => {
     setPage(1);
-  }, [filters, pageSize]);
+  }, [filters, pageSize, urlParams]);
 
   // Client-side pagination
   const total = filtered.length;
@@ -175,7 +228,7 @@ export default function Lessons() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Filters */}
+          {/* Filters (UI) */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="search">Search</Label>
@@ -183,9 +236,7 @@ export default function Lessons() {
                 id="search"
                 placeholder="Project, client, budget, timeline..."
                 value={filters.search}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, search: e.target.value }))
-                }
+                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
               />
             </div>
 
@@ -193,12 +244,7 @@ export default function Lessons() {
               <Label>Budget</Label>
               <Select
                 value={filters.budget}
-                onValueChange={(v) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    budget: (v as LessonFilters["budget"]) ?? "any",
-                  }))
-                }
+                onValueChange={(v) => setFilters((prev) => ({ ...prev, budget: (v as LessonFilters["budget"]) ?? "any" }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Any" />
@@ -216,12 +262,7 @@ export default function Lessons() {
               <Label>Timeline</Label>
               <Select
                 value={filters.timeline}
-                onValueChange={(v) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    timeline: (v as LessonFilters["timeline"]) ?? "any",
-                  }))
-                }
+                onValueChange={(v) => setFilters((prev) => ({ ...prev, timeline: (v as LessonFilters["timeline"]) ?? "any" }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Any" />
@@ -246,12 +287,7 @@ export default function Lessons() {
                 inputMode="numeric"
                 placeholder="1–5 (e.g., 4)"
                 value={filters.minSatisfaction}
-                onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    minSatisfaction: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFilters((prev) => ({ ...prev, minSatisfaction: e.target.value }))}
               />
             </div>
           </div>
@@ -264,11 +300,7 @@ export default function Lessons() {
           <div className="flex items-center justify-between">
             <CardTitle>Results</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {isLoading
-                ? "Loading…"
-                : total === 0
-                ? "No results"
-                : `${total} record${total === 1 ? "" : "s"}`}
+              {isLoading ? "Loading…" : total === 0 ? "No results" : `${total} record${total === 1 ? "" : "s"}`}
             </div>
           </div>
         </CardHeader>
@@ -291,38 +323,20 @@ export default function Lessons() {
               <TableBody>
                 {pageRows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {r.project_name ?? "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {r.client_name ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(r.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {r.budget_status ?? "—"}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {r.timeline_status ?? "—"}
+                    <TableCell className="whitespace-nowrap">{r.project_name ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell>
+                    <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
+                    <TableCell className="capitalize">{r.budget_status ?? "—"}</TableCell>
+                    <TableCell className="capitalize">{r.timeline_status ?? "—"}</TableCell>
+                    <TableCell className="text-right">
+                      {typeof r.change_request_count === "number" ? r.change_request_count : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {typeof r.change_request_count === "number"
-                        ? r.change_request_count
-                        : "—"}
+                      {typeof r.change_orders_approved_count === "number" ? r.change_orders_approved_count : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {typeof r.change_orders_approved_count === "number"
-                        ? r.change_orders_approved_count
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {typeof r.change_orders_revenue_usd === "number"
-                        ? `$${r.change_orders_revenue_usd.toLocaleString()}`
-                        : "—"}
+                      {typeof r.change_orders_revenue_usd === "number" ? `$${r.change_orders_revenue_usd.toLocaleString()}` : "—"}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -332,14 +346,10 @@ export default function Lessons() {
 
           {/* Pagination controls */}
           <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            {/* Rows per page + range */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Rows per page</Label>
-                <Select
-                  value={String(pageSize)}
-                  onValueChange={(v) => setPageSize(Number(v))}
-                >
+                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
                   <SelectTrigger className="w-[120px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -357,47 +367,18 @@ export default function Lessons() {
               </div>
             </div>
 
-            {/* Page selector */}
             <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(1)}
-                disabled={safePage <= 1}
-                aria-label="First page"
-                title="First page"
-              >
+              <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={safePage <= 1} aria-label="First page" title="First page">
                 «
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={safePage <= 1}
-              >
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>
                 Prev
               </Button>
-
-              <div className="px-2 text-sm text-muted-foreground">
-                Page {safePage} of {pageCount}
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                disabled={safePage >= pageCount}
-              >
+              <div className="px-2 text-sm text-muted-foreground">Page {safePage} of {pageCount}</div>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount}>
                 Next
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(pageCount)}
-                disabled={safePage >= pageCount}
-                aria-label="Last page"
-                title="Last page"
-              >
+              <Button variant="outline" size="sm" onClick={() => setPage(pageCount)} disabled={safePage >= pageCount} aria-label="Last page" title="Last page">
                 »
               </Button>
             </div>

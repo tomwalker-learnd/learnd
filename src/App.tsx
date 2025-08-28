@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "@/pages/Dashboard";
 import Dashboards from "@/pages/Dashboards";
 import DashboardCustomizer from "@/pages/DashboardCustomizer";
+import Lessons from "@/pages/Lessons";
 import Analytics from "@/pages/Analytics";
 import Auth from "@/pages/Auth";
 
@@ -48,11 +49,20 @@ function Root() {
               </ProtectedRoute>
             }
           />
+          {/* Keep the customizer page reachable via button, not via nav */}
           <Route
             path="/dashboards/customize"
             element={
               <ProtectedRoute>
                 <DashboardCustomizer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lessons"
+            element={
+              <ProtectedRoute>
+                <Lessons />
               </ProtectedRoute>
             }
           />

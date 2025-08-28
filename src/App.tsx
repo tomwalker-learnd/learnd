@@ -1,42 +1,38 @@
 // src/App.tsx
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 // PAGES
 import Dashboard from "@/pages/Dashboard";
 import Dashboards from "@/pages/Dashboards";
 import DashboardCustomizer from "@/pages/DashboardCustomizer";
-import Auth from "@/pages/Auth"; // <-- your real auth page
+import Auth from "@/pages/Auth";
 
-// GLOBAL TOP NAV
-// import AppHeader from "@/components/AppHeader";  // <-- disabled for now
+// If you want a global header, re-enable this, but don’t render it while loading
+// import AppHeader from "@/components/AppHeader";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
+
   if (loading) {
-    return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-sm text-muted-foreground">
+        Checking session…
+      </div>
+    );
   }
   if (!user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 };
 
-// Inner shell so we can use useLocation() under Router
 function Root() {
-  const { loading } = useAuth();
-  const location = useLocation();
-  const onAuthRoute = location.pathname.startsWith("/auth");
-
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header disabled for debugging */}
-      {/* {!onAuthRoute && !loading && <AppHeader />} */}
+    <div className="min-h-screen bg-background">
+      {/* Optional header — render only after auth is known to avoid “stuck” visuals */}
+      {/* {!loading && <AppHeader />} */}
 
-      <div className="flex-1">
+      <div className="mx-auto w-full max-w-7xl px-4 py-6">
         <Routes>
-          {/* Public auth route */}
-          <Route path="/auth" element={<Auth />} />
-
-          {/* Protected routes */}
           <Route
             path="/"
             element={
@@ -61,8 +57,7 @@ function Root() {
               </ProtectedRoute>
             }
           />
-
-          {/* Fallback */}
+          <Route path="/auth" element={<Auth />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

@@ -1,43 +1,23 @@
-// src/components/AppHeader.tsx (minimal, safe)
+// src/components/AppHeader.tsx
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 
 export default function AppHeader() {
   const { user, loading, signOut } = useAuth();
 
-  if (loading) {
-    return (
-      <header className="border-b bg-background/50 backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
-          <div className="font-semibold">Learnd</div>
-          <div className="text-xs text-muted-foreground">Checking session…</div>
-        </div>
-      </header>
-    );
-  }
+  // Don’t render until auth is known (prevents any “checking…” flashes)
+  if (loading) return null;
 
-  if (!user) {
-    return (
-      <header className="border-b bg-background/50 backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
-          <div className="font-semibold">Learnd</div>
-          <a href="/auth">
-            <Button size="sm">Sign in</Button>
-          </a>
-        </div>
-      </header>
-    );
-  }
-
-  const email = user.email ?? "user";
+  const email = user?.email ?? "";
+  const namePart = email.split("@")[0] || "";
+  const parts = namePart.split(".");
   const initials =
-    (email[0]?.toUpperCase() ?? "U") +
-    (email.split("@")[0]?.[1]?.toUpperCase() ?? "");
+    (namePart[0]?.toUpperCase() ?? "?") +
+    ((parts[1]?.[0]?.toUpperCase() ?? "") || "");
 
   const onLogout = async () => {
     await signOut();
-    // Use hard redirect to avoid router hook issues
-    window.location.assign("/auth");
+    // Routing will handle redirect; no hard reload needed
   };
 
   return (
@@ -49,20 +29,23 @@ export default function AppHeader() {
             <a href="/" className="px-2 py-1 rounded-md hover:underline">Home</a>
             <a href="/dashboards" className="px-2 py-1 rounded-md hover:underline">Dashboards</a>
             <a href="/dashboards/customize" className="px-2 py-1 rounded-md hover:underline">Customize</a>
+            <a href="/analytics" className="px-2 py-1 rounded-md hover:underline">Analytics</a>
           </nav>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div
-            aria-label="avatar"
-            className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium"
-            title={email}
-          >
-            {initials}
+        {user && (
+          <div className="flex items-center gap-3">
+            <div
+              aria-label="avatar"
+              className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium"
+              title={email}
+            >
+              {initials}
+            </div>
+            <span className="hidden md:inline text-sm text-muted-foreground">{email}</span>
+            <Button size="sm" variant="outline" onClick={onLogout}>Sign out</Button>
           </div>
-          <span className="hidden md:inline text-sm text-muted-foreground">{email}</span>
-          <Button size="sm" variant="outline" onClick={onLogout}>Sign out</Button>
-        </div>
+        )}
       </div>
     </header>
   );

@@ -48,10 +48,10 @@ export default function AppHeader() {
     `${linkClass} ${isActive ? "text-foreground" : ""}`;
 
   return (
-    <header className="w-full border-b bg-background">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+    <header className="sticky top-0 z-50 w-full border-b bg-background">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2" aria-label="Go to Home">
           {/* Swap for your logo image if desired */}
           <span className="text-xl font-extrabold tracking-tight">Learnd</span>
         </Link>

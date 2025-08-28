@@ -1,11 +1,12 @@
 // src/components/AppHeader.tsx
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 
 export default function AppHeader() {
   const { user, loading, signOut } = useAuth();
 
-  // Don’t render until auth is known (prevents any “checking…” flashes)
+  // Hide header until auth state is known (prevents flicker)
   if (loading) return null;
 
   const email = user?.email ?? "";
@@ -17,19 +18,19 @@ export default function AppHeader() {
 
   const onLogout = async () => {
     await signOut();
-    // Routing will handle redirect; no hard reload needed
   };
 
   return (
     <header className="border-b bg-background/50 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <a href="/" className="font-semibold">Learnd</a>
+          <Link to="/" className="font-semibold">Learnd</Link>
           <nav className="hidden sm:flex items-center gap-2 text-sm">
-            <a href="/" className="px-2 py-1 rounded-md hover:underline">Home</a>
-            <a href="/dashboards" className="px-2 py-1 rounded-md hover:underline">Dashboards</a>
-            <a href="/dashboards/customize" className="px-2 py-1 rounded-md hover:underline">Customize</a>
-            <a href="/analytics" className="px-2 py-1 rounded-md hover:underline">Analytics</a>
+            <Link to="/" className="px-2 py-1 rounded-md hover:underline">Home</Link>
+            <Link to="/dashboards" className="px-2 py-1 rounded-md hover:underline">Dashboards</Link>
+            <Link to="/lessons" className="px-2 py-1 rounded-md hover:underline">Lessons</Link>
+            <Link to="/analytics" className="px-2 py-1 rounded-md hover:underline">Analytics</Link>
+            {/* No "Customize" in nav anymore */}
           </nav>
         </div>
 

@@ -4,15 +4,28 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { RefreshCw } from "lucide-react";
@@ -24,14 +37,10 @@ type LessonRow = {
   id: string;
   project_name: string | null;
   client_name: string | null;
-  created_at: string;
+  created_at: string; // ISO
   satisfaction: number | null; // 1..5
-  budget_status: BudgetStatus | string | null;   // widen to string for normalization
-  timeline_status: TimelineStatus | string | null; // widen to string for normalization
-  change_request_count: number | null;
-  change_orders_approved_count: number | null;
-  change_orders_revenue_usd: number | null;
-  created_by: string;
+  budget_status: BudgetStatus | string | null; // may come back lowercase string
+  timeline_status: TimelineStatus | string | null; // idem
 };
 
 type LessonFilters = {
@@ -48,7 +57,7 @@ const DEFAULT_FILTERS: LessonFilters = {
   minSatisfaction: "",
 };
 
-// columns list (no inline comments)
+// Only select columns that exist in DB
 const SELECT_FIELDS = [
   "id",
   "project_name",
@@ -57,10 +66,6 @@ const SELECT_FIELDS = [
   "satisfaction",
   "budget_status",
   "timeline_status",
-  "change_request_count",
-  "change_orders_approved_count",
-  "change_orders_revenue_usd",
-  "created_by",
 ].join(", ");
 
 // --- helpers ---
@@ -81,7 +86,7 @@ export default function Lessons() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
-  // Parse URL params for deep-links from Dashboards
+  // Parse URL params for deep-links (kept simple: budget/timeline/minSat/maxSat/periodDays)
   const urlParams = useMemo(() => {
     const norm = (v: string | null) => (v ?? "").trim();
     const num = (v: string | null) => {
@@ -91,8 +96,14 @@ export default function Lessons() {
     const budgetIn = norm(searchParams.get("budget")).toLowerCase();
     const timelineIn = norm(searchParams.get("timeline")).toLowerCase();
 
-    const budget = budgetIn === "under" || budgetIn === "on" || budgetIn === "over" ? (budgetIn as BudgetStatus) : null;
-    const timeline = timelineIn === "early" || timelineIn === "on" || timelineIn === "late" ? (timelineIn as TimelineStatus) : null;
+    const budget =
+      budgetIn === "under" || budgetIn === "on" || budgetIn === "over"
+        ? (budgetIn as BudgetStatus)
+        : null;
+    const timeline =
+      timelineIn === "early" || timelineIn === "on" || timelineIn === "late"
+        ? (timelineIn as TimelineStatus)
+        : null;
 
     return {
       budget,
@@ -100,8 +111,6 @@ export default function Lessons() {
       minSat: num(searchParams.get("minSat")),
       maxSat: num(searchParams.get("maxSat")),
       periodDays: num(searchParams.get("periodDays")),
-      minChangeReqs: num(searchParams.get("minChangeReqs")),
-      minChangeRevenue: num(searchParams.get("minChangeRevenue")),
     };
   }, [searchParams]);
 
@@ -123,9 +132,11 @@ export default function Lessons() {
           .select(SELECT_FIELDS)
           .order("created_at", { ascending: false })
           .limit(500);
+
         if (error) throw error;
         if (!cancelled) setRows((data as unknown as LessonRow[]) ?? []);
       } catch (e: any) {
+        console.error("Lessons load failed:", e);
         toast({
           title: "Load failed",
           description: e?.message ?? "Unable to load lessons.",
@@ -149,7 +160,9 @@ export default function Lessons() {
     const s = filters.search.trim().toLowerCase();
     const uiMinSat =
       filters.minSatisfaction.trim() === "" ? null : Number(filters.minSatisfaction);
-    const useUiMinSat = Number.isFinite(uiMinSat as number) ? (uiMinSat as number) : null;
+    const useUiMinSat = Number.isFinite(uiMinSat as number)
+      ? (uiMinSat as number)
+      : null;
 
     const sinceMs =
       urlParams.periodDays && urlParams.periodDays > 0
@@ -162,11 +175,13 @@ export default function Lessons() {
 
       // text search
       if (s) {
-        const hay = `${r.project_name ?? ""} ${r.client_name ?? ""} ${rBudget ?? ""} ${rTimeline ?? ""}`.toLowerCase();
+        const hay = `${r.project_name ?? ""} ${r.client_name ?? ""} ${rBudget ?? ""} ${
+          rTimeline ?? ""
+        }`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
 
-      // budget (UI first, else URL) — compare on normalized values
+      // budget (UI first, else URL) — normalized compare
       if (filters.budget !== "any") {
         if (rBudget !== filters.budget) return false;
       } else if (urlParams.budget) {
@@ -182,26 +197,19 @@ export default function Lessons() {
 
       // satisfaction thresholds
       if (useUiMinSat !== null) {
-        if (typeof r.satisfaction !== "number" || r.satisfaction < useUiMinSat) return false;
+        if (typeof r.satisfaction !== "number" || r.satisfaction < useUiMinSat)
+          return false;
       }
       if (urlParams.minSat !== null) {
-        if (typeof r.satisfaction !== "number" || r.satisfaction < urlParams.minSat) return false;
+        if (typeof r.satisfaction !== "number" || r.satisfaction < urlParams.minSat)
+          return false;
       }
       if (urlParams.maxSat !== null) {
-        if (typeof r.satisfaction !== "number" || r.satisfaction > urlParams.maxSat) return false;
+        if (typeof r.satisfaction !== "number" || r.satisfaction > urlParams.maxSat)
+          return false;
       }
 
-      // change request / revenue thresholds
-      if (urlParams.minChangeReqs !== null) {
-        const v = typeof r.change_request_count === "number" ? r.change_request_count : -Infinity;
-        if (v < urlParams.minChangeReqs) return false;
-      }
-      if (urlParams.minChangeRevenue !== null) {
-        const v = typeof r.change_orders_revenue_usd === "number" ? r.change_orders_revenue_usd : -Infinity;
-        if (v < urlParams.minChangeRevenue) return false;
-      }
-
-      // period window
+      // period window based on created_at
       if (sinceMs !== null) {
         const t = new Date(r.created_at).getTime();
         if (!(t >= sinceMs)) return false;
@@ -236,7 +244,9 @@ export default function Lessons() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Lessons</CardTitle>
-              <CardDescription>Filter, browse, and analyze recent lessons.</CardDescription>
+              <CardDescription>
+                Filter, browse, and analyze recent lessons.
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={onRefresh}>
@@ -255,7 +265,9 @@ export default function Lessons() {
                 id="search"
                 placeholder="Project, client, budget, timeline..."
                 value={filters.search}
-                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, search: e.target.value }))
+                }
               />
             </div>
 
@@ -266,7 +278,8 @@ export default function Lessons() {
                 onValueChange={(v) =>
                   setFilters((prev) => ({
                     ...prev,
-                    budget: (normStr(v).toLowerCase() as LessonFilters["budget"]) || "any",
+                    budget:
+                      (normStr(v).toLowerCase() as LessonFilters["budget"]) || "any",
                   }))
                 }
               >
@@ -289,7 +302,9 @@ export default function Lessons() {
                 onValueChange={(v) =>
                   setFilters((prev) => ({
                     ...prev,
-                    timeline: (normStr(v).toLowerCase() as LessonFilters["timeline"]) || "any",
+                    timeline:
+                      (normStr(v).toLowerCase() as LessonFilters["timeline"]) ||
+                      "any",
                   }))
                 }
               >
@@ -317,7 +332,10 @@ export default function Lessons() {
                 placeholder="1–5 (e.g., 4)"
                 value={filters.minSatisfaction}
                 onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, minSatisfaction: e.target.value }))
+                  setFilters((prev) => ({
+                    ...prev,
+                    minSatisfaction: e.target.value,
+                  }))
                 }
               />
             </div>
@@ -331,7 +349,11 @@ export default function Lessons() {
           <div className="flex items-center justify-between">
             <CardTitle>Results</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {isLoading ? "Loading…" : total === 0 ? "No results" : `${total} record${total === 1 ? "" : "s"}`}
+              {isLoading
+                ? "Loading…"
+                : total === 0
+                ? "No results"
+                : `${total} record${total === 1 ? "" : "s"}`}
             </div>
           </div>
         </CardHeader>
@@ -346,28 +368,28 @@ export default function Lessons() {
                   <TableHead>Satisfaction</TableHead>
                   <TableHead>Budget</TableHead>
                   <TableHead>Timeline</TableHead>
-                  <TableHead className="text-right">Change Reqs</TableHead>
-                  <TableHead className="text-right">Change Orders Approved</TableHead>
-                  <TableHead className="text-right">Change Orders Revenue</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pageRows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap">{r.project_name ?? "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell>
-                    <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
-                    <TableCell className="capitalize">{normBudget(r.budget_status) ?? "—"}</TableCell>
-                    <TableCell className="capitalize">{normTimeline(r.timeline_status) ?? "—"}</TableCell>
-                    <TableCell className="text-right">
-                      {typeof r.change_request_count === "number" ? r.change_request_count : "—"}
+                    <TableCell className="whitespace-nowrap">
+                      {r.project_name ?? "—"}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {typeof r.change_orders_approved_count === "number" ? r.change_orders_approved_count : "—"}
+                    <TableCell className="whitespace-nowrap">
+                      {r.client_name ?? "—"}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {typeof r.change_orders_revenue_usd === "number" ? `$${r.change_orders_revenue_usd.toLocaleString()}` : "—"}
+                    <TableCell>
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {normBudget(r.budget_status) ?? "—"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {normTimeline(r.timeline_status) ?? "—"}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -380,13 +402,16 @@ export default function Lessons() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Rows per page</Label>
-                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => setPageSize(Number(v))}
+                >
                   <SelectTrigger className="w-[120px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="25">25</Item>
                     <SelectItem value="50">50</SelectItem>
                     <SelectItem value="100">100</SelectItem>
                     <SelectItem value="250">250</SelectItem>
@@ -399,17 +424,43 @@ export default function Lessons() {
             </div>
 
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={safePage <= 1} aria-label="First page" title="First page">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(1)}
+                disabled={safePage <= 1}
+                aria-label="First page"
+                title="First page"
+              >
                 «
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+              >
                 Prev
               </Button>
-              <div className="px-2 text-sm text-muted-foreground">Page {safePage} of {pageCount}</div>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount}>
+              <div className="px-2 text-sm text-muted-foreground">
+                Page {safePage} of {pageCount}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={safePage >= pageCount}
+              >
                 Next
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPage(pageCount)} disabled={safePage >= pageCount} aria-label="Last page" title="Last page">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(pageCount)}
+                disabled={safePage >= pageCount}
+                aria-label="Last page"
+                title="Last page"
+              >
                 »
               </Button>
             </div>

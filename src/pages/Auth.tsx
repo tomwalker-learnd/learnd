@@ -12,8 +12,8 @@ import logo from "@/assets/learnd-logo.png";
 
 type Mode = "signin" | "signup";
 
-// Edit this to whatever tagline you prefer
-const TAGLINE = "Learn faster from every project.";
+// ✅ Official tagline
+const TAGLINE = "Learn. Improve. Repeat.";
 
 export default function Auth() {
   const { user, loading } = useAuth();

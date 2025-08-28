@@ -26,8 +26,8 @@ type LessonRow = {
   client_name: string | null;
   created_at: string;
   satisfaction: number | null; // 1..5
-  budget_status: BudgetStatus | null;
-  timeline_status: TimelineStatus | null;
+  budget_status: BudgetStatus | string | null;   // widen to string for normalization
+  timeline_status: TimelineStatus | string | null; // widen to string for normalization
   change_request_count: number | null;
   change_orders_approved_count: number | null;
   change_orders_revenue_usd: number | null;
@@ -63,6 +63,20 @@ const SELECT_FIELDS = [
   "created_by",
 ].join(", ");
 
+// --- helpers ---
+const normStr = (v: unknown) =>
+  (typeof v === "string" ? v : v == null ? "" : String(v)).trim();
+
+const normBudget = (v: unknown): BudgetStatus | null => {
+  const s = normStr(v).toLowerCase();
+  return s === "under" || s === "on" || s === "over" ? (s as BudgetStatus) : null;
+};
+
+const normTimeline = (v: unknown): TimelineStatus | null => {
+  const s = normStr(v).toLowerCase();
+  return s === "early" || s === "on" || s === "late" ? (s as TimelineStatus) : null;
+};
+
 export default function Lessons() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
@@ -74,21 +88,20 @@ export default function Lessons() {
       const n = Number(v);
       return Number.isFinite(n) ? n : null;
     };
-    const budget = norm(searchParams.get("budget")) as BudgetStatus | "";
-    const timeline = norm(searchParams.get("timeline")) as TimelineStatus | "";
-    const minSat = num(searchParams.get("minSat"));
-    const maxSat = num(searchParams.get("maxSat"));
-    const periodDays = num(searchParams.get("periodDays"));
-    const minChangeReqs = num(searchParams.get("minChangeReqs"));
-    const minChangeRevenue = num(searchParams.get("minChangeRevenue"));
+    const budgetIn = norm(searchParams.get("budget")).toLowerCase();
+    const timelineIn = norm(searchParams.get("timeline")).toLowerCase();
+
+    const budget = budgetIn === "under" || budgetIn === "on" || budgetIn === "over" ? (budgetIn as BudgetStatus) : null;
+    const timeline = timelineIn === "early" || timelineIn === "on" || timelineIn === "late" ? (timelineIn as TimelineStatus) : null;
+
     return {
-      budget: budget === "under" || budget === "on" || budget === "over" ? budget : null,
-      timeline: timeline === "early" || timeline === "on" || timeline === "late" ? timeline : null,
-      minSat,
-      maxSat,
-      periodDays,
-      minChangeReqs,
-      minChangeRevenue,
+      budget,
+      timeline,
+      minSat: num(searchParams.get("minSat")),
+      maxSat: num(searchParams.get("maxSat")),
+      periodDays: num(searchParams.get("periodDays")),
+      minChangeReqs: num(searchParams.get("minChangeReqs")),
+      minChangeRevenue: num(searchParams.get("minChangeRevenue")),
     };
   }, [searchParams]);
 
@@ -132,8 +145,11 @@ export default function Lessons() {
   // Apply both UI filters and URL-derived filters (AND logic)
   const filtered = useMemo(() => {
     if (!rows) return [];
+
     const s = filters.search.trim().toLowerCase();
-    const uiMinSat = filters.minSatisfaction ? Number(filters.minSatisfaction) : null;
+    const uiMinSat =
+      filters.minSatisfaction.trim() === "" ? null : Number(filters.minSatisfaction);
+    const useUiMinSat = Number.isFinite(uiMinSat as number) ? (uiMinSat as number) : null;
 
     const sinceMs =
       urlParams.periodDays && urlParams.periodDays > 0
@@ -141,29 +157,32 @@ export default function Lessons() {
         : null;
 
     return rows.filter((r) => {
+      const rBudget = normBudget(r.budget_status);
+      const rTimeline = normTimeline(r.timeline_status);
+
       // text search
       if (s) {
-        const hay = `${r.project_name ?? ""} ${r.client_name ?? ""} ${r.budget_status ?? ""} ${r.timeline_status ?? ""}`.toLowerCase();
+        const hay = `${r.project_name ?? ""} ${r.client_name ?? ""} ${rBudget ?? ""} ${rTimeline ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
 
-      // budget (UI first, else URL)
+      // budget (UI first, else URL) — compare on normalized values
       if (filters.budget !== "any") {
-        if (r.budget_status !== filters.budget) return false;
+        if (rBudget !== filters.budget) return false;
       } else if (urlParams.budget) {
-        if (r.budget_status !== urlParams.budget) return false;
+        if (rBudget !== urlParams.budget) return false;
       }
 
       // timeline (UI first, else URL)
       if (filters.timeline !== "any") {
-        if (r.timeline_status !== filters.timeline) return false;
+        if (rTimeline !== filters.timeline) return false;
       } else if (urlParams.timeline) {
-        if (r.timeline_status !== urlParams.timeline) return false;
+        if (rTimeline !== urlParams.timeline) return false;
       }
 
       // satisfaction thresholds
-      if (uiMinSat !== null) {
-        if (typeof r.satisfaction !== "number" || r.satisfaction < uiMinSat) return false;
+      if (useUiMinSat !== null) {
+        if (typeof r.satisfaction !== "number" || r.satisfaction < useUiMinSat) return false;
       }
       if (urlParams.minSat !== null) {
         if (typeof r.satisfaction !== "number" || r.satisfaction < urlParams.minSat) return false;
@@ -244,7 +263,12 @@ export default function Lessons() {
               <Label>Budget</Label>
               <Select
                 value={filters.budget}
-                onValueChange={(v) => setFilters((prev) => ({ ...prev, budget: (v as LessonFilters["budget"]) ?? "any" }))}
+                onValueChange={(v) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    budget: (normStr(v).toLowerCase() as LessonFilters["budget"]) || "any",
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Any" />
@@ -262,7 +286,12 @@ export default function Lessons() {
               <Label>Timeline</Label>
               <Select
                 value={filters.timeline}
-                onValueChange={(v) => setFilters((prev) => ({ ...prev, timeline: (v as LessonFilters["timeline"]) ?? "any" }))}
+                onValueChange={(v) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    timeline: (normStr(v).toLowerCase() as LessonFilters["timeline"]) || "any",
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Any" />
@@ -287,7 +316,9 @@ export default function Lessons() {
                 inputMode="numeric"
                 placeholder="1–5 (e.g., 4)"
                 value={filters.minSatisfaction}
-                onChange={(e) => setFilters((prev) => ({ ...prev, minSatisfaction: e.target.value }))}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, minSatisfaction: e.target.value }))
+                }
               />
             </div>
           </div>
@@ -327,8 +358,8 @@ export default function Lessons() {
                     <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell>
                     <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
-                    <TableCell className="capitalize">{r.budget_status ?? "—"}</TableCell>
-                    <TableCell className="capitalize">{r.timeline_status ?? "—"}</TableCell>
+                    <TableCell className="capitalize">{normBudget(r.budget_status) ?? "—"}</TableCell>
+                    <TableCell className="capitalize">{normTimeline(r.timeline_status) ?? "—"}</TableCell>
                     <TableCell className="text-right">
                       {typeof r.change_request_count === "number" ? r.change_request_count : "—"}
                     </TableCell>

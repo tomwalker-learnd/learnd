@@ -1,13 +1,26 @@
 // src/components/AppHeader.tsx
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/learnd-logo.png";
 
 export default function AppHeader() {
   const { user, loading, signOut } = useAuth();
+  const { pathname } = useLocation();
 
-  // Hide header until auth state is known (prevents flicker)
-  if (loading) return null;
+  if (loading) {
+    return (
+      <header className="border-b bg-background/50 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="Learnd" className="h-6 w-auto" />
+            <span className="sr-only">Learnd</span>
+          </div>
+          <div className="text-xs text-muted-foreground">Checking session…</div>
+        </div>
+      </header>
+    );
+  }
 
   const email = user?.email ?? "";
   const namePart = email.split("@")[0] || "";
@@ -20,17 +33,41 @@ export default function AppHeader() {
     await signOut();
   };
 
+  const NavLink = ({
+    to,
+    label,
+  }: {
+    to: string;
+    label: string;
+  }) => {
+    const active =
+      pathname === to ||
+      (to !== "/" && pathname.startsWith(to));
+    return (
+      <Link
+        to={to}
+        className={`px-2 py-1 rounded-md text-sm ${
+          active ? "underline" : "hover:underline"
+        }`}
+      >
+        {label}
+      </Link>
+    );
+  };
+
   return (
     <header className="border-b bg-background/50 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 h-12 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/" className="font-semibold">Learnd</Link>
-          <nav className="hidden sm:flex items-center gap-2 text-sm">
-            <Link to="/" className="px-2 py-1 rounded-md hover:underline">Home</Link>
-            <Link to="/dashboards" className="px-2 py-1 rounded-md hover:underline">Dashboards</Link>
-            <Link to="/lessons" className="px-2 py-1 rounded-md hover:underline">Lessons</Link>
-            <Link to="/analytics" className="px-2 py-1 rounded-md hover:underline">Analytics</Link>
-            {/* No "Customize" in nav anymore */}
+          <Link to="/" className="flex items-center gap-2">
+            <img src={logo} alt="Learnd" className="h-6 w-auto" />
+            <span className="sr-only">Learnd</span>
+          </Link>
+          <nav className="hidden sm:flex items-center gap-2">
+            <NavLink to="/" label="Home" />
+            <NavLink to="/dashboards" label="Dashboards" />
+            <NavLink to="/lessons" label="Lessons" />
+            <NavLink to="/analytics" label="Analytics" />
           </nav>
         </div>
 
@@ -43,8 +80,12 @@ export default function AppHeader() {
             >
               {initials}
             </div>
-            <span className="hidden md:inline text-sm text-muted-foreground">{email}</span>
-            <Button size="sm" variant="outline" onClick={onLogout}>Sign out</Button>
+            <span className="hidden md:inline text-sm text-muted-foreground">
+              {email}
+            </span>
+            <Button size="sm" variant="outline" onClick={onLogout}>
+              Sign out
+            </Button>
           </div>
         )}
       </div>

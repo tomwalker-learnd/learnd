@@ -12,6 +12,9 @@ import logo from "@/assets/learnd-logo.png";
 
 type Mode = "signin" | "signup";
 
+// Edit this to whatever tagline you prefer
+const TAGLINE = "Learn faster from every project.";
+
 export default function Auth() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -54,71 +57,77 @@ export default function Auth() {
   if (user) return <Navigate to="/" replace />;
 
   return (
-    <div className="min-h-screen grid place-items-center p-4">
-      <div className="mb-6 flex items-center justify-center">
-        <img src={logo} alt="Learnd" className="h-10 w-auto" />
-      </div>
+    <div className="min-h-screen flex items-start justify-center px-4">
+      <div className="w-full max-w-sm pt-20 md:pt-28 pb-10">
+        {/* Bigger, lower logo + tagline */}
+        <div className="mb-6 flex flex-col items-center">
+          <img src={logo} alt="Learnd" className="h-20 w-auto md:h-24" />
+          <p className="mt-2 text-sm text-muted-foreground text-center">
+            {TAGLINE}
+          </p>
+        </div>
 
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-center">
-            {mode === "signin" ? "Welcome back" : "Create your account"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
-            </Button>
-          </form>
-
-          <div className="mt-4 text-sm text-center text-muted-foreground">
-            {mode === "signin" ? (
-              <>
-                Don’t have an account?{" "}
-                <button className="underline" onClick={() => setMode("signup")} type="button">
-                  Sign up
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <button className="underline" onClick={() => setMode("signin")} type="button">
-                  Sign in
-                </button>
-              </>
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-center">
+              {mode === "signin" ? "Welcome back" : "Create your account"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
-          </div>
-        </CardContent>
-      </Card>
+
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
+              </Button>
+            </form>
+
+            <div className="mt-4 text-sm text-center text-muted-foreground">
+              {mode === "signin" ? (
+                <>
+                  Don’t have an account?{" "}
+                  <button className="underline" onClick={() => setMode("signup")} type="button">
+                    Sign up
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{" "}
+                  <button className="underline" onClick={() => setMode("signin")} type="button">
+                    Sign in
+                  </button>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

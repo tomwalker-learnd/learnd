@@ -19,14 +19,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import LearndLogo from "@/assets/Learnd_Logo_v4_Transparent.png"; // ✅ custom logo import
 
-// Edit this list to control your top-level nav
+// SINGLE SOURCE OF TRUTH for both desktop and mobile nav
 const NAV_ITEMS = [
   { to: "/", label: "Home" },
+  { to: "/dashboards", label: "Dashboards" },
   { to: "/lessons", label: "Lessons" },
   { to: "/analytics", label: "Analytics" },
-  { to: "/templates", label: "Templates" },
 ];
 
 export default function AppHeader() {
@@ -34,8 +33,8 @@ export default function AppHeader() {
   const navigate = useNavigate();
 
   const initial = useMemo(() => {
-    const src = user?.user_metadata?.full_name || user?.email || "U";
-    return (src as string).trim()[0]?.toUpperCase() ?? "U";
+    const src = (user?.user_metadata?.full_name as string) || user?.email || "U";
+    return src.trim()[0]?.toUpperCase() ?? "U";
   }, [user]);
 
   const handleSignOut = async () => {
@@ -45,23 +44,19 @@ export default function AppHeader() {
 
   const linkClass =
     "px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground";
-
   const activeClass = ({ isActive }: { isActive: boolean }) =>
     `${linkClass} ${isActive ? "text-foreground" : ""}`;
 
   return (
     <header className="w-full border-b bg-background">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        {/* Left: logo */}
+        {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <img
-            src={LearndLogo}
-            alt="Learnd Logo"
-            className="h-8 w-auto"
-          />
+          {/* Swap for your logo image if desired */}
+          <span className="text-xl font-extrabold tracking-tight">Learnd</span>
         </Link>
 
-        {/* Center: desktop links */}
+        {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1">
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.to} to={item.to} className={activeClass}>
@@ -70,9 +65,9 @@ export default function AppHeader() {
           ))}
         </nav>
 
-        {/* Right: desktop profile + mobile hamburger */}
+        {/* Right controls */}
         <div className="flex items-center gap-2">
-          {/* Desktop profile menu */}
+          {/* Desktop profile dropdown */}
           <div className="hidden md:block">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -101,7 +96,7 @@ export default function AppHeader() {
             </DropdownMenu>
           </div>
 
-          {/* Mobile: hamburger that opens a slide-out menu */}
+          {/* Mobile hamburger / sheet */}
           <Sheet>
             <SheetTrigger asChild>
               <Button
@@ -113,6 +108,7 @@ export default function AppHeader() {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
+
             <SheetContent side="right" className="w-80">
               <SheetHeader className="mb-2">
                 <SheetTitle className="text-left">Menu</SheetTitle>

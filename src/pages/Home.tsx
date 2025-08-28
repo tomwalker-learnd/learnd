@@ -8,7 +8,6 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { RefreshCw, TrendingUp } from "lucide-react";
 
 type BudgetStatus = "under" | "on" | "over" | null;
@@ -139,7 +138,25 @@ export default function Home() {
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button size="sm" onClick={() => navigate("/analytics")}>
+
+            {/* Gradient Analytics button */}
+            <Button
+              size="sm"
+              onClick={() => navigate("/analytics")}
+              className={[
+                "relative overflow-hidden",
+                "text-white shadow-sm",
+                "transition-opacity",
+                "hover:opacity-95 active:opacity-90",
+                // gradient fill across full button
+                "bg-gradient-to-r from-fuchsia-500 via-pink-500 to-orange-400",
+                // ensure full coverage (fixes 'mostly orange' look)
+                "[background-size:200%_200%] animate-[gradientShift_6s_ease_infinite]",
+                // rounded + border for consistency with theme
+                "border border-transparent",
+              ].join(" ")}
+              aria-label="Open Analytics"
+            >
               <TrendingUp className="h-4 w-4 mr-2" />
               Analytics
             </Button>
@@ -153,83 +170,15 @@ export default function Home() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Total Lessons</CardTitle>
           </CardHeader>
-        <CardContent>
-            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{kpiValue(totalLessons)}</div>}
+          <CardContent>
+            {dataLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="text-3xl font-semibold">{kpiValue(totalLessons)}</div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Avg. Satisfaction</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{kpiValue(avgSatisfaction ?? null)}</div>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">On Budget</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{onBudgetRate === null ? "—" : `${onBudgetRate}%`}</div>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">On Time</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dataLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-3xl font-semibold">{onTimeRate === null ? "—" : `${onTimeRate}%`}</div>}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Lessons (max 10) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Lessons</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error ? (
-            <div className="text-sm text-red-600">{error}</div>
-          ) : dataLoading ? (
-            <Skeleton className="h-32 w-full" />
-          ) : recentRows.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-xs text-muted-foreground">
-                  <tr>
-                    <th className="text-left py-2 pr-4">Project</th>
-                    <th className="text-left py-2 pr-4">Date</th>
-                    <th className="text-left py-2 pr-4">Satisfaction</th>
-                    <th className="text-left py-2 pr-4">Budget</th>
-                    <th className="text-left py-2 pr-0">Timeline</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentRows.map((r) => (
-                    <tr key={r.id} className="border-t">
-                      <td className="py-2 pr-4">{r.project_name ?? "—"}</td>
-                      <td className="py-2 pr-4">
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-2 pr-4">
-                        {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
-                      </td>
-                      <td className="py-2 pr-4 capitalize">{r.budget_status ?? "—"}</td>
-                      <td className="py-2 pr-0 capitalize">{r.timeline_status ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">No lessons yet.</div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+            <CardTitle className="text-sm text-mute

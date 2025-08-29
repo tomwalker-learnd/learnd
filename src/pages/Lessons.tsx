@@ -1,5 +1,5 @@
 // src/pages/Lessons.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,8 @@ type LessonFilters = {
   minSatisfaction: string; // UI field
 };
 
+type DateWindow = { from?: string; to?: string } | null;
+
 const DEFAULT_FILTERS: LessonFilters = {
   search: "",
   budget: "any",
@@ -57,7 +59,6 @@ const DEFAULT_FILTERS: LessonFilters = {
   minSatisfaction: "",
 };
 
-// Only select columns that exist in DB
 const SELECT_FIELDS = [
   "id",
   "project_name",
@@ -68,7 +69,7 @@ const SELECT_FIELDS = [
   "timeline_status",
 ].join(", ");
 
-// --- helpers ---
+// helpers
 const normStr = (v: unknown) =>
   (typeof v === "string" ? v : v == null ? "" : String(v)).trim();
 
@@ -84,16 +85,31 @@ const normTimeline = (v: unknown): TimelineStatus | null => {
 
 export default function Lessons() {
   const { toast } = useToast();
-  // still keep searchParams if you later want to wire from/to, etc.
   const [searchParams] = useSearchParams();
 
   const [rows, setRows] = useState<LessonRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<LessonFilters>(DEFAULT_FILTERS);
 
-  // Pagination state
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
+
+  const [dateWindow, setDateWindow] = useState<DateWindow>(null);
+  const appliedFromUrlOnce = useRef(false);
+
+  // Parse incoming params from Dashboards/custom dashboards
+  const incoming = useMemo(() => {
+    const get = (k: string) => (searchParams.get(k) ?? "").trim();
+    return {
+      from: get("from"),
+      to: get("to"),
+      q: get("q"),
+      b: get("b"), // under|on|over
+      t: get("t"), // early|on|late
+      min: get("min"), // number as string
+      apply: get("apply") === "1",
+    };
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +121,6 @@ export default function Lessons() {
           .select(SELECT_FIELDS)
           .order("created_at", { ascending: false })
           .limit(500);
-
         if (error) throw error;
         if (!cancelled) setRows((data as unknown as LessonRow[]) ?? []);
       } catch (e: any) {
@@ -126,7 +141,32 @@ export default function Lessons() {
     };
   }, [toast]);
 
-  // Are any UI filters active?
+  // Prefill from URL; only APPLY the date window when apply=1
+  useEffect(() => {
+    const hasAny =
+      incoming.from || incoming.to || incoming.q || incoming.b || incoming.t || incoming.min;
+
+    if (!hasAny) return;
+
+    // Prefill controls
+    setFilters((prev) => ({
+      ...prev,
+      search: incoming.q || "",
+      budget: (incoming.b as any) || "any",
+      timeline: (incoming.t as any) || "any",
+      minSatisfaction: incoming.min || "",
+    }));
+
+    if (incoming.apply && !appliedFromUrlOnce.current) {
+      setDateWindow({
+        from: incoming.from || undefined,
+        to: incoming.to || undefined,
+      });
+      appliedFromUrlOnce.current = true;
+    }
+  }, [incoming]);
+
+  // Is the user actively filtering?
   const hasUiFilters = useMemo(() => {
     return (
       filters.search.trim() !== "" ||
@@ -136,65 +176,68 @@ export default function Lessons() {
     );
   }, [filters]);
 
-  // Apply UI filters only when active; otherwise show ALL rows
+  // Show ALL rows by default; only narrow when UI filters are used,
+  // or when a dateWindow was explicitly applied via apply=1.
   const filtered = useMemo(() => {
     if (!rows) return [];
-    if (!hasUiFilters) return rows; // <-- show everything until filters are set
+
+    const useDateWindow = !!(dateWindow && (dateWindow.from || dateWindow.to));
+    if (!hasUiFilters && !useDateWindow) return rows;
 
     const s = filters.search.trim().toLowerCase();
     const uiMinSat =
       filters.minSatisfaction.trim() === "" ? null : Number(filters.minSatisfaction);
-    const useUiMinSat = Number.isFinite(uiMinSat as number)
-      ? (uiMinSat as number)
-      : null;
+    const useUiMinSat = Number.isFinite(uiMinSat as number) ? (uiMinSat as number) : null;
+
+    const fromT = useDateWindow && dateWindow?.from ? new Date(dateWindow.from).getTime() : null;
+    const toT = useDateWindow && dateWindow?.to ? new Date(dateWindow.to).getTime() : null;
 
     return rows.filter((r) => {
-      const rBudget = normBudget(r.budget_status);
-      const rTimeline = normTimeline(r.timeline_status);
+      // Date window from dashboards (only if applied)
+      if (useDateWindow) {
+        const t = new Date(r.created_at).getTime();
+        if (fromT && t < fromT) return false;
+        if (toT && t > toT) return false;
+      }
 
       // text search
       if (s) {
-        const hay = `${r.project_name ?? ""} ${r.client_name ?? ""} ${rBudget ?? ""} ${
-          rTimeline ?? ""
-        }`.toLowerCase();
+        const hay = `${r.project_name ?? ""} ${r.client_name ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
 
       // budget
       if (filters.budget !== "any") {
-        if (rBudget !== filters.budget) return false;
+        const b = normBudget(r.budget_status);
+        if (b !== filters.budget) return false;
       }
 
       // timeline
       if (filters.timeline !== "any") {
-        if (rTimeline !== filters.timeline) return false;
+        const tl = normTimeline(r.timeline_status);
+        if (tl !== filters.timeline) return false;
       }
 
       // min satisfaction
       if (useUiMinSat !== null) {
-        if (typeof r.satisfaction !== "number" || r.satisfaction < useUiMinSat)
-          return false;
+        if (typeof r.satisfaction !== "number" || r.satisfaction < useUiMinSat) return false;
       }
 
       return true;
     });
-  }, [rows, filters, hasUiFilters]);
+  }, [rows, filters, dateWindow, hasUiFilters]);
 
-  // Reset to page 1 when filters, page size, or params change
+  // Pagination
   useEffect(() => {
     setPage(1);
-  }, [filters, pageSize, searchParams]);
+  }, [filters, pageSize, dateWindow]);
 
-  // Client-side pagination
   const total = filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, pageCount);
   const startIndex = (safePage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, total);
-  const pageRows = useMemo(
-    () => filtered.slice(startIndex, endIndex),
-    [filtered, startIndex, endIndex]
-  );
+  const pageRows = useMemo(() => filtered.slice(startIndex, endIndex), [filtered, startIndex, endIndex]);
 
   const onRefresh = () => setFilters({ ...filters });
 
@@ -202,17 +245,31 @@ export default function Lessons() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div>
               <CardTitle>Lessons</CardTitle>
-              <CardDescription>
-                Filter, browse, and analyze recent lessons.
-              </CardDescription>
+              <CardDescription>Filter, browse, and analyze recent lessons.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              {dateWindow && (dateWindow.from || dateWindow.to) ? (
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-muted px-2 py-1 text-xs">
+                    From dashboard:{" "}
+                    {dateWindow.from ? new Date(dateWindow.from).toLocaleDateString() : "…"}
+                    {" – "}
+                    {dateWindow.to ? new Date(dateWindow.to).toLocaleDateString() : "…"}
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => setDateWindow(null)}>
+                    Clear
+                  </Button>
+                </div>
+              ) : null}
               <Button
                 variant="secondary"
-                onClick={() => setFilters(DEFAULT_FILTERS)}
+                onClick={() => {
+                  setFilters(DEFAULT_FILTERS);
+                  setDateWindow(null);
+                }}
               >
                 Clear Filters
               </Button>
@@ -230,11 +287,9 @@ export default function Lessons() {
               <Label htmlFor="search">Search</Label>
               <Input
                 id="search"
-                placeholder="Project, client, budget, timeline..."
+                placeholder="Project or client…"
                 value={filters.search}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, search: e.target.value }))
-                }
+                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
               />
             </div>
 
@@ -245,8 +300,7 @@ export default function Lessons() {
                 onValueChange={(v) =>
                   setFilters((prev) => ({
                     ...prev,
-                    budget:
-                      (normStr(v).toLowerCase() as LessonFilters["budget"]) || "any",
+                    budget: (normStr(v).toLowerCase() as LessonFilters["budget"]) || "any",
                   }))
                 }
               >
@@ -269,9 +323,7 @@ export default function Lessons() {
                 onValueChange={(v) =>
                   setFilters((prev) => ({
                     ...prev,
-                    timeline:
-                      (normStr(v).toLowerCase() as LessonFilters["timeline"]) ||
-                      "any",
+                    timeline: (normStr(v).toLowerCase() as LessonFilters["timeline"]) || "any",
                   }))
                 }
               >
@@ -298,12 +350,7 @@ export default function Lessons() {
                 inputMode="numeric"
                 placeholder="1–5 (e.g., 4)"
                 value={filters.minSatisfaction}
-                onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    minSatisfaction: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFilters((prev) => ({ ...prev, minSatisfaction: e.target.value }))}
               />
             </div>
           </div>
@@ -336,39 +383,24 @@ export default function Lessons() {
               <TableBody>
                 {pageRows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {r.project_name ?? "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {r.client_name ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(r.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {normBudget(r.budget_status) ?? "—"}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {normTimeline(r.timeline_status) ?? "—"}
-                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{r.project_name ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell>
+                    <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
+                    <TableCell className="capitalize">{normBudget(r.budget_status) ?? "—"}</TableCell>
+                    <TableCell className="capitalize">{normTimeline(r.timeline_status) ?? "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
 
-          {/* Pagination controls */}
+          {/* Pagination */}
           <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Rows per page</Label>
-                <Select
-                  value={String(pageSize)}
-                  onValueChange={(v) => setPageSize(Number(v))}
-                >
+                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
                   <SelectTrigger className="w-[120px]">
                     <SelectValue />
                   </SelectTrigger>

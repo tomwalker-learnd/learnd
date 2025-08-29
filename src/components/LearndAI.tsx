@@ -1,6 +1,6 @@
 // src/components/LearndAI.tsx
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Loader2, MessageCircle, Send, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, MessageCircle, Send, Sparkles, Trash2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 type AiAction = "ask" | "data_pack" | "trend";
@@ -28,21 +28,17 @@ type AiMessage = {
   action?: AiAction;
 };
 
-// --- Env & Supabase client (browser) ---
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-const sb = createClient(supabaseUrl, supabaseKey);
+// --- Env guards (DO NOT throw if missing) ---
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || "";
+const supabaseKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "";
+const envOk = Boolean(supabaseUrl && supabaseKey);
 
-// Functions base: https://<ref>.supabase.co  ->  https://<ref>.functions.supabase.co
-const functionsBase =
-  supabaseUrl?.includes(".supabase.co")
-    ? supabaseUrl.replace(".supabase.co", ".functions.supabase.co")
-    : "";
+const sb: SupabaseClient | null = envOk ? createClient(supabaseUrl, supabaseKey) : null;
+const functionsBase = envOk ? supabaseUrl.replace(".supabase.co", ".functions.supabase.co") : "";
+const AI_ENDPOINT = envOk ? `${functionsBase}/ai-router` : "";
 
-// Prefer the functions domain; fall back to the proxy path if needed (local dev)
-const AI_ENDPOINT = functionsBase
-  ? `${functionsBase}/ai-router`
-  : "/functions/v1/ai-router";
+// Small helper
+const nowIso = () => new Date().toISOString();
 
 export interface LearndAIProps {
   context?: Record<string, unknown>;
@@ -59,15 +55,16 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
   const [title, setTitle] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Load history only if env + client available
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !sb) return;
     (async () => {
-      const { data, error } = await sb
+      const { data } = await sb
         .from("ai_messages_view")
         .select("id, role, content, created_at, action")
         .order("created_at", { ascending: true })
         .limit(40);
-      if (!error && data) setMessages(data as AiMessage[]);
+      if (data) setMessages(data as AiMessage[]);
     })();
   }, [open, user]);
 
@@ -77,7 +74,7 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
     }
   }, [messages, open]);
 
-  const disabled = !prompt.trim() || loading;
+  const disabled = !prompt.trim() || loading || !envOk;
 
   const submit = async () => {
     if (!user) return;
@@ -87,12 +84,18 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
       id: crypto.randomUUID(),
       role: "user",
       content: prompt,
-      created_at: new Date().toISOString(),
+      created_at: nowIso(),
       action,
     };
     setMessages((m) => [...m, optimistic]);
 
     try {
+      if (!envOk || !AI_ENDPOINT) {
+        throw new Error(
+          "LearndAI is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment."
+        );
+      }
+
       const res = await fetch(AI_ENDPOINT, {
         method: "POST",
         headers: {
@@ -114,7 +117,7 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
         id: payload.id ?? crypto.randomUUID(),
         role: "assistant",
         content: payload.result ?? "(No output)",
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
         action,
       };
       setMessages((m) => [...m, assistant]);
@@ -124,7 +127,7 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
         id: crypto.randomUUID(),
         role: "system",
         content: e?.message || "Failed to reach AI service.",
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       };
       setMessages((m) => [...m, err]);
     } finally {
@@ -134,6 +137,7 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
 
   const clear = async () => {
     setMessages([]);
+    if (!envOk || !AI_ENDPOINT) return;
     await fetch(AI_ENDPOINT, {
       method: "POST",
       headers: {
@@ -147,7 +151,7 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
 
   return (
     <TooltipProvider>
-      <div className="fixed bottom-5 right-5 z-50 print:hidden">
+      <div className="fixed bottom-5 right-5 z-[2000] print:hidden">
         <Sheet open={open} onOpenChange={setOpen}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -176,6 +180,21 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
               {/* History */}
               <ScrollArea className="flex-1 px-4" ref={scrollRef as any}>
                 <div className="space-y-4 py-4">
+                  {!envOk && (
+                    <div className="flex items-start gap-3 rounded-md border p-3 bg-amber-50 text-amber-900">
+                      <AlertTriangle className="h-4 w-4 mt-0.5" />
+                      <div className="text-sm leading-relaxed">
+                        <div className="font-medium">LearndAI isn’t configured yet.</div>
+                        Add environment variables:
+                        <pre className="mt-2 rounded bg-black/5 p-2 text-xs">
+{`VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon-public-key>`}
+                        </pre>
+                        Then rebuild/redeploy. (The button is disabled until configured.)
+                      </div>
+                    </div>
+                  )}
+
                   {messages.map((m) => (
                     <div key={m.id} className="flex gap-3">
                       <div
@@ -202,7 +221,7 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <Label htmlFor="action">Action</Label>
-                    <Select value={action} onValueChange={(v: AiAction) => setAction(v)}>
+                    <Select value={action} onValueChange={(v: AiAction) => setAction(v)} disabled={!envOk}>
                       <SelectTrigger id="action"><SelectValue placeholder="Choose" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ask">Ask / Explain</SelectItem>
@@ -218,6 +237,7 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
                       placeholder="e.g., Q3 Trends (Savencia)"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
+                      disabled={!envOk}
                     />
                   </div>
                 </div>
@@ -225,14 +245,15 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
                   <Label htmlFor="prompt">Prompt</Label>
                   <Textarea
                     id="prompt"
-                    placeholder="What do you want LearndAI to do? (It can query Supabase and return artifacts like CSV, JSON, or summaries.)"
+                    placeholder="What do you want LearndAI to do?"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     rows={4}
+                    disabled={!envOk}
                   />
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <Button variant="secondary" size="sm" onClick={clear} disabled={loading}>
+                  <Button variant="secondary" size="sm" onClick={clear} disabled={loading || !envOk}>
                     <Trash2 className="h-4 w-4 mr-1" /> Clear
                   </Button>
                   <Button onClick={submit} disabled={disabled}>

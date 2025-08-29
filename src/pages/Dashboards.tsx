@@ -1,8 +1,7 @@
-// src/pages/Dashboards.tsx
-import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -20,342 +18,423 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Plus, Trash, Eye } from "lucide-react";
 
-type BudgetStatus = "under" | "on" | "over" | null;
-type TimelineStatus = "early" | "on" | "late" | null;
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-type RawLesson = Record<string, any> & {
-  id: string;
-  project_name?: string | null;
-  satisfaction?: number | null;
-  budget_status?: BudgetStatus;
-  timeline_status?: TimelineStatus;
-  lesson_date?: string | null;
-  occurred_on?: string | null;
-  created_at?: string | null;
-  date?: string | null;
-};
+// -----------------------------
+// Types
+// -----------------------------
+type BudgetStatus = "under" | "on" | "over";
+type TimelineStatus = "early" | "on" | "late";
 
 type LessonRow = {
   id: string;
-  project_name: string;
-  normalizedDate: string | null;
-  satisfaction: number | null;
-  budget_status: BudgetStatus;
-  timeline_status: TimelineStatus;
+  project?: string | null;
+  customer?: string | null;
+  date?: string | null;          // ISO date string
+  created_at?: string | null;    // fallback if date is not present
+  satisfaction?: number | null;  // 1-5
+  budget_status?: BudgetStatus | null;
+  timeline_status?: TimelineStatus | null;
+  owner?: string | null;
+  tags?: string[] | null;
 };
 
-type PresetKey = "30d" | "90d" | "ytd" | "all";
-
-const PRESETS: Record<
-  PresetKey,
-  { label: string; getRange: () => { from?: string; to?: string } }
-> = {
-  "30d": {
-    label: "Last 30 days",
-    getRange: () => {
-      const to = new Date();
-      const from = new Date();
-      from.setDate(to.getDate() - 30);
-      return { from: from.toISOString(), to: to.toISOString() };
-    },
-  },
-  "90d": {
-    label: "Last 90 days",
-    getRange: () => {
-      const to = new Date();
-      const from = new Date();
-      from.setDate(to.getDate() - 90);
-      return { from: from.toISOString(), to: to.toISOString() };
-    },
-  },
-  ytd: {
-    label: "Year to date",
-    getRange: () => {
-      const to = new Date();
-      const from = new Date(to.getFullYear(), 0, 1);
-      return { from: from.toISOString(), to: to.toISOString() };
-    },
-  },
-  all: { label: "All time", getRange: () => ({}) },
+type CustomFilters = {
+  dateFrom?: string; // ISO "YYYY-MM-DD"
+  dateTo?: string;   // ISO "YYYY-MM-DD"
+  customer?: string;
+  project?: string;
+  budgetStatus?: BudgetStatus;
+  timelineStatus?: TimelineStatus;
+  satisfactionMin?: number;
+  owner?: string;
+  tags?: string[];
 };
 
-// Build Lessons link that custom dashboards can reuse
-function buildLessonsLink(
-  range: { from?: string; to?: string },
-  extras?: {
-    q?: string;
-    b?: "under" | "on" | "over";
-    t?: "early" | "on" | "late";
-    min?: number;
-    apply?: boolean; // apply=1 -> auto-apply on arrival
-  }
-) {
-  const p = new URLSearchParams();
-  if (range.from) p.set("from", range.from);
-  if (range.to) p.set("to", range.to);
-  if (extras?.q) p.set("q", extras.q);
-  if (extras?.b) p.set("b", extras.b);
-  if (extras?.t) p.set("t", extras.t);
-  if (typeof extras?.min === "number") p.set("min", String(extras.min));
-  if (extras?.apply) p.set("apply", "1");
-  return `/lessons${p.toString() ? `?${p.toString()}` : ""}`;
+type CustomDashboard = {
+  id: string;
+  name: string;
+  filters: CustomFilters;
+};
+
+type PresetKey = "last_7" | "last_30" | "last_90" | "this_year";
+
+// -----------------------------
+// Helpers
+// -----------------------------
+const startOfToday = () => new Date().toISOString().slice(0, 10);
+
+function addDays(baseISO: string, delta: number) {
+  const d = new Date(baseISO);
+  d.setDate(d.getDate() + delta);
+  return d.toISOString().slice(0, 10);
 }
 
+const PRESETS: Record<PresetKey, { label: string; dateFrom: string; dateTo: string }> = (() => {
+  const today = startOfToday();
+  return {
+    last_7: { label: "Last 7 days", dateFrom: addDays(today, -7), dateTo: today },
+    last_30: { label: "Last 30 days", dateFrom: addDays(today, -30), dateTo: today },
+    last_90: { label: "Last 90 days", dateFrom: addDays(today, -90), dateTo: today },
+    this_year: { label: "This calendar year", dateFrom: new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10), dateTo: today },
+  };
+})();
+
+// Compose effective filters: preset window + optional custom filters
+function mergeFilters(
+  preset: { dateFrom: string; dateTo: string },
+  custom?: CustomFilters | null
+): Required<Pick<CustomFilters, "dateFrom" | "dateTo">> & CustomFilters {
+  const base = { dateFrom: preset.dateFrom, dateTo: preset.dateTo };
+  if (!custom) return base;
+  return {
+    ...base,
+    ...custom,
+    // ensure date window always respected by preset unless custom explicitly widens/narrows
+    dateFrom: custom.dateFrom ?? base.dateFrom,
+    dateTo: custom.dateTo ?? base.dateTo,
+  };
+}
+
+// Build URL-safe query for Lessons page
+function buildLessonsQuery(filters: CustomFilters) {
+  const payload = encodeURIComponent(JSON.stringify(filters));
+  const params = new URLSearchParams({ f: payload });
+  return `/lessons?${params.toString()}`;
+}
+
+// -----------------------------
+// Page
+// -----------------------------
 export default function Dashboards() {
-  const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
 
-  const [preset, setPreset] = useState<PresetKey>("30d");
-  const [rows, setRows] = useState<LessonRow[]>([]);
-  const [busy, setBusy] = useState(false);
+  // Preset and custom selection
+  const [presetKey, setPresetKey] = useState<PresetKey>("last_30");
+  const [customList, setCustomList] = useState<CustomDashboard[]>([]);
+  const [selectedCustomId, setSelectedCustomId] = useState<string | "">( "");
 
-  const range = useMemo(() => PRESETS[preset].getRange(), [preset]);
+  // Lessons + metrics
+  const [lessons, setLessons] = useState<LessonRow[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
 
-  const pickFirstDate = (r: RawLesson): string | null => {
-    const candidate = r.lesson_date ?? r.occurred_on ?? r.date ?? r.created_at ?? null;
-    if (!candidate) return null;
-    const d = new Date(candidate);
-    return isNaN(d.getTime()) ? null : d.toISOString();
+  // Deletion dialog
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // On return from builder, allow selecting the newly created one via query ?select=<id>
+  useEffect(() => {
+    const sel = searchParams.get("select");
+    if (sel) setSelectedCustomId(sel);
+  }, [searchParams]);
+
+  // Fetch custom dashboards
+  const fetchCustoms = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("dashboard_presets")
+      .select("id,name,filters")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Could not load custom dashboards" });
+      return;
+    }
+    setCustomList((data || []) as CustomDashboard[]);
+  }, [user, toast]);
+
+  // Load on mount + when window refocuses (so save/return from builder shows up)
+  useEffect(() => {
+    fetchCustoms();
+    const onFocus = () => fetchCustoms();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchCustoms]);
+
+  // Build effective filters for data query
+  const effectiveFilters = useMemo(() => {
+    const preset = PRESETS[presetKey];
+    const selected = customList.find((c) => c.id === selectedCustomId)?.filters ?? null;
+    return mergeFilters(preset, selected);
+  }, [presetKey, customList, selectedCustomId]);
+
+  // Fetch lessons according to filters
+  const fetchLessons = useCallback(async () => {
+    if (!user) return;
+    setLoadingData(true);
+
+    // Base query
+    let q = supabase.from("lessons").select("*").eq("user_id", user.id);
+
+    // Date window: prefer 'date' column; if your schema uses 'created_at' instead, keep both guards
+    if (effectiveFilters.dateFrom) {
+      q = q.gte("date", effectiveFilters.dateFrom);
+    }
+    if (effectiveFilters.dateTo) {
+      q = q.lte("date", effectiveFilters.dateTo);
+    }
+
+    // Optional filters
+    const f = effectiveFilters;
+    if (f.customer) q = q.ilike("customer", f.customer);
+    if (f.project) q = q.ilike("project", f.project);
+    if (f.owner) q = q.ilike("owner", f.owner);
+    if (f.budgetStatus) q = q.eq("budget_status", f.budgetStatus);
+    if (f.timelineStatus) q = q.eq("timeline_status", f.timelineStatus);
+    if (typeof f.satisfactionMin === "number") q = q.gte("satisfaction", f.satisfactionMin);
+    if (f.tags && f.tags.length > 0) q = q.contains("tags", f.tags);
+
+    const { data, error } = await q.order("date", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Failed to load dashboard data" });
+      setLessons([]);
+    } else {
+      setLessons((data || []) as LessonRow[]);
+    }
+    setLoadingData(false);
+  }, [user, effectiveFilters, toast]);
+
+  useEffect(() => {
+    fetchLessons();
+  }, [fetchLessons]);
+
+  // Metrics
+  const metrics = useMemo(() => {
+    const total = lessons.length;
+    const avgSatisfaction =
+      total === 0
+        ? 0
+        : Math.round(
+            ((lessons.reduce((s, r) => s + (r.satisfaction ?? 0), 0) / total) + Number.EPSILON) *
+              100
+          ) / 100;
+
+    const onBudgetCount = lessons.filter((l) => l.budget_status === "on" || l.budget_status === "under").length;
+    const onTimeCount = lessons.filter((l) => l.timeline_status === "on" || l.timeline_status === "early").length;
+
+    const onBudgetPct = total ? Math.round((onBudgetCount / total) * 100) : 0;
+    const onTimePct = total ? Math.round((onTimeCount / total) * 100) : 0;
+
+    return { total, avgSatisfaction, onBudgetPct, onTimePct };
+  }, [lessons]);
+
+  // Actions
+  const handleCreate = () => {
+    navigate("/dashboard-customizer");
   };
 
-  const fetchData = async () => {
-    try {
-      setBusy(true);
-      const { data, error } = await supabase.from("lessons").select("*");
-      if (error) throw error;
-
-      const normalized: LessonRow[] = (data as RawLesson[]).map((r) => ({
-        id: r.id,
-        project_name: r.project_name ?? "",
-        normalizedDate: pickFirstDate(r),
-        satisfaction: typeof r.satisfaction === "number" ? r.satisfaction : null,
-        budget_status: (r.budget_status as BudgetStatus) ?? null,
-        timeline_status: (r.timeline_status as TimelineStatus) ?? null,
-      }));
-
-      // Client-side preset window
-      const filtered = normalized.filter((r) => {
-        if (!range.from && !range.to) return true;
-        if (!r.normalizedDate) return false;
-        const t = new Date(r.normalizedDate).getTime();
-        if (range.from && t < new Date(range.from).getTime()) return false;
-        if (range.to && t > new Date(range.to).getTime()) return false;
-        return true;
-      });
-
-      // Sort newest first
-      filtered.sort((a, b) => {
-        const ta = a.normalizedDate ? new Date(a.normalizedDate).getTime() : 0;
-        const tb = b.normalizedDate ? new Date(b.normalizedDate).getTime() : 0;
-        return tb - ta;
-      });
-
-      setRows(filtered);
-    } catch (err: any) {
-      toast({
-        title: "Load failed",
-        description: err?.message ?? "Could not load dashboard data.",
-        variant: "destructive",
-      });
-    } finally {
-      setBusy(false);
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("dashboard_presets").delete().eq("id", id).limit(1);
+    if (error) {
+      toast({ variant: "destructive", title: "Could not delete dashboard" });
+    } else {
+      toast({ title: "Dashboard deleted" });
+      if (selectedCustomId === id) setSelectedCustomId("");
+      fetchCustoms();
     }
   };
 
-  useEffect(() => {
-    if (user) fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, preset]);
-
-  const handleRefresh = () => fetchData();
-
   const handleViewInLessons = () => {
-    // Carry the preset time window and ask Lessons to auto-apply it.
-    navigate(buildLessonsLink(range, { apply: true }));
+    navigate(buildLessonsQuery(effectiveFilters));
   };
 
-  // KPIs
-  const total = rows.length;
-  const avgSatisfaction = useMemo(() => {
-    const nums = rows.map((r) => r.satisfaction).filter((n): n is number => typeof n === "number");
-    if (!nums.length) return 0;
-    const sum = nums.reduce((a, b) => a + b, 0);
-    return Math.round((sum / nums.length) * 100) / 100;
-  }, [rows]);
-  const onBudgetPct = useMemo(() => {
-    if (!rows.length) return 0;
-    const good = rows.filter((r) => r.budget_status === "under" || r.budget_status === "on").length;
-    return Math.round((good / rows.length) * 100);
-  }, [rows]);
-  const onTimePct = useMemo(() => {
-    if (!rows.length) return 0;
-    const good = rows.filter((r) => r.timeline_status === "early" || r.timeline_status === "on").length;
-    return Math.round((good / rows.length) * 100);
-  }, [rows]);
-
-  if (loading) return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
+  }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-10 pt-6">
-      <div className="mb-4">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboards</h1>
-        <p className="text-muted-foreground">
-          Preset cuts of your lessons data. Filter here, or jump to the Lessons page for finer control.
-        </p>
-      </div>
+    <div className="container mx-auto px-4 py-6">
+      <DashboardHeader
+        title="Dashboards"
+        description="Preset cuts of your lessons data. Filter here, or jump to the Lessons page for finer control."
+      />
 
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-3">
+      <Card className="mt-4">
+        <CardHeader className="pb-2">
           <CardTitle>Preset</CardTitle>
-          <CardDescription>
-            {preset === "30d" && "All lessons from the past month."}
-            {preset === "90d" && "All lessons from the past 90 days."}
-            {preset === "ytd" && "All lessons from the current year to date."}
-            {preset === "all" && "All lessons in the workspace."}
-          </CardDescription>
+          <CardDescription>All lessons from the selected window (plus any custom filters).</CardDescription>
         </CardHeader>
-
         <CardContent className="space-y-4">
-          {/* Controls: mobile stack / desktop row */}
-          <div className="w-full">
-            <div className="md:hidden space-y-3">
-              <div className="grid grid-cols-1 gap-2">
-                <Button onClick={handleRefresh} className="w-full" disabled={busy}>
-                  <RefreshCw className={`mr-2 h-4 w-4 ${busy ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
-                <Button onClick={handleViewInLessons} variant="secondary" className="w-full">
-                  View in Lessons
-                </Button>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="preset">Select preset</Label>
-                <Select value={preset} onValueChange={(v) => setPreset(v as PresetKey)}>
-                  <SelectTrigger id="preset" className="w-full">
-                    <SelectValue placeholder="Choose a preset" />
+          {/* Row: Preset + Custom selector + actions */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Preset window */}
+              <div>
+                <div className="text-sm mb-1 font-medium text-muted-foreground">Select preset</div>
+                <Select value={presetKey} onValueChange={(v: PresetKey) => setPresetKey(v)}>
+                  <SelectTrigger className="w-[240px]">
+                    <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(PRESETS).map(([key, p]) => (
-                      <SelectItem key={key} value={key}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="hidden md:flex md:items-end md:gap-3">
-              <div className="flex-1">
-                <Label htmlFor="preset-desktop">Select preset</Label>
-                <Select value={preset} onValueChange={(v) => setPreset(v as PresetKey)}>
-                  <SelectTrigger id="preset-desktop" className="w-full md:w-64">
-                    <SelectValue placeholder="Choose a preset" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PRESETS).map(([key, p]) => (
-                      <SelectItem key={key} value={key}>
-                        {p.label}
+                    {(Object.keys(PRESETS) as PresetKey[]).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {PRESETS[k].label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={handleRefresh} disabled={busy}>
-                  <RefreshCw className={`mr-2 h-4 w-4 ${busy ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
-                <Button onClick={handleViewInLessons} variant="secondary">
-                  View in Lessons
-                </Button>
+              {/* Custom dashboards */}
+              <div>
+                <div className="text-sm mb-1 font-medium text-muted-foreground">Custom dashboards</div>
+                <Select
+                  value={selectedCustomId}
+                  onValueChange={(v) => setSelectedCustomId(v)}
+                >
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder={customList.length ? "Choose a custom dashboard" : "No custom dashboards yet"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customList.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">None yet. Create one below.</div>
+                    ) : (
+                      customList.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={fetchLessons}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+
+              <Button onClick={handleViewInLessons}>
+                <Eye className="mr-2 h-4 w-4" />
+                View in Lessons
+              </Button>
+
+              <Button onClick={handleCreate} className="bg-gradient-to-r from-orange-400 to-fuchsia-500 hover:opacity-95">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Custom Dashboard
+              </Button>
             </div>
           </div>
 
-          {/* KPI Tiles */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* If a custom is selected, offer delete with confirm */}
+          {selectedCustomId && (
+            <div className="flex items-center gap-3 pt-1">
+              <span className="text-sm text-muted-foreground">
+                Selected: <span className="font-medium">{customList.find((c) => c.id === selectedCustomId)?.name}</span>
+              </span>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="ml-1"
+                    onClick={() => setDeleteId(selectedCustomId)}
+                  >
+                    <Trash className="mr-2 h-4 w-4" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this dashboard?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. The custom dashboard will be permanently removed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteId && handleDelete(deleteId)}
+                      className="bg-destructive text-destructive-foreground hover:opacity-95"
+                    >
+                      Yes, delete it
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
+
+          {/* Metrics pane */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             <Card>
-              <CardContent className="p-5">
-                <div className="text-sm font-medium text-muted-foreground">Total</div>
-                <div className="mt-2 text-4xl font-semibold">{total}</div>
+              <CardContent className="p-6">
+                <div className="text-sm text-muted-foreground">Total</div>
+                <div className="text-5xl font-semibold mt-2">{loadingData ? "…" : metrics.total}</div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="p-5">
-                <div className="text-sm font-medium text-muted-foreground">Avg. Satisfaction</div>
-                <div className="mt-2 text-4xl font-semibold">{avgSatisfaction.toFixed(2)}</div>
+              <CardContent className="p-6">
+                <div className="text-sm text-muted-foreground">Avg. Satisfaction</div>
+                <div className="text-5xl font-semibold mt-2">
+                  {loadingData ? "…" : metrics.avgSatisfaction.toFixed(2).replace(/\.00$/, "")}
+                </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="p-5">
-                <div className="text-sm font-medium text-muted-foreground">On Budget</div>
-                <div className="mt-2 text-4xl font-semibold">{onBudgetPct}%</div>
+              <CardContent className="p-6">
+                <div className="text-sm text-muted-foreground">On Budget</div>
+                <div className="text-5xl font-semibold mt-2">{loadingData ? "…" : `${metrics.onBudgetPct}%`}</div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="p-5">
-                <div className="text-sm font-medium text-muted-foreground">On Time</div>
-                <div className="mt-2 text-4xl font-semibold">{onTimePct}%</div>
+              <CardContent className="p-6">
+                <div className="text-sm text-muted-foreground">On Time</div>
+                <div className="text-5xl font-semibold mt-2">{loadingData ? "…" : `${metrics.onTimePct}%`}</div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Table */}
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Satisfaction</TableHead>
-                  <TableHead>Budget</TableHead>
-                  <TableHead>Timeline</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => {
-                  const dateStr = r.normalizedDate ? new Date(r.normalizedDate).toLocaleDateString() : "";
-                  const budgetStr = r.budget_status ? r.budget_status.charAt(0).toUpperCase() : "";
-                  const timeStr = r.timeline_status ? r.timeline_status.charAt(0).toUpperCase() : "";
-
-                  return (
-                    <TableRow key={r.id}>
-                      <TableCell className="whitespace-pre-wrap">{r.project_name || "Untitled"}</TableCell>
-                      <TableCell>{dateStr}</TableCell>
-                      <TableCell>{r.satisfaction ?? ""}</TableCell>
-                      <TableCell>{budgetStr}</TableCell>
-                      <TableCell>{timeStr}</TableCell>
-                    </TableRow>
-                  );
-                })}
-                {!rows.length && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      No lessons found for this preset.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          {/* Lightweight recent list (optional, keeps page feeling alive) */}
+          <div className="pt-4">
+            <div className="text-sm font-medium text-muted-foreground mb-2">Recent items</div>
+            <div className="rounded-lg border">
+              <div className="grid grid-cols-5 text-xs uppercase tracking-wide text-muted-foreground border-b px-3 py-2">
+                <div className="col-span-2">Project</div>
+                <div>Date</div>
+                <div>Budget</div>
+                <div>Timeline</div>
+              </div>
+              {lessons.slice(0, 6).map((l) => (
+                <div key={l.id} className="grid grid-cols-5 px-3 py-2 border-b last:border-b-0 text-sm">
+                  <div className="col-span-2 truncate">{l.project ?? "—"}</div>
+                  <div>{(l.date ?? l.created_at ?? "").slice(0, 10)}</div>
+                  <div>{l.budget_status?.toUpperCase?.() ?? "—"}</div>
+                  <div>{l.timeline_status?.toUpperCase?.() ?? "—"}</div>
+                </div>
+              ))}
+              {lessons.length === 0 && (
+                <div className="px-3 py-6 text-sm text-muted-foreground">No data in this view.</div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

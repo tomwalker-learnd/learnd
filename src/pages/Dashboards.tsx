@@ -34,13 +34,13 @@ import { RefreshCw } from "lucide-react";
 type BudgetStatus = "under" | "on" | "over" | null;
 type TimelineStatus = "early" | "on" | "late" | null;
 
-type RawLesson = {
+type RawLesson = Record<string, any> & {
   id: string;
   project_name?: string | null;
   satisfaction?: number | null;
   budget_status?: BudgetStatus;
   timeline_status?: TimelineStatus;
-  // possible date columns
+  // Possible date fields (may or may not exist)
   lesson_date?: string | null;
   occurred_on?: string | null;
   created_at?: string | null;
@@ -113,26 +113,15 @@ export default function Dashboards() {
     try {
       setBusy(true);
 
+      // 1) Select all fields to avoid referencing non-existent columns
+      // 2) No server-side order; we’ll sort client-side after normalizing dates
       const { data, error } = await supabase
         .from("lessons")
-        .select(
-          [
-            "id",
-            "project_name",
-            "satisfaction",
-            "budget_status",
-            "timeline_status",
-            "lesson_date",
-            "occurred_on",
-            "created_at",
-            "date",
-          ].join(", ")
-        )
-        .order("created_at", { ascending: false });
+        .select("*");
 
       if (error) throw error;
 
-      const normalized: LessonRow[] = (data as RawLesson[]).map((r) => ({
+      const normalized = (data as RawLesson[]).map((r) => ({
         id: r.id,
         project_name: r.project_name ?? "",
         normalizedDate: pickFirstDate(r),
@@ -141,7 +130,7 @@ export default function Dashboards() {
         timeline_status: (r.timeline_status as TimelineStatus) ?? null,
       }));
 
-      // client-side date filtering
+      // Client-side filter by preset date range
       const filtered = normalized.filter((r) => {
         if (!range.from && !range.to) return true;
         if (!r.normalizedDate) return false;
@@ -149,6 +138,13 @@ export default function Dashboards() {
         if (range.from && t < new Date(range.from).getTime()) return false;
         if (range.to && t > new Date(range.to).getTime()) return false;
         return true;
+      });
+
+      // Client-side sort: newest first by normalizedDate
+      filtered.sort((a, b) => {
+        const ta = a.normalizedDate ? new Date(a.normalizedDate).getTime() : 0;
+        const tb = b.normalizedDate ? new Date(b.normalizedDate).getTime() : 0;
+        return tb - ta; // desc
       });
 
       setRows(filtered);
@@ -342,7 +338,7 @@ export default function Dashboards() {
                   <TableHead>Date</TableHead>
                   <TableHead>Satisfaction</TableHead>
                   <TableHead>Budget</TableHead>
-                  <TableHead>Timeline</TableHead>
+                  <Table>Timeline</Table>
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import logoUrl from "@/assets/learnd-logo.png"; // <-- works because file is in src/assets
+import logoUrl from "@/assets/learnd-logo.png";
 
 const NAV_ITEMS = [
   { to: "/", label: "Home" },
@@ -47,7 +47,7 @@ export default function AppHeader() {
           </span>
         </Link>
 
-        {/* Center: desktop nav (kept centered) */}
+        {/* Center: desktop nav */}
         <nav className="hidden flex-1 justify-center gap-6 md:flex">
           {NAV_ITEMS.map((item) => (
             <NavLink
@@ -55,9 +55,7 @@ export default function AppHeader() {
               to={item.to}
               className={({ isActive }) =>
                 `text-sm font-medium transition-colors ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`
               }
             >
@@ -66,17 +64,11 @@ export default function AppHeader() {
           ))}
         </nav>
 
-        {/* Right: hamburger (mobile) + user dropdown (desktop) */}
+        {/* Right: hamburger (mobile) + user menu */}
         <div className="ml-auto flex items-center gap-2">
-          {/* Mobile nav drawer */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                aria-label="Open Menu"
-              >
+              <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open Menu">
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
@@ -93,11 +85,7 @@ export default function AppHeader() {
                   </SheetClose>
                 ))}
                 {user && (
-                  <Button
-                    variant="ghost"
-                    onClick={handleSignOut}
-                    className="justify-start text-red-600"
-                  >
+                  <Button variant="ghost" onClick={handleSignOut} className="justify-start text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
                   </Button>
@@ -106,7 +94,6 @@ export default function AppHeader() {
             </SheetContent>
           </Sheet>
 
-          {/* Desktop user menu */}
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

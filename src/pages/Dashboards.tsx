@@ -87,7 +87,6 @@ export default function Dashboards() {
 
   const [presetKey, setPresetKey] = useState<PresetKey>("last_30");
   const [customList, setCustomList] = useState<CustomDashboard[]>([]);
-  the
   const [selectedCustomId, setSelectedCustomId] = useState<string | "">("");
   const [customsError, setCustomsError] = useState<string | null>(null);
 

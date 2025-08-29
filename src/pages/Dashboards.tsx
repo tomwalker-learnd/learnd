@@ -1,9 +1,17 @@
+// src/pages/Dashboards.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -12,181 +20,235 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { RefreshCw } from "lucide-react";
 
-type BudgetStatus = "under" | "on" | "over";
-type TimelineStatus = "early" | "on" | "late";
+type BudgetStatus = "under" | "on" | "over" | null;
+type TimelineStatus = "early" | "on" | "late" | null;
 
 type LessonRow = {
   id: string;
-  created_at: string;
   project_name: string | null;
-  satisfaction: number | null;
-  budget_status: BudgetStatus | null;
-  timeline_status: TimelineStatus | null;
+  date: string | null; // ISO date
+  satisfaction: number | null; // 1-5
+  budget_status: BudgetStatus;
+  timeline_status: TimelineStatus;
 };
 
-const SELECT_FIELDS = [
-  "id",
-  "created_at",
-  "project_name",
-  "satisfaction",
-  "budget_status",
-  "timeline_status",
-].join(", ");
+type PresetKey = "30d" | "90d" | "ytd" | "all";
 
-/** Simple preset system — only uses columns that exist */
-type PresetParams = {
-  timeRangeDays?: number;
-  budget_status?: BudgetStatus;
-  timeline_status?: TimelineStatus;
-  min_satisfaction?: number;
-  max_satisfaction?: number;
-};
-
-const PRESETS: Array<{
-  id: string;
-  label: string;
-  description?: string;
-  params: PresetParams;
-}> = [
-  {
-    id: "recent-30",
+const PRESETS: Record<
+  PresetKey,
+  { label: string; getRange: () => { from?: string; to?: string } }
+> = {
+  "30d": {
     label: "Last 30 days",
-    description: "All lessons from the past month.",
-    params: { timeRangeDays: 30 },
+    getRange: () => {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(to.getDate() - 30);
+      return { from: from.toISOString(), to: to.toISOString() };
+    },
   },
-  {
-    id: "high-sat",
-    label: "High satisfaction (≥4)",
-    description: "Quality signals at a glance.",
-    params: { min_satisfaction: 4 },
+  "90d": {
+    label: "Last 90 days",
+    getRange: () => {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(to.getDate() - 90);
+      return { from: from.toISOString(), to: to.toISOString() };
+    },
   },
-  {
-    id: "budget-over",
-    label: "Over budget (all time)",
-    params: { budget_status: "over" },
+  ytd: {
+    label: "Year to date",
+    getRange: () => {
+      const to = new Date();
+      const from = new Date(to.getFullYear(), 0, 1);
+      return { from: from.toISOString(), to: to.toISOString() };
+    },
   },
-  {
-    id: "late",
-    label: "Late timeline (all time)",
-    params: { timeline_status: "late" },
+  all: {
+    label: "All time",
+    getRange: () => ({})
   },
-];
+};
 
 export default function Dashboards() {
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const [presetId, setPresetId] = useState<string>(PRESETS[0].id);
-  const selectedPreset = useMemo(
-    () => PRESETS.find((p) => p.id === presetId) ?? PRESETS[0],
-    [presetId]
-  );
+  const [preset, setPreset] = useState<PresetKey>("30d");
+  const [rows, setRows] = useState<LessonRow[]>([]);
+  const [busy, setBusy] = useState(false);
 
-  const [rows, setRows] = useState<LessonRow[] | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  // derived date window
+  const range = useMemo(() => PRESETS[preset].getRange(), [preset]);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
+  const fetchData = async () => {
     try {
-      const params = selectedPreset.params;
+      setBusy(true);
 
-      let query = supabase
+      // Base query
+      let q = supabase
         .from("lessons")
-        .select(SELECT_FIELDS)
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .select(
+          "id, project_name, date, satisfaction, budget_status, timeline_status"
+        )
+        .order("date", { ascending: false });
 
-      if (params.timeRangeDays && params.timeRangeDays > 0) {
-        const since = new Date(
-          Date.now() - params.timeRangeDays * 24 * 60 * 60 * 1000
-        ).toISOString();
-        query = query.gte("created_at", since);
-      }
-      if (params.budget_status) query = query.eq("budget_status", params.budget_status);
-      if (params.timeline_status) query = query.eq("timeline_status", params.timeline_status);
-      if (typeof params.min_satisfaction === "number")
-        query = query.gte("satisfaction", params.min_satisfaction);
-      if (typeof params.max_satisfaction === "number")
-        query = query.lte("satisfaction", params.max_satisfaction);
+      // Apply range if provided
+      if (range.from) q = q.gte("date", range.from);
+      if (range.to) q = q.lte("date", range.to);
 
-      const { data, error } = await query;
+      const { data, error } = await q;
+
       if (error) throw error;
-      setRows((data as unknown as LessonRow[]) ?? []);
-    } catch (e: any) {
-      console.error("Dashboards load failed:", e);
-      setError(e?.message ?? "Failed to load data.");
-      setRows([]);
+
+      setRows(
+        (data || []).map((r) => ({
+          id: r.id,
+          project_name: r.project_name ?? "",
+          date: r.date,
+          satisfaction:
+            typeof r.satisfaction === "number" ? r.satisfaction : null,
+          budget_status: (r.budget_status as BudgetStatus) ?? null,
+          timeline_status: (r.timeline_status as TimelineStatus) ?? null,
+        }))
+      );
+    } catch (err: any) {
+      toast({
+        title: "Load failed",
+        description: err?.message ?? "Could not load dashboard data.",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  }
+  };
 
   useEffect(() => {
-    load();
+    if (user) fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presetId]);
+  }, [user, preset]);
 
-  /** Build deep-link to Lessons using the params this preset applied */
-  function openInLessons() {
-    const qs = new URLSearchParams();
-    const p = selectedPreset.params;
-    if (p.budget_status) qs.set("budget", p.budget_status);
-    if (p.timeline_status) qs.set("timeline", p.timeline_status);
-    if (typeof p.min_satisfaction === "number") qs.set("minSat", String(p.min_satisfaction));
-    if (typeof p.max_satisfaction === "number") qs.set("maxSat", String(p.max_satisfaction));
-    if (typeof p.timeRangeDays === "number") qs.set("periodDays", String(p.timeRangeDays));
-    navigate(`/lessons?${qs.toString()}`);
-  }
+  const handleRefresh = () => fetchData();
 
-  const kpi = useMemo(() => {
-    const total = rows?.length ?? 0;
-    const avg =
-      total > 0
-        ? Number(
-            (
-              rows!.reduce((s, r) => s + (Number(r.satisfaction) || 0), 0) / total
-            ).toFixed(2)
-          )
-        : 0;
-    const onBudget = rows?.filter((r) => r.budget_status === "on").length ?? 0;
-    const onTime = rows?.filter((r) => r.timeline_status === "on").length ?? 0;
-    return {
-      total,
-      avgSatisfaction: avg,
-      onBudgetPct: total ? Math.round((onBudget / total) * 100) : 0,
-      onTimePct: total ? Math.round((onTime / total) * 100) : 0,
-    };
+  const handleViewInLessons = () => {
+    const params = new URLSearchParams();
+    if (range.from) params.set("from", range.from);
+    if (range.to) params.set("to", range.to);
+    navigate(`/lessons${params.toString() ? `?${params.toString()}` : ""}`);
+  };
+
+  // Metrics
+  const total = rows.length;
+
+  const avgSatisfaction = useMemo(() => {
+    const nums = rows.map((r) => r.satisfaction).filter((n): n is number => !!n);
+    if (!nums.length) return 0;
+    const sum = nums.reduce((a, b) => a + b, 0);
+    return Math.round((sum / nums.length) * 100) / 100;
   }, [rows]);
 
-  return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6">
-      <DashboardHeader
-        title="Dashboards"
-        description="Preset cuts of your lessons data. Filter here, or jump to the Lessons page for finer control."
-      />
+  const onBudgetPct = useMemo(() => {
+    if (!rows.length) return 0;
+    const good = rows.filter(
+      (r) => r.budget_status === "under" || r.budget_status === "on"
+    ).length;
+    return Math.round((good / rows.length) * 100);
+  }, [rows]);
 
-      <Card className="mt-4">
-        <CardHeader>
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <CardTitle>Preset</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {selectedPreset.description ?? "Choose a preset view"}
-              </p>
-            </div>
-            <div className="flex items-end gap-3">
+  const onTimePct = useMemo(() => {
+    if (!rows.length) return 0;
+    const good = rows.filter(
+      (r) => r.timeline_status === "early" || r.timeline_status === "on"
+    ).length;
+    return Math.round((good / rows.length) * 100);
+  }, [rows]);
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
+  }
+  if (!user) return <Navigate to="/auth" replace />;
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 pb-10 pt-6">
+      {/* Page header */}
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboards</h1>
+        <p className="text-muted-foreground">
+          Preset cuts of your lessons data. Filter here, or jump to the Lessons page for finer control.
+        </p>
+      </div>
+
+      {/* Preset card */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle>Preset</CardTitle>
+          <CardDescription>
+            {preset === "30d" && "All lessons from the past month."}
+            {preset === "90d" && "All lessons from the past 90 days."}
+            {preset === "ytd" && "All lessons from the current year to date."}
+            {preset === "all" && "All lessons in the workspace."}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {/* --- Preset controls: mobile-first & desktop-responsive --- */}
+          <div className="w-full">
+            {/* Mobile layout: buttons stacked above the select */}
+            <div className="md:hidden space-y-3">
+              <div className="grid grid-cols-1 gap-2">
+                <Button onClick={handleRefresh} className="w-full" disabled={busy}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${busy ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+                <Button
+                  onClick={handleViewInLessons}
+                  variant="secondary"
+                  className="w-full"
+                >
+                  View in Lessons
+                </Button>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="preset">Select preset</Label>
-                <Select value={presetId} onValueChange={setPresetId}>
-                  <SelectTrigger id="preset" className="w-64">
-                    <SelectValue placeholder="Pick a preset" />
+                <Select value={preset} onValueChange={(v) => setPreset(v as PresetKey)}>
+                  <SelectTrigger id="preset" className="w-full">
+                    <SelectValue placeholder="Choose a preset" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PRESETS.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
+                    {Object.entries(PRESETS).map(([key, p]) => (
+                      <SelectItem key={key} value={key}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Desktop layout: single row with select then buttons */}
+            <div className="hidden md:flex md:items-end md:gap-3">
+              <div className="flex-1">
+                <Label htmlFor="preset-desktop">Select preset</Label>
+                <Select value={preset} onValueChange={(v) => setPreset(v as PresetKey)}>
+                  <SelectTrigger id="preset-desktop" className="w-full md:w-64">
+                    <SelectValue placeholder="Choose a preset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PRESETS).map(([key, p]) => (
+                      <SelectItem key={key} value={key}>
                         {p.label}
                       </SelectItem>
                     ))}
@@ -195,95 +257,94 @@ export default function Dashboards() {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" onClick={load} disabled={loading}>
+                <Button onClick={handleRefresh} disabled={busy}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${busy ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
-                <Button onClick={openInLessons} disabled={loading}>
+                <Button onClick={handleViewInLessons} variant="secondary">
                   View in Lessons
                 </Button>
               </div>
             </div>
           </div>
-        </CardHeader>
 
-        <CardContent>
-          {/* KPIs */}
-          {loading ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Skeleton className="h-24" />
-              <Skeleton className="h-24" />
-              <Skeleton className="h-24" />
-              <Skeleton className="h-24" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Total</CardTitle>
-                </CardHeader>
-                <CardContent className="text-3xl">{kpi.total}</CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Avg. Satisfaction</CardTitle>
-                </CardHeader>
-                <CardContent className="text-3xl">{kpi.avgSatisfaction}</CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">On Budget</CardTitle>
-                </CardHeader>
-                <CardContent className="text-3xl">{kpi.onBudgetPct}%</CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">On Time</CardTitle>
-                </CardHeader>
-                <CardContent className="text-3xl">{kpi.onTimePct}%</CardContent>
-              </Card>
-            </div>
-          )}
+          {/* KPI Tiles */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Card>
+              <CardContent className="p-5">
+                <div className="text-sm font-medium text-muted-foreground">Total</div>
+                <div className="mt-2 text-4xl font-semibold">{total}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-5">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Avg. Satisfaction
+                </div>
+                <div className="mt-2 text-4xl font-semibold">{avgSatisfaction.toFixed(2)}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-5">
+                <div className="text-sm font-medium text-muted-foreground">On Budget</div>
+                <div className="mt-2 text-4xl font-semibold">{onBudgetPct}%</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-5">
+                <div className="text-sm font-medium text-muted-foreground">On Time</div>
+                <div className="mt-2 text-4xl font-semibold">{onTimePct}%</div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Table */}
-          <div className="mt-6 overflow-x-auto">
-            {loading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-10" />
-                <Skeleton className="h-10" />
-                <Skeleton className="h-10" />
-              </div>
-            ) : error ? (
-              <div className="text-sm text-destructive">{error}</div>
-            ) : rows && rows.length > 0 ? (
-              <table className="w-full text-sm">
-                <thead className="border-b">
-                  <tr>
-                    <th className="py-2 pr-4 text-left font-medium">Project</th>
-                    <th className="py-2 pr-4 text-left font-medium">Date</th>
-                    <th className="py-2 pr-4 text-left font-medium">Satisfaction</th>
-                    <th className="py-2 pr-4 text-left font-medium">Budget</th>
-                    <th className="py-2 pr-4 text-left font-medium">Timeline</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4">{r.project_name ?? "—"}</td>
-                      <td className="py-2 pr-4">
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-2 pr-4">
-                        {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
-                      </td>
-                      <td className="py-2 pr-4 capitalize">{r.budget_status ?? "—"}</td>
-                      <td className="py-2 pr-4 capitalize">{r.timeline_status ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="text-sm text-muted-foreground">No results.</div>
-            )}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Satisfaction</TableHead>
+                  <TableHead>Budget</TableHead>
+                  <TableHead>Timeline</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => {
+                  const dt = r.date ? new Date(r.date) : null;
+                  const dateStr = dt
+                    ? dt.toLocaleDateString()
+                    : "";
+                  const budgetStr =
+                    r.budget_status ? r.budget_status.charAt(0).toUpperCase() : "";
+                  const timeStr =
+                    r.timeline_status ? r.timeline_status.charAt(0).toUpperCase() : "";
+
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className="whitespace-pre-wrap">
+                        {r.project_name || "Untitled"}
+                      </TableCell>
+                      <TableCell>{dateStr}</TableCell>
+                      <TableCell>{r.satisfaction ?? ""}</TableCell>
+                      <TableCell>{budgetStr}</TableCell>
+                      <TableCell>{timeStr}</TableCell>
+                    </TableRow>
+                  );
+                })}
+                {!rows.length && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      No lessons found for this preset.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>

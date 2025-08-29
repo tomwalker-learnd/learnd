@@ -19,7 +19,6 @@ import { Loader2, MessageCircle, Send, Sparkles, Trash2, AlertTriangle } from "l
 import { useAuth } from "@/hooks/useAuth";
 
 type AiAction = "ask" | "data_pack" | "trend";
-
 type AiMessage = {
   id: string;
   role: "user" | "assistant" | "system";
@@ -28,16 +27,16 @@ type AiMessage = {
   action?: AiAction;
 };
 
-// --- Env guards (DO NOT throw if missing) ---
+// ---- Env-safe initialization (no throw if missing) ----
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || "";
-const supabaseKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || "";
+const supabaseKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "";
 const envOk = Boolean(supabaseUrl && supabaseKey);
 
 const sb: SupabaseClient | null = envOk ? createClient(supabaseUrl, supabaseKey) : null;
+// https://<ref>.supabase.co -> https://<ref>.functions.supabase.co
 const functionsBase = envOk ? supabaseUrl.replace(".supabase.co", ".functions.supabase.co") : "";
 const AI_ENDPOINT = envOk ? `${functionsBase}/ai-router` : "";
 
-// Small helper
 const nowIso = () => new Date().toISOString();
 
 export interface LearndAIProps {
@@ -55,7 +54,7 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
   const [title, setTitle] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load history only if env + client available
+  // Load history only when envs + user are ready
   useEffect(() => {
     if (!open || !user || !sb) return;
     (async () => {
@@ -92,16 +91,29 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
     try {
       if (!envOk || !AI_ENDPOINT) {
         throw new Error(
-          "LearndAI is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your environment."
+          "LearndAI isn’t configured yet. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your build environment."
         );
+      }
+
+      // --- Small tweak: send the user's JWT if available, else anon key ---
+      let authHeader = `Bearer ${supabaseKey}`;
+      if (sb) {
+        try {
+          const { data: sess } = await sb.auth.getSession();
+          if (sess?.session?.access_token) {
+            authHeader = `Bearer ${sess.session.access_token}`;
+          }
+        } catch {
+          // ignore; fall back to anon key
+        }
       }
 
       const res = await fetch(AI_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseKey}`,
-          apikey: supabaseKey,
+          Authorization: authHeader,   // user JWT when present
+          apikey: supabaseKey,         // always include anon for Functions
         },
         body: JSON.stringify({
           prompt,
@@ -138,11 +150,23 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
   const clear = async () => {
     setMessages([]);
     if (!envOk || !AI_ENDPOINT) return;
+
+    // same auth behavior for clear
+    let authHeader = `Bearer ${supabaseKey}`;
+    if (sb) {
+      try {
+        const { data: sess } = await sb.auth.getSession();
+        if (sess?.session?.access_token) {
+          authHeader = `Bearer ${sess.session.access_token}`;
+        }
+      } catch {}
+    }
+
     await fetch(AI_ENDPOINT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${supabaseKey}`,
+        Authorization: authHeader,
         apikey: supabaseKey,
       },
       body: JSON.stringify({ op: "clear" }),
@@ -186,10 +210,10 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
                       <div className="text-sm leading-relaxed">
                         <div className="font-medium">LearndAI isn’t configured yet.</div>
                         Add environment variables:
-                         <pre className="mt-2 rounded bg-black/5 p-2 text-xs">
+                        <pre className="mt-2 rounded bg-black/5 p-2 text-xs">
 {`VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=<anon-public-key>`}
-                         </pre>
+VITE_SUPABASE_ANON_KEY=<anon-public-key>`}
+                        </pre>
                         Then rebuild/redeploy. (The button is disabled until configured.)
                       </div>
                     </div>

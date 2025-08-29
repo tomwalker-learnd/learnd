@@ -1,43 +1,182 @@
-// src/pages/DashboardCustomizer.tsx
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+
 import { Button } from "@/components/ui/button";
-// import { useAuth } from "@/hooks/useAuth"; // Optional: enforce admin-only access
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
+
+type BudgetStatus = "under" | "on" | "over";
+type TimelineStatus = "early" | "on" | "late";
+
+type CustomFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+  customer?: string;
+  project?: string;
+  budgetStatus?: BudgetStatus;
+  timelineStatus?: TimelineStatus;
+  satisfactionMin?: number;
+  owner?: string;
+  tags?: string[];
+};
 
 export default function DashboardCustomizer() {
   const navigate = useNavigate();
-  // const { user } = useAuth();
-  // const isAdmin = user?.app_metadata?.role === "admin";
-  // if (!isAdmin) return null;
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // form state
+  const [name, setName] = useState("");
+  const [filters, setFilters] = useState<CustomFilters>({});
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!user) return;
+    if (!name.trim()) {
+      toast({ variant: "destructive", title: "Please give your dashboard a name" });
+      return;
+    }
+    setSaving(true);
+
+    const { data, error } = await supabase
+      .from("dashboard_presets")
+      .insert({
+        user_id: user.id,
+        name: name.trim(),
+        filters,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Could not save dashboard" });
+      setSaving(false);
+      return;
+    }
+
+    const newId = data?.id;
+    toast({ title: "Dashboard saved" });
+
+    // redirect back and auto-select
+    navigate(`/dashboards?select=${newId}`);
+  };
 
   return (
-    <div className="space-y-6">
-      <DashboardHeader
-        title="Custom Dashboard Builder"
-        description="Drag, drop, and configure your widgets. Save to make it available under Dashboards → Custom."
-        actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate("/dashboards")}>
-              Back to Dashboards
-            </Button>
-            <Button onClick={() => {/* TODO: wire up save */}}>
-              Save Dashboard
-            </Button>
-          </div>
-        }
-      />
-
-      <Card className="shadow-sm">
+    <div className="container mx-auto px-4 py-6">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Layout & Widgets</CardTitle>
+          <CardTitle>Create Custom Dashboard</CardTitle>
+          <CardDescription>
+            Define criteria to filter lessons. Save to return and view your custom dashboard.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          {/* === Paste your drag-and-drop mockup/builder here ===
-              For now, put a placeholder so the page renders cleanly. */}
-          <div className="rounded-2xl border p-6 text-sm text-muted-foreground">
-            Builder placeholder — drop in the DnD code we mocked up. Configure
-            data sources, filters, and chart types here.
+        <CardContent className="space-y-6">
+
+          {/* Name */}
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input
+              placeholder="e.g. Customer X last quarter"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          {/* Example filters — extend with your real fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div className="space-y-2">
+              <Label>Customer</Label>
+              <Input
+                placeholder="Optional"
+                value={filters.customer ?? ""}
+                onChange={(e) => setFilters({ ...filters, customer: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Project</Label>
+              <Input
+                placeholder="Optional"
+                value={filters.project ?? ""}
+                onChange={(e) => setFilters({ ...filters, project: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Budget Status</Label>
+              <Select
+                value={filters.budgetStatus}
+                onValueChange={(v: BudgetStatus) => setFilters({ ...filters, budgetStatus: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="under">Under</SelectItem>
+                  <SelectItem value="on">On</SelectItem>
+                  <SelectItem value="over">Over</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Timeline Status</Label>
+              <Select
+                value={filters.timelineStatus}
+                onValueChange={(v: TimelineStatus) => setFilters({ ...filters, timelineStatus: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="early">Early</SelectItem>
+                  <SelectItem value="on">On</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Min Satisfaction</Label>
+              <Input
+                type="number"
+                min={1}
+                max={5}
+                value={filters.satisfactionMin ?? ""}
+                onChange={(e) =>
+                  setFilters({ ...filters, satisfactionMin: e.target.value ? Number(e.target.value) : undefined })
+                }
+              />
+            </div>
+
+          </div>
+
+          {/* Save + Cancel */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-gradient-to-r from-orange-400 to-fuchsia-500 hover:opacity-95"
+            >
+              {saving ? "Saving…" : "Save & Return"}
+            </Button>
+            <Button variant="secondary" onClick={() => navigate("/dashboards")}>
+              Cancel
+            </Button>
           </div>
         </CardContent>
       </Card>

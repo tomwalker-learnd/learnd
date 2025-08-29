@@ -2,6 +2,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import AppHeader from "@/components/AppHeader";
 import { useAuth } from "@/hooks/useAuth";
+import LearndAI from "@/components/LearndAI"; // <-- Floating AI bubble
 
 // PAGES
 import Home from "@/pages/Home";
@@ -27,12 +28,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function Shell() {
   const location = useLocation();
 
-  // Hide header on auth-related screens
-  const hideHeader = /^\/auth(\/|$)/i.test(location.pathname) || /^\/reset/i.test(location.pathname);
+  // Hide header & LearndAI on auth-related screens
+  const isAuthScreen =
+    /^\/auth(\/|$)/i.test(location.pathname) ||
+    /^\/reset/i.test(location.pathname) ||
+    /^\/reset-password/i.test(location.pathname);
 
   return (
     <>
-      {!hideHeader && <AppHeader />}
+      {!isAuthScreen && <AppHeader />}
+
       <div className="min-h-[calc(100vh-56px)]">
         <Routes>
           {/* Public */}
@@ -101,6 +106,13 @@ function Shell() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
+
+      {/* Floating LearndAI bubble (hidden on auth/reset screens) */}
+      {!isAuthScreen && (
+        <div className="z-[2000]">
+          <LearndAI context={{ from: "global" }} />
+        </div>
+      )}
     </>
   );
 }

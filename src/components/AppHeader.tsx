@@ -1,8 +1,7 @@
 // src/components/AppHeader.tsx
-import { useState } from "react";
-import { Link, NavLink } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Menu, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -20,143 +19,119 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
-// Use bundled asset so it never goes missing
-import logoUrl from "@/assets/learnd-logo.png";
-
+// Remove Analytics from nav
 const NAV_ITEMS = [
   { to: "/", label: "Home" },
   { to: "/dashboards", label: "Dashboards" },
   { to: "/lessons", label: "Lessons" },
-  { to: "/analytics", label: "Analytics" },
 ];
 
 export default function AppHeader() {
   const { user } = useAuth();
-  const [logoOk, setLogoOk] = useState(true);
-
-  const linkClasses =
-    "text-sm font-medium transition-colors hover:text-foreground data-[active=true]:text-foreground text-foreground/60";
+  const navigate = useNavigate();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    window.location.assign("/auth");
+    navigate("/auth");
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto max-w-7xl px-3 sm:px-4">
-        {/* 3-column grid: left=logo, center=nav, right=actions */}
-        <div className="grid h-14 grid-cols-3 items-center">
-          {/* Left: Logo + Tagline */}
-          <Link to="/" className="flex items-center gap-3">
-            {logoOk ? (
-              <img
-                src={logoUrl}
-                alt="Learnd"
-                className="h-8 w-auto"
-                onError={() => setLogoOk(false)}
-              />
-            ) : (
-              <span className="text-lg font-semibold tracking-tight">Learnd</span>
-            )}
-            <span className="hidden sm:inline-block text-xs text-muted-foreground leading-tight">
-              Learn. Improve. Repeat.
-            </span>
-          </Link>
+    <header className="border-b bg-background">
+      <div className="mx-auto flex h-16 max-w-7xl items-center px-4">
+        {/* Left: Logo + tagline */}
+        <Link to="/" className="flex items-center gap-2">
+          <img
+            src="/Learnd_Logo_v4_Transparent.png"
+            alt="Learnd logo"
+            className="h-8 w-auto"
+          />
+          <span className="hidden text-sm font-medium text-muted-foreground sm:inline">
+            Learn. Improve. Repeat.
+          </span>
+        </Link>
 
-          {/* Center: Desktop nav (centered) */}
-          <nav className="hidden md:flex items-center justify-center gap-6">
-            {NAV_ITEMS.map((i) => (
-              <NavLink
-                key={i.to}
-                to={i.to}
-                className={({ isActive }) =>
-                  `${linkClasses} ${isActive ? "data-[active=true]" : ""}`
-                }
-                end
+        {/* Center: desktop nav */}
+        <nav className="mx-auto hidden gap-6 md:flex">
+          {NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `text-sm font-medium transition-colors ${
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Right: mobile hamburger + account menu */}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Mobile nav */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label="Open Menu"
               >
-                {i.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          {/* Right: Account & Mobile Menu (right-aligned) */}
-          <div className="flex items-center justify-end gap-2">
-            {/* Desktop account */}
-            <div className="hidden md:flex items-center gap-2">
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      {user.email?.split("@")[0] ?? "Account"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onClick={handleSignOut} className="gap-2">
-                      <LogOut className="h-4 w-4" />
-                      Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Link to="/auth">
-                  <Button variant="outline" size="sm">Sign in</Button>
-                </Link>
-              )}
-            </div>
-
-            {/* Mobile hamburger */}
-            <div className="md:hidden">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Open menu">
-                    <Menu className="h-5 w-5" />
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right">
+              <SheetHeader>
+                <SheetTitle>Menu</SheetTitle>
+              </SheetHeader>
+              <nav className="mt-4 flex flex-col gap-4">
+                {NAV_ITEMS.map((item) => (
+                  <SheetClose asChild key={item.to}>
+                    <NavLink
+                      to={item.to}
+                      className="text-lg font-medium text-foreground"
+                    >
+                      {item.label}
+                    </NavLink>
+                  </SheetClose>
+                ))}
+                {user && (
+                  <Button
+                    variant="ghost"
+                    onClick={handleSignOut}
+                    className="justify-start text-red-600"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
                   </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-72">
-                  <SheetHeader>
-                    <SheetTitle>Menu</SheetTitle>
-                  </SheetHeader>
-                  <div className="mt-4 flex flex-col gap-2">
-                    {NAV_ITEMS.map((i) => (
-                      <SheetClose asChild key={i.to}>
-                        <NavLink
-                          to={i.to}
-                          className={({ isActive }) =>
-                            `${linkClasses} px-1 py-1 ${isActive ? "data-[active=true]" : ""}`
-                          }
-                          end
-                        >
-                          {i.label}
-                        </NavLink>
-                      </SheetClose>
-                    ))}
+                )}
+              </nav>
+            </SheetContent>
+          </Sheet>
 
-                    <div className="h-px my-2 bg-border" />
-
-                    {user ? (
-                      <Button
-                        variant="outline"
-                        className="justify-start gap-2"
-                        onClick={handleSignOut}
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Sign out
-                      </Button>
-                    ) : (
-                      <SheetClose asChild>
-                        <Link to="/auth">
-                          <Button variant="outline" className="w-full">
-                            Sign in
-                          </Button>
-                        </Link>
-                      </SheetClose>
-                    )}
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </div>
-          </div>
+          {/* Desktop user dropdown */}
+          {user && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden md:inline-flex"
+                >
+                  {user.email}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
     </header>

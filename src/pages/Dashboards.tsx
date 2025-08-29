@@ -33,8 +33,13 @@ type LessonRow = {
   budget_status?: BudgetStatus | null;
   timeline_status?: TimelineStatus | null;
   owner?: string | null;
+  // possible identity columns in your schema:
   user_id?: string | null;
   profile_id?: string | null;
+  owner_id?: string | null;
+  created_by?: string | null;
+  created_by_id?: string | null;
+  created_by_user_id?: string | null;
   tags?: string[] | null;
 };
 
@@ -50,7 +55,20 @@ type CustomFilters = {
   tags?: string[];
 };
 
-type CustomDashboard = { id: string; name: string; filters: CustomFilters };
+type CustomDashboard = {
+  id: string;
+  name: string;
+  filters: CustomFilters;
+  // Optional owner fields to support client-side filtering
+  user_id?: string | null;
+  profile_id?: string | null;
+  owner_id?: string | null;
+  created_by?: string | null;
+  created_by_id?: string | null;
+  created_by_user_id?: string | null;
+  created_at?: string | null;
+};
+
 type PresetKey = "last_7" | "last_30" | "last_90" | "this_year";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -79,6 +97,21 @@ const buildLessonsQuery = (filters: CustomFilters) => {
   return `/lessons?${new URLSearchParams({ f: payload }).toString()}`;
 };
 
+// columns we’ll *try* for user/date; if none work, we fall back gracefully
+const CANDIDATE_USER_COLS = [
+  "user_id",
+  "profile_id",
+  "owner_id",
+  "created_by",
+  "created_by_id",
+  "created_by_user_id",
+] as const;
+
+const CANDIDATE_DATE_COLS = [
+  "date",
+  "created_at",
+] as const;
+
 export default function Dashboards() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
@@ -86,6 +119,7 @@ export default function Dashboards() {
   const [searchParams] = useSearchParams();
 
   const [presetKey, setPresetKey] = useState<PresetKey>("last_30");
+
   const [customList, setCustomList] = useState<CustomDashboard[]>([]);
   const [selectedCustomId, setSelectedCustomId] = useState<string | "">("");
   const [customsError, setCustomsError] = useState<string | null>(null);
@@ -95,8 +129,8 @@ export default function Dashboards() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [dataError, setDataError] = useState<string | null>(null);
 
-  const [activeUserCol, setActiveUserCol] = useState<string>("user_id");
-  const [activeDateCol, setActiveDateCol] = useState<string>("date");
+  const [activeUserCol, setActiveUserCol] = useState<string>("-");
+  const [activeDateCol, setActiveDateCol] = useState<string>("-");
 
   const hasToastedCustomErr = useRef(false);
   const hasToastedDataErr = useRef(false);
@@ -106,17 +140,19 @@ export default function Dashboards() {
     if (sel) setSelectedCustomId(sel);
   }, [searchParams]);
 
+  // ---------------------------
+  // Custom dashboards (presets)
+  // ---------------------------
   const fetchCustoms = useCallback(async () => {
     setCustomsError(null);
-    if (!user) return;
+    // Load rows first (avoid unknown column errors in SELECT)
     const { data, error } = await supabase
       .from("dashboard_presets")
-      .select("id,name,filters")
-      .eq("user_id", user.id)
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(error);
+      console.error("[dashboards] presets load error:", error);
       setCustomsError(error.message || "Could not load custom dashboards");
       if (!hasToastedCustomErr.current) {
         toast({ variant: "destructive", title: "Could not load custom dashboards" });
@@ -125,7 +161,27 @@ export default function Dashboards() {
       setCustomList([]);
       return;
     }
-    setCustomList((data || []) as CustomDashboard[]);
+
+    let rows = (data || []) as CustomDashboard[];
+
+    // If we have a logged-in user, filter client-side by any plausible owner field that exists on the row
+    if (user) {
+      const uid = user.id;
+      rows = rows.filter(r => {
+        const candidates = [
+          r.user_id, r.profile_id, r.owner_id,
+          r.created_by, r.created_by_id, r.created_by_user_id
+        ].filter(Boolean);
+        // If row has *any* of these fields, require one to match current user
+        if (candidates.length > 0) {
+          return candidates.includes(uid);
+        }
+        // If row has none of the typical owner fields, keep it (shared/global preset)
+        return true;
+      });
+    }
+
+    setCustomList(rows);
   }, [user, toast]);
 
   useEffect(() => {
@@ -141,19 +197,27 @@ export default function Dashboards() {
     return mergeFilters(preset, selected);
   }, [presetKey, customList, selectedCustomId]);
 
-  const candidateUserCols = ["user_id", "profile_id", "owner_id"];
-  const candidateDateCols = ["date", "created_at"];
-
+  // ---------------------------
+  // Lessons fetch with fallbacks
+  // ---------------------------
   const tryFetchLessons = useCallback(
-    async (userCol: string, dateCol: string) => {
-      let q = supabase.from("lessons").select("*").eq(userCol, user!.id);
+    async (userCol: string | null, dateCol: string) => {
+      let q = supabase.from("lessons").select("*");
+
+      // RLS-friendly user filter: only apply if we actually have a user AND a userCol to try
+      if (user && userCol) {
+        q = q.eq(userCol, user.id);
+      }
+
+      // Date window
       if (effectiveFilters.dateFrom) q = q.gte(dateCol, effectiveFilters.dateFrom);
       if (effectiveFilters.dateTo)   q = q.lte(dateCol, effectiveFilters.dateTo);
 
+      // Other filters
       const f = effectiveFilters;
-      if (f.customer)       q = q.ilike("customer", f.customer);
-      if (f.project)        q = q.ilike("project", f.project);
-      if (f.owner)          q = q.ilike("owner", f.owner);
+      if (f.customer)       q = q.ilike("customer", `%${f.customer}%`);
+      if (f.project)        q = q.ilike("project", `%${f.project}%`);
+      if (f.owner)          q = q.ilike("owner", `%${f.owner}%`);
       if (f.budgetStatus)   q = q.eq("budget_status", f.budgetStatus);
       if (f.timelineStatus) q = q.eq("timeline_status", f.timelineStatus);
       if (typeof f.satisfactionMin === "number") q = q.gte("satisfaction", f.satisfactionMin);
@@ -166,14 +230,14 @@ export default function Dashboards() {
   );
 
   const fetchLessons = useCallback(async () => {
-    if (!user) return;
     setLoadingData(true);
     setDataError(null);
 
+    // 1) First, try combinations of candidate user/date columns
     let lastError: string | null = null;
 
-    for (const ucol of candidateUserCols) {
-      for (const dcol of candidateDateCols) {
+    for (const ucol of CANDIDATE_USER_COLS) {
+      for (const dcol of CANDIDATE_DATE_COLS) {
         const { data, error } = await tryFetchLessons(ucol, dcol);
         if (!error) {
           setLessons((data || []) as LessonRow[]);
@@ -186,6 +250,21 @@ export default function Dashboards() {
       }
     }
 
+    // 2) If ALL candidate user filters failed (unknown column or RLS mismatch),
+    //    try again with NO user filter, still applying date filters.
+    for (const dcol of CANDIDATE_DATE_COLS) {
+      const { data, error } = await tryFetchLessons(null, dcol);
+      if (!error) {
+        setLessons((data || []) as LessonRow[]);
+        setActiveUserCol("(none)");
+        setActiveDateCol(dcol);
+        setLoadingData(false);
+        return;
+      }
+      lastError = error.message || "Unknown error";
+    }
+
+    // 3) If we still failed, surface error
     console.error("Lessons load failed:", lastError);
     setLessons([]);
     setDataError(lastError || "Failed to load data");
@@ -194,15 +273,24 @@ export default function Dashboards() {
       hasToastedDataErr.current = true;
     }
     setLoadingData(false);
-  }, [user, tryFetchLessons, toast]);
+  }, [tryFetchLessons, toast]);
 
-  useEffect(() => { fetchLessons(); }, [fetchLessons]);
+  useEffect(() => {
+    fetchLessons();
+  }, [fetchLessons, presetKey, selectedCustomId]);
 
+  // ---------------------------
+  // Metrics
+  // ---------------------------
   const metrics = useMemo(() => {
     const total = lessons.length;
-    const avgSatisfaction = total
-      ? Math.round(((lessons.reduce((s, r) => s + (r.satisfaction ?? 0), 0) / total) + Number.EPSILON) * 100) / 100
+    const satisfVals = lessons
+      .map(r => (typeof r.satisfaction === "number" ? r.satisfaction : null))
+      .filter((v): v is number => v !== null);
+    const avgSatisfaction = satisfVals.length
+      ? Math.round(((satisfVals.reduce((s, v) => s + v, 0) / satisfVals.length) + Number.EPSILON) * 100) / 100
       : 0;
+
     const onBudgetCount = lessons.filter(l => l.budget_status === "on" || l.budget_status === "under").length;
     const onTimeCount   = lessons.filter(l => l.timeline_status === "on" || l.timeline_status === "early").length;
     return {
@@ -213,7 +301,11 @@ export default function Dashboards() {
     };
   }, [lessons]);
 
+  // ---------------------------
+  // Actions
+  // ---------------------------
   const handleCreate = () => navigate("/dashboard-customizer");
+
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("dashboard_presets").delete().eq("id", id).limit(1);
     if (error) {
@@ -224,9 +316,12 @@ export default function Dashboards() {
       fetchCustoms();
     }
   };
+
   const handleViewInLessons = () => navigate(buildLessonsQuery(effectiveFilters));
 
-  if (loading) return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
+  }
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -260,7 +355,7 @@ export default function Dashboards() {
                 </Select>
               </div>
 
-              {/* Custom dashboards + inline error (to the RIGHT) */}
+              {/* Custom dashboards + inline error */}
               <div>
                 <div className="text-sm mb-1 font-medium text-muted-foreground">Custom dashboards</div>
                 <div className="flex items-center gap-2">
@@ -382,7 +477,13 @@ export default function Dashboards() {
 
           {/* Recent list */}
           <div className="pt-4">
-            <div className="text-sm font-medium text-muted-foreground mb-2">Recent items</div>
+            <div className="text-sm font-medium text-muted-foreground mb-2">
+              Recent items {activeUserCol !== "-" && activeDateCol !== "-" && (
+                <span className="text-xs text-muted-foreground ml-2">
+                  (using <code>{activeUserCol}</code> / <code>{activeDateCol}</code>)
+                </span>
+              )}
+            </div>
             <div className="rounded-lg border">
               <div className="grid grid-cols-5 text-xs uppercase tracking-wide text-muted-foreground border-b px-3 py-2">
                 <div className="col-span-2">Project</div>
@@ -403,13 +504,13 @@ export default function Dashboards() {
               })}
               {lessons.length === 0 && !loadingData && (
                 <div className="px-3 py-6 text-sm text-muted-foreground">
-                  {dataError ? "No data due to a query error. Check table/column names." : "No data in this view."}
+                  {dataError ? "No data due to a query error. Check table/column names or RLS." : "No data in this view."}
                 </div>
               )}
             </div>
             {dataError && (
               <div className="text-xs text-destructive mt-2">
-                Error loading lessons (tried {activeUserCol}/{activeDateCol}). Check column names or RLS.
+                Error loading lessons (tried multiple user/date columns; last used: {activeUserCol}/{activeDateCol}). Check column names or RLS.
               </div>
             )}
           </div>

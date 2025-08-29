@@ -25,7 +25,12 @@ type TimelineStatus = "early" | "on" | "late";
 
 type LessonRow = {
   id: string;
+  // possible project-ish fields
   project?: string | null;
+  project_name?: string | null;
+  title?: string | null;
+  name?: string | null;
+
   customer?: string | null;
   date?: string | null;
   created_at?: string | null;
@@ -33,6 +38,7 @@ type LessonRow = {
   budget_status?: BudgetStatus | null;
   timeline_status?: TimelineStatus | null;
   owner?: string | null;
+
   // possible identity columns in your schema:
   user_id?: string | null;
   profile_id?: string | null;
@@ -40,6 +46,7 @@ type LessonRow = {
   created_by?: string | null;
   created_by_id?: string | null;
   created_by_user_id?: string | null;
+
   tags?: string[] | null;
 };
 
@@ -59,7 +66,6 @@ type CustomDashboard = {
   id: string;
   name: string;
   filters: CustomFilters;
-  // Optional owner fields to support client-side filtering
   user_id?: string | null;
   profile_id?: string | null;
   owner_id?: string | null;
@@ -97,7 +103,6 @@ const buildLessonsQuery = (filters: CustomFilters) => {
   return `/lessons?${new URLSearchParams({ f: payload }).toString()}`;
 };
 
-// columns we’ll *try* for user/date; if none work, we fall back gracefully
 const CANDIDATE_USER_COLS = [
   "user_id",
   "profile_id",
@@ -107,10 +112,7 @@ const CANDIDATE_USER_COLS = [
   "created_by_user_id",
 ] as const;
 
-const CANDIDATE_DATE_COLS = [
-  "date",
-  "created_at",
-] as const;
+const CANDIDATE_DATE_COLS = ["date", "created_at"] as const;
 
 export default function Dashboards() {
   const navigate = useNavigate();
@@ -121,6 +123,7 @@ export default function Dashboards() {
   const [presetKey, setPresetKey] = useState<PresetKey>("last_30");
 
   const [customList, setCustomList] = useState<CustomDashboard[]>([]);
+  the
   const [selectedCustomId, setSelectedCustomId] = useState<string | "">("");
   const [customsError, setCustomsError] = useState<string | null>(null);
 
@@ -140,12 +143,8 @@ export default function Dashboards() {
     if (sel) setSelectedCustomId(sel);
   }, [searchParams]);
 
-  // ---------------------------
-  // Custom dashboards (presets)
-  // ---------------------------
   const fetchCustoms = useCallback(async () => {
     setCustomsError(null);
-    // Load rows first (avoid unknown column errors in SELECT)
     const { data, error } = await supabase
       .from("dashboard_presets")
       .select("*")
@@ -163,8 +162,6 @@ export default function Dashboards() {
     }
 
     let rows = (data || []) as CustomDashboard[];
-
-    // If we have a logged-in user, filter client-side by any plausible owner field that exists on the row
     if (user) {
       const uid = user.id;
       rows = rows.filter(r => {
@@ -172,15 +169,10 @@ export default function Dashboards() {
           r.user_id, r.profile_id, r.owner_id,
           r.created_by, r.created_by_id, r.created_by_user_id
         ].filter(Boolean);
-        // If row has *any* of these fields, require one to match current user
-        if (candidates.length > 0) {
-          return candidates.includes(uid);
-        }
-        // If row has none of the typical owner fields, keep it (shared/global preset)
-        return true;
+        if (candidates.length > 0) return candidates.includes(uid);
+        return true; // shared/global preset
       });
     }
-
     setCustomList(rows);
   }, [user, toast]);
 
@@ -197,23 +189,13 @@ export default function Dashboards() {
     return mergeFilters(preset, selected);
   }, [presetKey, customList, selectedCustomId]);
 
-  // ---------------------------
-  // Lessons fetch with fallbacks
-  // ---------------------------
   const tryFetchLessons = useCallback(
     async (userCol: string | null, dateCol: string) => {
       let q = supabase.from("lessons").select("*");
-
-      // RLS-friendly user filter: only apply if we actually have a user AND a userCol to try
-      if (user && userCol) {
-        q = q.eq(userCol, user.id);
-      }
-
-      // Date window
+      if (user && userCol) q = q.eq(userCol, user.id);
       if (effectiveFilters.dateFrom) q = q.gte(dateCol, effectiveFilters.dateFrom);
       if (effectiveFilters.dateTo)   q = q.lte(dateCol, effectiveFilters.dateTo);
 
-      // Other filters
       const f = effectiveFilters;
       if (f.customer)       q = q.ilike("customer", `%${f.customer}%`);
       if (f.project)        q = q.ilike("project", `%${f.project}%`);
@@ -233,7 +215,6 @@ export default function Dashboards() {
     setLoadingData(true);
     setDataError(null);
 
-    // 1) First, try combinations of candidate user/date columns
     let lastError: string | null = null;
 
     for (const ucol of CANDIDATE_USER_COLS) {
@@ -250,8 +231,6 @@ export default function Dashboards() {
       }
     }
 
-    // 2) If ALL candidate user filters failed (unknown column or RLS mismatch),
-    //    try again with NO user filter, still applying date filters.
     for (const dcol of CANDIDATE_DATE_COLS) {
       const { data, error } = await tryFetchLessons(null, dcol);
       if (!error) {
@@ -264,7 +243,6 @@ export default function Dashboards() {
       lastError = error.message || "Unknown error";
     }
 
-    // 3) If we still failed, surface error
     console.error("Lessons load failed:", lastError);
     setLessons([]);
     setDataError(lastError || "Failed to load data");
@@ -279,9 +257,6 @@ export default function Dashboards() {
     fetchLessons();
   }, [fetchLessons, presetKey, selectedCustomId]);
 
-  // ---------------------------
-  // Metrics
-  // ---------------------------
   const metrics = useMemo(() => {
     const total = lessons.length;
     const satisfVals = lessons
@@ -301,9 +276,6 @@ export default function Dashboards() {
     };
   }, [lessons]);
 
-  // ---------------------------
-  // Actions
-  // ---------------------------
   const handleCreate = () => navigate("/dashboard-customizer");
 
   const handleDelete = async (id: string) => {
@@ -318,6 +290,16 @@ export default function Dashboards() {
   };
 
   const handleViewInLessons = () => navigate(buildLessonsQuery(effectiveFilters));
+
+  const getProject = (l: LessonRow): string => {
+    const val =
+      (l.project && l.project.trim()) ||
+      (l.project_name && l.project_name.trim()) ||
+      (l.title && l.title.trim()) ||
+      (l.name && l.name.trim()) ||
+      "";
+    return val || "—";
+  };
 
   if (loading) {
     return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
@@ -495,7 +477,7 @@ export default function Dashboards() {
                 const dateVal = ((l as any)[activeDateCol] as string | undefined) ?? (l.created_at ?? l.date ?? "");
                 return (
                   <div key={l.id} className="grid grid-cols-5 px-3 py-2 border-b last:border-b-0 text-sm">
-                    <div className="col-span-2 truncate">{l.project ?? "—"}</div>
+                    <div className="col-span-2 truncate">{getProject(l)}</div>
                     <div>{(dateVal || "").slice(0, 10)}</div>
                     <div>{l.budget_status?.toUpperCase?.() ?? "—"}</div>
                     <div>{l.timeline_status?.toUpperCase?.() ?? "—"}</div>

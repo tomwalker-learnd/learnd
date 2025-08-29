@@ -1,8 +1,8 @@
 // src/components/AppHeader.tsx
-import { useMemo } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Menu, LogOut } from "lucide-react";
+import { useState } from "react";
+import { Link, NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Menu, LogOut } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -20,7 +20,9 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
-// SINGLE SOURCE OF TRUTH for both desktop and mobile nav
+// Import the bundled asset so it never “goes missing”
+import logoUrl from "@/assets/learnd-logo.png";
+
 const NAV_ITEMS = [
   { to: "/", label: "Home" },
   { to: "/dashboards", label: "Dashboards" },
@@ -30,109 +32,131 @@ const NAV_ITEMS = [
 
 export default function AppHeader() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const [logoOk, setLogoOk] = useState(true);
 
-  const initial = useMemo(() => {
-    const src = (user?.user_metadata?.full_name as string) || user?.email || "U";
-    return src.trim()[0]?.toUpperCase() ?? "U";
-  }, [user]);
+  const linkClasses =
+    "text-sm font-medium transition-colors hover:text-foreground data-[active=true]:text-foreground text-foreground/60";
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    navigate("/auth");
+    // Let the router guard bump them to /auth
+    window.location.assign("/auth");
   };
 
-  const linkClass =
-    "px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground";
-  const activeClass = ({ isActive }: { isActive: boolean }) =>
-    `${linkClass} ${isActive ? "text-foreground" : ""}`;
-
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2" aria-label="Go to Home">
-          {/* Swap for your logo image if desired */}
-          <span className="text-xl font-extrabold tracking-tight">Learnd</span>
+    <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="mx-auto flex h-14 max-w-7xl items-center px-3 sm:px-4">
+        {/* Left: Logo + tagline */}
+        <Link to="/" className="mr-4 flex items-center gap-3">
+          {logoOk ? (
+            <img
+              src={logoUrl}
+              alt="Learnd"
+              className="h-8 w-auto"
+              onError={() => setLogoOk(false)}
+            />
+          ) : (
+            <span className="text-lg font-semibold tracking-tight">Learnd</span>
+          )}
+
+          {/* Tagline (show from sm and up) */}
+          <span className="hidden sm:inline-block text-xs text-muted-foreground leading-tight">
+            Learn. Improve. Repeat.
+          </span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1">
-          {NAV_ITEMS.map((item) => (
-            <NavLink key={item.to} to={item.to} className={activeClass}>
-              {item.label}
+        <nav className="hidden md:flex md:flex-1 items-center gap-6">
+          {NAV_ITEMS.map((i) => (
+            <NavLink
+              key={i.to}
+              to={i.to}
+              className={({ isActive }) =>
+                `${linkClasses} ${isActive ? "data-[active=true]" : ""}`
+              }
+              end
+            >
+              {i.label}
             </NavLink>
           ))}
         </nav>
 
-        {/* Right controls */}
-        <div className="flex items-center gap-2">
-          {/* Desktop profile dropdown */}
-          <div className="hidden md:block">
+        {/* Desktop actions */}
+        <div className="ml-auto hidden md:flex items-center gap-2">
+          <Link to="/analytics">
+            <Button className="bg-gradient-to-r from-fuchsia-500 to-orange-400 text-white">
+              Analytics
+            </Button>
+          </Link>
+
+          {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full h-9 w-9"
-                  aria-label="Open profile menu"
-                >
-                  <span className="text-sm font-semibold">{initial}</span>
+                <Button variant="outline" size="sm">
+                  {user.email?.split("@")[0] ?? "Account"}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {NAV_ITEMS.map((item) => (
-                  <DropdownMenuItem key={item.to} asChild>
-                    <Link to={item.to}>{item.label}</Link>
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <div className="flex items-center gap-2">
-                    <LogOut className="h-4 w-4" />
-                    <span>Sign out</span>
-                  </div>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={handleSignOut} className="gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
+          ) : (
+            <Link to="/auth">
+              <Button variant="outline" size="sm">Sign in</Button>
+            </Link>
+          )}
+        </div>
 
-          {/* Mobile hamburger / sheet */}
+        {/* Mobile menu */}
+        <div className="md:hidden ml-auto">
           <Sheet>
             <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="md:hidden"
-                aria-label="Open navigation menu"
-              >
+              <Button variant="ghost" size="icon" aria-label="Open menu">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-
-            <SheetContent side="right" className="w-80">
-              <SheetHeader className="mb-2">
-                <SheetTitle className="text-left">Menu</SheetTitle>
+            <SheetContent side="left" className="w-72">
+              <SheetHeader>
+                <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
-
-              <div className="flex flex-col gap-1">
-                {NAV_ITEMS.map((item) => (
-                  <SheetClose asChild key={item.to}>
-                    <NavLink to={item.to} className={activeClass}>
-                      {item.label}
+              <div className="mt-4 flex flex-col gap-2">
+                {NAV_ITEMS.map((i) => (
+                  <SheetClose asChild key={i.to}>
+                    <NavLink
+                      to={i.to}
+                      className={({ isActive }) =>
+                        `${linkClasses} px-1 py-1 ${isActive ? "data-[active=true]" : ""}`
+                      }
+                      end
+                    >
+                      {i.label}
                     </NavLink>
                   </SheetClose>
                 ))}
-              </div>
 
-              <div className="mt-4 border-t pt-4">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-2"
-                  onClick={handleSignOut}
-                >
-                  <LogOut className="h-4 w-4" />
-                  Sign out
-                </Button>
+                <div className="h-px my-2 bg-border" />
+
+                {user ? (
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </Button>
+                ) : (
+                  <SheetClose asChild>
+                    <Link to="/auth">
+                      <Button variant="outline" className="w-full">
+                        Sign in
+                      </Button>
+                    </Link>
+                  </SheetClose>
+                )}
               </div>
             </SheetContent>
           </Sheet>

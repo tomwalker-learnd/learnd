@@ -129,3 +129,131 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
       setMessages((m) => [...m, err]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const clear = async () => {
+    setMessages([]);
+    await fetch(AI_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${supabaseKey}`,
+        apikey: supabaseKey,
+      },
+      body: JSON.stringify({ op: "clear" }),
+    });
+  };
+
+  return (
+    <TooltipProvider>
+      <div className="fixed bottom-5 right-5 z-50 print:hidden">
+        <Sheet open={open} onOpenChange={setOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SheetTrigger asChild>
+                <Button
+                  size="icon"
+                  className="h-12 w-12 rounded-full shadow-xl"
+                  aria-label="Open LearndAI"
+                >
+                  <Sparkles className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+            </TooltipTrigger>
+            <TooltipContent>AI</TooltipContent>
+          </Tooltip>
+
+          <SheetContent side={anchor} className="p-0 w-[560px] max-w-[100vw]">
+            <SheetHeader className="px-4 py-3 border-b">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                <SheetTitle>LearndAI</SheetTitle>
+              </div>
+            </SheetHeader>
+
+            <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+              {/* History */}
+              <ScrollArea className="flex-1 px-4" ref={scrollRef as any}>
+                <div className="space-y-4 py-4">
+                  {messages.map((m) => (
+                    <div key={m.id} className="flex gap-3">
+                      <div
+                        className={`text-xs mt-1 font-medium ${
+                          m.role === "assistant"
+                            ? "text-primary"
+                            : m.role === "system"
+                            ? "text-yellow-600"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {m.role}
+                      </div>
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed flex-1">
+                        {m.content}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              {/* Composer */}
+              <div className="border-t p-3 space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="action">Action</Label>
+                    <Select value={action} onValueChange={(v: AiAction) => setAction(v)}>
+                      <SelectTrigger id="action"><SelectValue placeholder="Choose" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ask">Ask / Explain</SelectItem>
+                        <SelectItem value="data_pack">Build Data Pack</SelectItem>
+                        <SelectItem value="trend">Trend Analysis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="title">Optional title</Label>
+                    <Input
+                      id="title"
+                      placeholder="e.g., Q3 Trends (Savencia)"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="prompt">Prompt</Label>
+                  <Textarea
+                    id="prompt"
+                    placeholder="What do you want LearndAI to do? (It can query Supabase and return artifacts like CSV, JSON, or summaries.)"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Button variant="secondary" size="sm" onClick={clear} disabled={loading}>
+                    <Trash2 className="h-4 w-4 mr-1" /> Clear
+                  </Button>
+                  <Button onClick={submit} disabled={disabled}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Working…
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Send
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </TooltipProvider>
+  );
+}

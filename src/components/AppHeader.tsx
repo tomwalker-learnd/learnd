@@ -19,11 +19,12 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
-// Remove Analytics from nav
+// Restore Analytics to the nav
 const NAV_ITEMS = [
   { to: "/", label: "Home" },
   { to: "/dashboards", label: "Dashboards" },
   { to: "/lessons", label: "Lessons" },
+  { to: "/analytics", label: "Analytics" },
 ];
 
 export default function AppHeader() {
@@ -41,7 +42,7 @@ export default function AppHeader() {
         {/* Left: Logo + tagline */}
         <Link to="/" className="flex items-center gap-2">
           <img
-            src="/Learnd_Logo_v4_Transparent.png"
+            src="/assets/learnd-logo.png"
             alt="Learnd logo"
             className="h-8 w-auto"
           />
@@ -50,90 +51,5 @@ export default function AppHeader() {
           </span>
         </Link>
 
-        {/* Center: desktop nav */}
-        <nav className="mx-auto hidden gap-6 md:flex">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `text-sm font-medium transition-colors ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Right: mobile hamburger + account menu */}
-        <div className="ml-auto flex items-center gap-2">
-          {/* Mobile nav */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                aria-label="Open Menu"
-              >
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right">
-              <SheetHeader>
-                <SheetTitle>Menu</SheetTitle>
-              </SheetHeader>
-              <nav className="mt-4 flex flex-col gap-4">
-                {NAV_ITEMS.map((item) => (
-                  <SheetClose asChild key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      className="text-lg font-medium text-foreground"
-                    >
-                      {item.label}
-                    </NavLink>
-                  </SheetClose>
-                ))}
-                {user && (
-                  <Button
-                    variant="ghost"
-                    onClick={handleSignOut}
-                    className="justify-start text-red-600"
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sign Out
-                  </Button>
-                )}
-              </nav>
-            </SheetContent>
-          </Sheet>
-
-          {/* Desktop user dropdown */}
-          {user && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="hidden md:inline-flex"
-                >
-                  {user.email}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
-    </header>
-  );
-}
+        {/* Center: desktop nav (kept centered) */}
+        <nav className="hidden flex-1 justify-center gap-6 md:flex">

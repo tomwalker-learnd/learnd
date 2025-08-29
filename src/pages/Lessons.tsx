@@ -84,41 +84,8 @@ const normTimeline = (v: unknown): TimelineStatus | null => {
 
 export default function Lessons() {
   const { toast } = useToast();
+  // still keep searchParams if you later want to wire from/to, etc.
   const [searchParams] = useSearchParams();
-
-  // Parse URL params (now includes from/to support)
-  const urlParams = useMemo(() => {
-    const norm = (v: string | null) => (v ?? "").trim();
-    const num = (v: string | null) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    };
-    const budgetIn = norm(searchParams.get("budget")).toLowerCase();
-    const timelineIn = norm(searchParams.get("timeline")).toLowerCase();
-
-    const budget =
-      budgetIn === "under" || budgetIn === "on" || budgetIn === "over"
-        ? (budgetIn as BudgetStatus)
-        : null;
-    const timeline =
-      timelineIn === "early" || timelineIn === "on" || timelineIn === "late"
-        ? (timelineIn as TimelineStatus)
-        : null;
-
-    // NEW: date window from Dashboards
-    const from = norm(searchParams.get("from"));
-    const to = norm(searchParams.get("to"));
-
-    return {
-      budget,
-      timeline,
-      minSat: num(searchParams.get("minSat")),
-      maxSat: num(searchParams.get("maxSat")),
-      periodDays: num(searchParams.get("periodDays")),
-      from, // ISO or ""
-      to,   // ISO or ""
-    };
-  }, [searchParams]);
 
   const [rows, setRows] = useState<LessonRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -159,9 +126,20 @@ export default function Lessons() {
     };
   }, [toast]);
 
-  // Apply URL date window + UI filters (AND logic)
+  // Are any UI filters active?
+  const hasUiFilters = useMemo(() => {
+    return (
+      filters.search.trim() !== "" ||
+      filters.budget !== "any" ||
+      filters.timeline !== "any" ||
+      filters.minSatisfaction.trim() !== ""
+    );
+  }, [filters]);
+
+  // Apply UI filters only when active; otherwise show ALL rows
   const filtered = useMemo(() => {
     if (!rows) return [];
+    if (!hasUiFilters) return rows; // <-- show everything until filters are set
 
     const s = filters.search.trim().toLowerCase();
     const uiMinSat =
@@ -170,29 +148,9 @@ export default function Lessons() {
       ? (uiMinSat as number)
       : null;
 
-    const sinceMs =
-      urlParams.periodDays && urlParams.periodDays > 0
-        ? Date.now() - urlParams.periodDays * 24 * 60 * 60 * 1000
-        : null;
-
-    // NEW: from/to window (inclusive)
-    const fromT = urlParams.from ? new Date(urlParams.from).getTime() : null;
-    const toT = urlParams.to ? new Date(urlParams.to).getTime() : null;
-
     return rows.filter((r) => {
       const rBudget = normBudget(r.budget_status);
       const rTimeline = normTimeline(r.timeline_status);
-
-      // URL from/to window takes precedence if present
-      if (fromT || toT) {
-        const t = new Date(r.created_at).getTime();
-        if (fromT && t < fromT) return false;
-        if (toT && t > toT) return false;
-      } else if (sinceMs !== null) {
-        // Fallback: periodDays window
-        const t = new Date(r.created_at).getTime();
-        if (t < sinceMs) return false;
-      }
 
       // text search
       if (s) {
@@ -202,42 +160,30 @@ export default function Lessons() {
         if (!hay.includes(s)) return false;
       }
 
-      // budget (UI first, else URL)
+      // budget
       if (filters.budget !== "any") {
         if (rBudget !== filters.budget) return false;
-      } else if (urlParams.budget) {
-        if (rBudget !== urlParams.budget) return false;
       }
 
-      // timeline (UI first, else URL)
+      // timeline
       if (filters.timeline !== "any") {
         if (rTimeline !== filters.timeline) return false;
-      } else if (urlParams.timeline) {
-        if (rTimeline !== urlParams.timeline) return false;
       }
 
-      // satisfaction thresholds
+      // min satisfaction
       if (useUiMinSat !== null) {
         if (typeof r.satisfaction !== "number" || r.satisfaction < useUiMinSat)
-          return false;
-      }
-      if (urlParams.minSat !== null) {
-        if (typeof r.satisfaction !== "number" || r.satisfaction < urlParams.minSat)
-          return false;
-      }
-      if (urlParams.maxSat !== null) {
-        if (typeof r.satisfaction !== "number" || r.satisfaction > urlParams.maxSat)
           return false;
       }
 
       return true;
     });
-  }, [rows, filters, urlParams]);
+  }, [rows, filters, hasUiFilters]);
 
-  // Reset to page 1 when filters, page size, or URL params change
+  // Reset to page 1 when filters, page size, or params change
   useEffect(() => {
     setPage(1);
-  }, [filters, pageSize, urlParams]);
+  }, [filters, pageSize, searchParams]);
 
   // Client-side pagination
   const total = filtered.length;
@@ -370,9 +316,7 @@ export default function Lessons() {
           <div className="flex items-center justify-between">
             <CardTitle>Results</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {rows === null
-                ? "Loading…"
-                : `${total} of ${rows.length} shown`}
+              {rows === null ? "Loading…" : `${total} of ${rows.length} shown`}
             </div>
           </div>
         </CardHeader>

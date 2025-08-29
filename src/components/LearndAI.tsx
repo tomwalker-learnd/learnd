@@ -30,7 +30,7 @@ type AiMessage = {
 
 // --- Env guards (DO NOT throw if missing) ---
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || "";
-const supabaseKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "";
+const supabaseKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || "";
 const envOk = Boolean(supabaseUrl && supabaseKey);
 
 const sb: SupabaseClient | null = envOk ? createClient(supabaseUrl, supabaseKey) : null;
@@ -92,7 +92,7 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
     try {
       if (!envOk || !AI_ENDPOINT) {
         throw new Error(
-          "LearndAI is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment."
+          "LearndAI is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your environment."
         );
       }
 
@@ -186,10 +186,10 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
                       <div className="text-sm leading-relaxed">
                         <div className="font-medium">LearndAI isn’t configured yet.</div>
                         Add environment variables:
-                        <pre className="mt-2 rounded bg-black/5 p-2 text-xs">
+                         <pre className="mt-2 rounded bg-black/5 p-2 text-xs">
 {`VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=<anon-public-key>`}
-                        </pre>
+VITE_SUPABASE_PUBLISHABLE_KEY=<anon-public-key>`}
+                         </pre>
                         Then rebuild/redeploy. (The button is disabled until configured.)
                       </div>
                     </div>

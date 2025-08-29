@@ -86,7 +86,7 @@ export default function Lessons() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
-  // Parse URL params for deep-links (budget/timeline/minSat/maxSat/periodDays)
+  // Parse URL params (now includes from/to support)
   const urlParams = useMemo(() => {
     const norm = (v: string | null) => (v ?? "").trim();
     const num = (v: string | null) => {
@@ -105,12 +105,18 @@ export default function Lessons() {
         ? (timelineIn as TimelineStatus)
         : null;
 
+    // NEW: date window from Dashboards
+    const from = norm(searchParams.get("from"));
+    const to = norm(searchParams.get("to"));
+
     return {
       budget,
       timeline,
       minSat: num(searchParams.get("minSat")),
       maxSat: num(searchParams.get("maxSat")),
       periodDays: num(searchParams.get("periodDays")),
+      from, // ISO or ""
+      to,   // ISO or ""
     };
   }, [searchParams]);
 
@@ -153,7 +159,7 @@ export default function Lessons() {
     };
   }, [toast]);
 
-  // Apply both UI filters and URL-derived filters (AND logic)
+  // Apply URL date window + UI filters (AND logic)
   const filtered = useMemo(() => {
     if (!rows) return [];
 
@@ -169,9 +175,24 @@ export default function Lessons() {
         ? Date.now() - urlParams.periodDays * 24 * 60 * 60 * 1000
         : null;
 
+    // NEW: from/to window (inclusive)
+    const fromT = urlParams.from ? new Date(urlParams.from).getTime() : null;
+    const toT = urlParams.to ? new Date(urlParams.to).getTime() : null;
+
     return rows.filter((r) => {
       const rBudget = normBudget(r.budget_status);
       const rTimeline = normTimeline(r.timeline_status);
+
+      // URL from/to window takes precedence if present
+      if (fromT || toT) {
+        const t = new Date(r.created_at).getTime();
+        if (fromT && t < fromT) return false;
+        if (toT && t > toT) return false;
+      } else if (sinceMs !== null) {
+        // Fallback: periodDays window
+        const t = new Date(r.created_at).getTime();
+        if (t < sinceMs) return false;
+      }
 
       // text search
       if (s) {
@@ -209,12 +230,6 @@ export default function Lessons() {
           return false;
       }
 
-      // period window
-      if (sinceMs !== null) {
-        const t = new Date(r.created_at).getTime();
-        if (!(t >= sinceMs)) return false;
-      }
-
       return true;
     });
   }, [rows, filters, urlParams]);
@@ -249,6 +264,12 @@ export default function Lessons() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setFilters(DEFAULT_FILTERS)}
+              >
+                Clear Filters
+              </Button>
               <Button variant="outline" onClick={onRefresh}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
@@ -349,11 +370,9 @@ export default function Lessons() {
           <div className="flex items-center justify-between">
             <CardTitle>Results</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {isLoading
+              {rows === null
                 ? "Loading…"
-                : total === 0
-                ? "No results"
-                : `${total} record${total === 1 ? "" : "s"}`}
+                : `${total} of ${rows.length} shown`}
             </div>
           </div>
         </CardHeader>

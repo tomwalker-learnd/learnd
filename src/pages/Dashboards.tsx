@@ -40,7 +40,6 @@ type RawLesson = Record<string, any> & {
   satisfaction?: number | null;
   budget_status?: BudgetStatus;
   timeline_status?: TimelineStatus;
-  // Possible date fields (may or may not exist)
   lesson_date?: string | null;
   occurred_on?: string | null;
   created_at?: string | null;
@@ -91,6 +90,28 @@ const PRESETS: Record<
   all: { label: "All time", getRange: () => ({}) },
 };
 
+// Build Lessons link that custom dashboards can reuse
+function buildLessonsLink(
+  range: { from?: string; to?: string },
+  extras?: {
+    q?: string;
+    b?: "under" | "on" | "over";
+    t?: "early" | "on" | "late";
+    min?: number;
+    apply?: boolean; // apply=1 -> auto-apply on arrival
+  }
+) {
+  const p = new URLSearchParams();
+  if (range.from) p.set("from", range.from);
+  if (range.to) p.set("to", range.to);
+  if (extras?.q) p.set("q", extras.q);
+  if (extras?.b) p.set("b", extras.b);
+  if (extras?.t) p.set("t", extras.t);
+  if (typeof extras?.min === "number") p.set("min", String(extras.min));
+  if (extras?.apply) p.set("apply", "1");
+  return `/lessons${p.toString() ? `?${p.toString()}` : ""}`;
+}
+
 export default function Dashboards() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -112,16 +133,10 @@ export default function Dashboards() {
   const fetchData = async () => {
     try {
       setBusy(true);
-
-      // 1) Select all fields to avoid referencing non-existent columns
-      // 2) No server-side order; we’ll sort client-side after normalizing dates
-      const { data, error } = await supabase
-        .from("lessons")
-        .select("*");
-
+      const { data, error } = await supabase.from("lessons").select("*");
       if (error) throw error;
 
-      const normalized = (data as RawLesson[]).map((r) => ({
+      const normalized: LessonRow[] = (data as RawLesson[]).map((r) => ({
         id: r.id,
         project_name: r.project_name ?? "",
         normalizedDate: pickFirstDate(r),
@@ -130,7 +145,7 @@ export default function Dashboards() {
         timeline_status: (r.timeline_status as TimelineStatus) ?? null,
       }));
 
-      // Client-side filter by preset date range
+      // Client-side preset window
       const filtered = normalized.filter((r) => {
         if (!range.from && !range.to) return true;
         if (!r.normalizedDate) return false;
@@ -140,11 +155,11 @@ export default function Dashboards() {
         return true;
       });
 
-      // Client-side sort: newest first by normalizedDate
+      // Sort newest first
       filtered.sort((a, b) => {
         const ta = a.normalizedDate ? new Date(a.normalizedDate).getTime() : 0;
         const tb = b.normalizedDate ? new Date(b.normalizedDate).getTime() : 0;
-        return tb - ta; // desc
+        return tb - ta;
       });
 
       setRows(filtered);
@@ -167,48 +182,34 @@ export default function Dashboards() {
   const handleRefresh = () => fetchData();
 
   const handleViewInLessons = () => {
-    const params = new URLSearchParams();
-    if (range.from) params.set("from", range.from);
-    if (range.to) params.set("to", range.to);
-    navigate(`/lessons${params.toString() ? `?${params.toString()}` : ""}`);
+    // Carry the preset time window and ask Lessons to auto-apply it.
+    navigate(buildLessonsLink(range, { apply: true }));
   };
 
   // KPIs
   const total = rows.length;
-
   const avgSatisfaction = useMemo(() => {
-    const nums = rows
-      .map((r) => r.satisfaction)
-      .filter((n): n is number => typeof n === "number");
+    const nums = rows.map((r) => r.satisfaction).filter((n): n is number => typeof n === "number");
     if (!nums.length) return 0;
     const sum = nums.reduce((a, b) => a + b, 0);
     return Math.round((sum / nums.length) * 100) / 100;
   }, [rows]);
-
   const onBudgetPct = useMemo(() => {
     if (!rows.length) return 0;
-    const good = rows.filter(
-      (r) => r.budget_status === "under" || r.budget_status === "on"
-    ).length;
+    const good = rows.filter((r) => r.budget_status === "under" || r.budget_status === "on").length;
     return Math.round((good / rows.length) * 100);
   }, [rows]);
-
   const onTimePct = useMemo(() => {
     if (!rows.length) return 0;
-    const good = rows.filter(
-      (r) => r.timeline_status === "early" || r.timeline_status === "on"
-    ).length;
+    const good = rows.filter((r) => r.timeline_status === "early" || r.timeline_status === "on").length;
     return Math.round((good / rows.length) * 100);
   }, [rows]);
 
-  if (loading) {
-    return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
-  }
+  if (loading) return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
   if (!user) return <Navigate to="/auth" replace />;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-10 pt-6">
-      {/* Page header */}
       <div className="mb-4">
         <h1 className="text-3xl font-bold tracking-tight">Dashboards</h1>
         <p className="text-muted-foreground">
@@ -216,7 +217,6 @@ export default function Dashboards() {
         </p>
       </div>
 
-      {/* Preset card */}
       <Card className="overflow-hidden">
         <CardHeader className="pb-3">
           <CardTitle>Preset</CardTitle>
@@ -231,18 +231,13 @@ export default function Dashboards() {
         <CardContent className="space-y-4">
           {/* Controls: mobile stack / desktop row */}
           <div className="w-full">
-            {/* Mobile layout */}
             <div className="md:hidden space-y-3">
               <div className="grid grid-cols-1 gap-2">
                 <Button onClick={handleRefresh} className="w-full" disabled={busy}>
                   <RefreshCw className={`mr-2 h-4 w-4 ${busy ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
-                <Button
-                  onClick={handleViewInLessons}
-                  variant="secondary"
-                  className="w-full"
-                >
+                <Button onClick={handleViewInLessons} variant="secondary" className="w-full">
                   View in Lessons
                 </Button>
               </div>
@@ -264,7 +259,6 @@ export default function Dashboards() {
               </div>
             </div>
 
-            {/* Desktop layout */}
             <div className="hidden md:flex md:items-end md:gap-3">
               <div className="flex-1">
                 <Label htmlFor="preset-desktop">Select preset</Label>
@@ -305,12 +299,8 @@ export default function Dashboards() {
 
             <Card>
               <CardContent className="p-5">
-                <div className="text-sm font-medium text-muted-foreground">
-                  Avg. Satisfaction
-                </div>
-                <div className="mt-2 text-4xl font-semibold">
-                  {avgSatisfaction.toFixed(2)}
-                </div>
+                <div className="text-sm font-medium text-muted-foreground">Avg. Satisfaction</div>
+                <div className="mt-2 text-4xl font-semibold">{avgSatisfaction.toFixed(2)}</div>
               </CardContent>
             </Card>
 
@@ -338,24 +328,18 @@ export default function Dashboards() {
                   <TableHead>Date</TableHead>
                   <TableHead>Satisfaction</TableHead>
                   <TableHead>Budget</TableHead>
-                  <Table>Timeline</Table>
+                  <TableHead>Timeline</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => {
-                  const dateStr = r.normalizedDate
-                    ? new Date(r.normalizedDate).toLocaleDateString()
-                    : "";
-                  const budgetStr =
-                    r.budget_status ? r.budget_status.charAt(0).toUpperCase() : "";
-                  const timeStr =
-                    r.timeline_status ? r.timeline_status.charAt(0).toUpperCase() : "";
+                  const dateStr = r.normalizedDate ? new Date(r.normalizedDate).toLocaleDateString() : "";
+                  const budgetStr = r.budget_status ? r.budget_status.charAt(0).toUpperCase() : "";
+                  const timeStr = r.timeline_status ? r.timeline_status.charAt(0).toUpperCase() : "";
 
                   return (
                     <TableRow key={r.id}>
-                      <TableCell className="whitespace-pre-wrap">
-                        {r.project_name || "Untitled"}
-                      </TableCell>
+                      <TableCell className="whitespace-pre-wrap">{r.project_name || "Untitled"}</TableCell>
                       <TableCell>{dateStr}</TableCell>
                       <TableCell>{r.satisfaction ?? ""}</TableCell>
                       <TableCell>{budgetStr}</TableCell>

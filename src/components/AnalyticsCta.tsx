@@ -23,7 +23,7 @@ export default function AnalyticsCta({
   return (
     <Button
       asChild
-      variant="gradient"                 // <-- brand gradient (orange -> magenta)
+      variant="analytics"                // <-- dark teal color (#0d3240)
       size={size}
       className={className}
       onClick={onClick}

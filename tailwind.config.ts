@@ -70,10 +70,6 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-
-        // ⭐ Brand gradient endpoints
-        "brand-from": "#F8791A", // orange
-        "brand-to": "#CF1072",   // magenta
       },
       borderRadius: {
         lg: "var(--radius)",

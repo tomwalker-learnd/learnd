@@ -184,10 +184,10 @@ export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
               <SheetTrigger asChild>
                 <Button
                   size="icon"
-                  className="h-12 w-12 rounded-full shadow-xl"
+                  className="h-12 w-12 rounded-full shadow-xl bg-gradient-to-r from-[#fa7c0b] to-[#e13f40] text-white font-orbitron font-bold text-lg hover:opacity-90 border-0"
                   aria-label="Open LearndAI"
                 >
-                  <Sparkles className="h-6 w-6" />
+                  AI
                 </Button>
               </SheetTrigger>
             </TooltipTrigger>

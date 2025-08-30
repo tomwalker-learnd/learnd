@@ -21,6 +21,7 @@ export default {
       fontFamily: {
         inter: ["Inter", "sans-serif"],
         poppins: ["Poppins", "sans-serif"],
+        orbitron: ["Orbitron", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",

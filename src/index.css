@@ -26,8 +26,8 @@ All colors MUST be HSL.
     --secondary: 250 45% 50%;
     --secondary-foreground: 0 0% 100%;
 
-    /* Analytics: Muted dark teal */
-    --analytics: 206 45% 35%;
+    /* Analytics: Dark teal #0d3240 */
+    --analytics: 206 66% 15%;
     --analytics-foreground: 0 0% 100%;
 
     /* Muted/Accent using light gray */

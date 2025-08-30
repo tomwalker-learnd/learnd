@@ -265,11 +265,12 @@ export default function Lessons() {
                 </div>
               ) : null}
               <Button
-                variant="secondary"
                 onClick={() => {
                   setFilters(DEFAULT_FILTERS);
                   setDateWindow(null);
                 }}
+                style={{ backgroundColor: '#0d3240', color: 'white' }}
+                className="hover:opacity-90"
               >
                 Clear Filters
               </Button>

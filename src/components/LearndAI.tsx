@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Loader2, MessageCircle, Send, Sparkles, Trash2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type AiAction = "ask" | "data_pack" | "trend";
 type AiMessage = {
@@ -232,8 +234,31 @@ VITE_SUPABASE_ANON_KEY=<anon-public-key>`}
                       >
                         {m.role}
                       </div>
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed flex-1">
-                        {m.content}
+                      <div className="flex-1">
+                        {m.role === "assistant" ? (
+                          <div className="prose prose-sm max-w-none dark:prose-invert">
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                h1: ({ children }) => <h1 className="text-lg font-bold mb-2 text-foreground">{children}</h1>,
+                                h2: ({ children }) => <h2 className="text-base font-semibold mb-2 text-foreground">{children}</h2>,
+                                h3: ({ children }) => <h3 className="text-sm font-medium mb-1 text-foreground">{children}</h3>,
+                                p: ({ children }) => <p className="text-sm leading-relaxed mb-2 text-foreground">{children}</p>,
+                                ul: ({ children }) => <ul className="list-disc pl-4 mb-2 text-sm text-foreground">{children}</ul>,
+                                ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 text-sm text-foreground">{children}</ol>,
+                                li: ({ children }) => <li className="mb-1 text-foreground">{children}</li>,
+                                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                                code: ({ children }) => <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono text-foreground">{children}</code>
+                              }}
+                            >
+                              {m.content}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className="text-sm leading-relaxed text-foreground">
+                            {m.content}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

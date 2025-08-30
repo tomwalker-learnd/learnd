@@ -185,33 +185,65 @@ export default function Analytics() {
             <Skeleton className="h-32 w-full" />
           ) : recentSample.length === 0 ? (
             <div className="text-sm text-muted-foreground">No recent lessons.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-xs text-muted-foreground">
-                  <tr>
-                    <th className="text-left py-2 pr-4">Project</th>
-                    <th className="text-left py-2 pr-4">Date</th>
-                    <th className="text-left py-2 pr-4">Satisfaction</th>
-                    <th className="text-left py-2 pr-4">Budget</th>
-                    <th className="text-left py-2 pr-0">Timeline</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentSample.map((r) => (
-                    <tr key={r.id} className="border-t">
-                      <td className="py-2 pr-4">{r.project_name ?? "—"}</td>
-                      <td className="py-2 pr-4">
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-2 pr-4">{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</td>
-                      <td className="py-2 pr-4 capitalize">{r.budget_status ?? "—"}</td>
-                      <td className="py-2 pr-0 capitalize">{r.timeline_status ?? "—"}</td>
+           ) : (
+            <>
+              {/* Desktop table view */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-muted-foreground">
+                    <tr>
+                      <th className="text-left py-2 pr-4">Project</th>
+                      <th className="text-left py-2 pr-4">Date</th>
+                      <th className="text-left py-2 pr-4">Satisfaction</th>
+                      <th className="text-left py-2 pr-4">Budget</th>
+                      <th className="text-left py-2 pr-0">Timeline</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {recentSample.map((r) => (
+                      <tr key={r.id} className="border-t">
+                        <td className="py-2 pr-4">{r.project_name ?? "—"}</td>
+                        <td className="py-2 pr-4">
+                          {new Date(r.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-2 pr-4">{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</td>
+                        <td className="py-2 pr-4 capitalize">{r.budget_status ?? "—"}</td>
+                        <td className="py-2 pr-0 capitalize">{r.timeline_status ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile card view */}
+              <div className="block md:hidden space-y-3">
+                {recentSample.map((r) => (
+                  <div key={r.id} className="border rounded-lg p-4 bg-card">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-medium text-sm">{r.project_name ?? "—"}</h4>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block">Satisfaction</span>
+                        <span className="font-medium">{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Budget</span>
+                        <span className="font-medium capitalize">{r.budget_status ?? "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Timeline</span>
+                        <span className="font-medium capitalize">{r.timeline_status ?? "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+            
           )}
         </CardContent>
       </Card>

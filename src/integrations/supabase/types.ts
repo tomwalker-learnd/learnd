@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_requests: {
+        Row: {
+          action: string
+          context: Json | null
+          created_at: string | null
+          id: string
+          prompt: string
+          title: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          prompt: string
+          title?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          prompt?: string
+          title?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_responses: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          request_id: string | null
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          request_id?: string | null
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          request_id?: string | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_responses_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "ai_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
@@ -40,45 +102,156 @@ export type Database = {
       }
       lessons: {
         Row: {
+          acceptance_criteria_completeness: number | null
+          actual_days: number | null
+          assumptions_documented: boolean | null
+          avoid_this: string | null
+          billing_model: string | null
           budget_status: string
+          change_approval_avg_days: number | null
+          change_control_effectiveness: number | null
+          change_control_process_used: boolean | null
+          change_orders_approved_count: number | null
+          change_orders_revenue_usd: number | null
+          change_request_count: number | null
           client_name: string | null
+          client_responsiveness: number | null
           created_at: string
           created_by: string
+          discounts_concessions_usd: number | null
+          effort_variance_pct: number | null
+          expectation_alignment: number | null
           id: string
+          industry: string | null
+          initial_budget_usd: number | null
+          internal_comms_effectiveness: number | null
           notes: string | null
+          phase: string | null
+          planned_days: number | null
           project_name: string
+          project_type: string | null
+          region: string | null
+          repeat_this: string | null
+          requirements_clarity: number | null
+          requirements_volatility_count: number | null
+          resource_availability: number | null
+          rework_pct: number | null
           role: string
           satisfaction: number
+          scope_authority_clarity: number | null
+          scope_baseline_quality: number | null
           scope_change: boolean
+          scope_dispute_occurred: boolean | null
+          scope_dispute_resolution_days: number | null
+          scope_dispute_severity: number | null
+          skill_alignment: number | null
+          stakeholder_engagement: number | null
+          suggested_improvement_area: string | null
+          team_morale: number | null
           timeline_status: string
+          tooling_effectiveness: number | null
           updated_at: string
         }
         Insert: {
+          acceptance_criteria_completeness?: number | null
+          actual_days?: number | null
+          assumptions_documented?: boolean | null
+          avoid_this?: string | null
+          billing_model?: string | null
           budget_status: string
+          change_approval_avg_days?: number | null
+          change_control_effectiveness?: number | null
+          change_control_process_used?: boolean | null
+          change_orders_approved_count?: number | null
+          change_orders_revenue_usd?: number | null
+          change_request_count?: number | null
           client_name?: string | null
+          client_responsiveness?: number | null
           created_at?: string
           created_by: string
+          discounts_concessions_usd?: number | null
+          effort_variance_pct?: number | null
+          expectation_alignment?: number | null
           id?: string
+          industry?: string | null
+          initial_budget_usd?: number | null
+          internal_comms_effectiveness?: number | null
           notes?: string | null
+          phase?: string | null
+          planned_days?: number | null
           project_name: string
+          project_type?: string | null
+          region?: string | null
+          repeat_this?: string | null
+          requirements_clarity?: number | null
+          requirements_volatility_count?: number | null
+          resource_availability?: number | null
+          rework_pct?: number | null
           role: string
           satisfaction: number
+          scope_authority_clarity?: number | null
+          scope_baseline_quality?: number | null
           scope_change?: boolean
+          scope_dispute_occurred?: boolean | null
+          scope_dispute_resolution_days?: number | null
+          scope_dispute_severity?: number | null
+          skill_alignment?: number | null
+          stakeholder_engagement?: number | null
+          suggested_improvement_area?: string | null
+          team_morale?: number | null
           timeline_status: string
+          tooling_effectiveness?: number | null
           updated_at?: string
         }
         Update: {
+          acceptance_criteria_completeness?: number | null
+          actual_days?: number | null
+          assumptions_documented?: boolean | null
+          avoid_this?: string | null
+          billing_model?: string | null
           budget_status?: string
+          change_approval_avg_days?: number | null
+          change_control_effectiveness?: number | null
+          change_control_process_used?: boolean | null
+          change_orders_approved_count?: number | null
+          change_orders_revenue_usd?: number | null
+          change_request_count?: number | null
           client_name?: string | null
+          client_responsiveness?: number | null
           created_at?: string
           created_by?: string
+          discounts_concessions_usd?: number | null
+          effort_variance_pct?: number | null
+          expectation_alignment?: number | null
           id?: string
+          industry?: string | null
+          initial_budget_usd?: number | null
+          internal_comms_effectiveness?: number | null
           notes?: string | null
+          phase?: string | null
+          planned_days?: number | null
           project_name?: string
+          project_type?: string | null
+          region?: string | null
+          repeat_this?: string | null
+          requirements_clarity?: number | null
+          requirements_volatility_count?: number | null
+          resource_availability?: number | null
+          rework_pct?: number | null
           role?: string
           satisfaction?: number
+          scope_authority_clarity?: number | null
+          scope_baseline_quality?: number | null
           scope_change?: boolean
+          scope_dispute_occurred?: boolean | null
+          scope_dispute_resolution_days?: number | null
+          scope_dispute_severity?: number | null
+          skill_alignment?: number | null
+          stakeholder_engagement?: number | null
+          suggested_improvement_area?: string | null
+          team_morale?: number | null
           timeline_status?: string
+          tooling_effectiveness?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -113,9 +286,57 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_dashboards: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_favorite: boolean
+          name: string
+          owner_user_id: string
+          tags: string[] | null
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_favorite?: boolean
+          name: string
+          owner_user_id: string
+          tags?: string[] | null
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_favorite?: boolean
+          name?: string
+          owner_user_id?: string
+          tags?: string[] | null
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      ai_messages_view: {
+        Row: {
+          action: string | null
+          content: string | null
+          created_at: string | null
+          id: string | null
+          role: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_update_role: {

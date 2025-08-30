@@ -232,7 +232,7 @@ VITE_SUPABASE_ANON_KEY=<anon-public-key>`}
                             : "text-muted-foreground"
                         }`}
                       >
-                        {m.role}
+                        {m.role === "assistant" ? "LearndAI" : m.role}
                       </div>
                       <div className="flex-1">
                         {m.role === "assistant" ? (

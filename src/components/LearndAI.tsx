@@ -297,6 +297,14 @@ VITE_SUPABASE_ANON_KEY=<anon-public-key>`}
                     placeholder="What do you want LearndAI to do?"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        if (!disabled) {
+                          submit();
+                        }
+                      }
+                    }}
                     rows={4}
                     disabled={!envOk}
                   />

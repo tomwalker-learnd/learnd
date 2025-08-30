@@ -449,17 +449,26 @@ export default function Dashboards() {
 
             {/* RIGHT: actions */}
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="secondary" onClick={fetchLessons}>
+              <Button 
+                onClick={fetchLessons}
+                style={{ backgroundColor: '#fa7c0b', color: 'white' }}
+                className="hover:opacity-90"
+              >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
               </Button>
-              <Button onClick={handleViewInLessons}>
+              <Button 
+                onClick={handleViewInLessons}
+                style={{ backgroundColor: '#e13f40', color: 'white' }}
+                className="hover:opacity-90"
+              >
                 <Eye className="mr-2 h-4 w-4" />
                 View in Lessons
               </Button>
               <Button
                 onClick={handleCreate}
-                className="bg-gradient-to-r from-orange-400 to-fuchsia-500 hover:opacity-95"
+                style={{ backgroundColor: '#ca0573', color: 'white' }}
+                className="hover:opacity-90"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Create Custom Dashboard

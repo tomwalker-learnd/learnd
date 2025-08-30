@@ -141,7 +141,7 @@ export default function Home() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          <Button onClick={() => navigate("/analytics")}>
+          <Button variant="analytics" onClick={() => navigate("/analytics")}>
             <TrendingUp className="mr-2 h-4 w-4" />
             Analytics
           </Button>

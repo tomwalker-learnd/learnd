@@ -78,6 +78,7 @@ export default function SubmitWizard() {
         satisfaction: form.satisfaction!,
         budget_status: form.budget_status as BudgetStatus,
         timeline_status: form.timeline_status as TimelineStatus,
+        role: "project_manager", // Required field
         created_by: user.id,
       };
 

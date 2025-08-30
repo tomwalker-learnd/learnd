@@ -4,12 +4,12 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env
-  .VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const SUPABASE_ANON_KEY = import.meta.env
+  .VITE_SUPABASE_ANON_KEY as string;
 
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   const msg =
-    "[Supabase] Missing VITE_SUPABASE_URL and/or VITE_SUPABASE_PUBLISHABLE_KEY. Check your .env";
+    "[Supabase] Missing VITE_SUPABASE_URL and/or VITE_SUPABASE_ANON_KEY. Check your .env";
   // Fail fast in dev; throw to surface the error in CI/build
   console.error(msg);
   throw new Error(msg);
@@ -17,7 +17,7 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 
 export const supabase = createClient<Database>(
   SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_ANON_KEY,
   {
     auth: {
       storage: localStorage,

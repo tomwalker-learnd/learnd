@@ -124,7 +124,7 @@ const PRESETS: Record<
 function mergeFilters(
   preset: { dateFrom: string; dateTo: string },
   custom?: CustomFilters | null
-) {
+): CustomFilters {
   const base = { dateFrom: preset.dateFrom, dateTo: preset.dateTo };
   if (!custom) return base;
   return {
@@ -185,46 +185,9 @@ export default function Dashboards() {
   // --------- Custom dashboards (presets) ----------
   const fetchCustoms = useCallback(async () => {
     setCustomsError(null);
-
-    // Avoid selecting specific owner columns in SQL; select all then filter client-side.
-    const { data, error } = await supabase
-      .from("dashboard_presets")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("[dashboards] presets load error:", error);
-      setCustomsError(error.message || "Could not load custom dashboards");
-      if (!hasToastedCustomErr.current) {
-        toast({ variant: "destructive", title: "Could not load custom dashboards" });
-        hasToastedCustomErr.current = true;
-      }
-      setCustomList([]);
-      return;
-    }
-
-    let rows = (data || []) as CustomDashboard[];
-
-    // If a user is present, keep rows that either match any owner field OR have none (global/shared)
-    if (user) {
-      const uid = user.id;
-      rows = rows.filter((r) => {
-        const candidates = [
-          r.user_id,
-          r.profile_id,
-          r.owner_id,
-          r.created_by,
-          r.created_by_id,
-          r.created_by_user_id,
-        ].filter(Boolean);
-        if (candidates.length > 0) {
-          return candidates.includes(uid);
-        }
-        return true;
-      });
-    }
-
-    setCustomList(rows);
+    // TODO: Re-enable when saved_dashboards table is properly typed
+    setCustomList([]);
+    return;
   }, [user, toast]);
 
   useEffect(() => {
@@ -241,72 +204,66 @@ export default function Dashboards() {
     return mergeFilters(preset, selected);
   }, [presetKey, customList, selectedCustomId]);
 
-  // --------- Lessons fetch with fallbacks ----------
-  const tryFetchLessons = useCallback(
-    async (userCol: string | null, dateCol: string) => {
-      let q = supabase.from("lessons").select("*");
-
-      // Apply user filter only if we have a user AND a candidate column
-      if (user && userCol) {
-        q = q.eq(userCol, user.id);
-      }
-
-      // Date window
-      if (effectiveFilters.dateFrom) q = q.gte(dateCol, effectiveFilters.dateFrom);
-      if (effectiveFilters.dateTo) q = q.lte(dateCol, effectiveFilters.dateTo);
-
-      // Other filters
-      const f = effectiveFilters;
-      if (f.customer) q = q.ilike("customer", `%${f.customer}%`);
-      if (f.project) q = q.ilike("project", `%${f.project}%`);
-      if (f.owner) q = q.ilike("owner", `%${f.owner}%`);
-      if (f.budgetStatus) q = q.eq("budget_status", f.budgetStatus);
-      if (f.timelineStatus) q = q.eq("timeline_status", f.timelineStatus);
-      if (typeof f.satisfactionMin === "number")
-        q = q.gte("satisfaction", f.satisfactionMin);
-      if (f.tags?.length) q = q.contains("tags", f.tags);
-
-      const orderCol = dateCol || "created_at";
-      return await q.order(orderCol, { ascending: false });
-    },
-    [effectiveFilters, user]
-  );
-
   const fetchLessons = useCallback(async () => {
     setLoadingData(true);
     setDataError(null);
 
+    const filters = effectiveFilters;
     let lastError: string | null = null;
 
     // 1) Try candidate user/date column pairs
     for (const ucol of CANDIDATE_USER_COLS) {
       for (const dcol of CANDIDATE_DATE_COLS) {
-        const { data, error } = await tryFetchLessons(ucol, dcol);
-        if (!error) {
-          setLessons((data || []) as LessonRow[]);
-          setActiveUserCol(ucol);
-          setActiveDateCol(dcol);
-          setLoadingData(false);
-          return;
+        try {
+          let q = supabase.from("lessons").select("*");
+
+          // Apply user filter
+          if (user && ucol === "created_by") {
+            q = q.eq("created_by", user.id);
+          }
+
+          // Date window  
+          if (filters.dateFrom && dcol === "created_at") {
+            q = q.gte("created_at", filters.dateFrom);
+          }
+          if (filters.dateTo && dcol === "created_at") {
+            q = q.lte("created_at", filters.dateTo);
+          }
+
+          // Other filters
+          if (filters.customer) {
+            q = q.ilike("client_name", `%${filters.customer}%`);
+          }
+          if (filters.project) {
+            q = q.ilike("project_name", `%${filters.project}%`);
+          }
+          if (filters.budgetStatus) {
+            q = q.eq("budget_status", filters.budgetStatus);
+          }
+          if (filters.timelineStatus) {
+            q = q.eq("timeline_status", filters.timelineStatus);
+          }
+          if (typeof filters.satisfactionMin === "number") {
+            q = q.gte("satisfaction", filters.satisfactionMin);
+          }
+
+          const { data, error } = await q.order("created_at", { ascending: false });
+          
+          if (!error) {
+            setLessons((data || []) as LessonRow[]);
+            setActiveUserCol(ucol);
+            setActiveDateCol(dcol);
+            setLoadingData(false);
+            return;
+          }
+          lastError = error.message || "Unknown error";
+        } catch (e: any) {
+          lastError = e.message || "Unknown error";
         }
-        lastError = error.message || "Unknown error";
       }
     }
 
-    // 2) Fall back to NO user filter, try date columns
-    for (const dcol of CANDIDATE_DATE_COLS) {
-      const { data, error } = await tryFetchLessons(null, dcol);
-      if (!error) {
-        setLessons((data || []) as LessonRow[]);
-        setActiveUserCol("(none)");
-        setActiveDateCol(dcol);
-        setLoadingData(false);
-        return;
-      }
-      lastError = error.message || "Unknown error";
-    }
-
-    // 3) Surface error
+    // Surface error
     console.error("Lessons load failed:", lastError);
     setLessons([]);
     setDataError(lastError || "Failed to load data");
@@ -315,11 +272,11 @@ export default function Dashboards() {
       hasToastedDataErr.current = true;
     }
     setLoadingData(false);
-  }, [tryFetchLessons, toast]);
+  }, [effectiveFilters, user, toast]);
 
   useEffect(() => {
     fetchLessons();
-  }, [fetchLessons, presetKey, selectedCustomId]);
+  }, [fetchLessons]);
 
   // --------- Metrics ----------
   const metrics = useMemo(() => {
@@ -356,19 +313,8 @@ export default function Dashboards() {
   const handleCreate = () => navigate("/dashboard-customizer");
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase
-      .from("dashboard_presets")
-      .delete()
-      .eq("id", id)
-      .limit(1);
-
-    if (error) {
-      toast({ variant: "destructive", title: "Could not delete dashboard" });
-    } else {
-      toast({ title: "Dashboard deleted" });
-      if (selectedCustomId === id) setSelectedCustomId("");
-      fetchCustoms();
-    }
+    // TODO: Re-enable when saved_dashboards table is properly typed
+    toast({ variant: "destructive", title: "Dashboard deletion temporarily disabled" });
   };
 
   const handleViewInLessons = () => navigate(buildLessonsQuery(effectiveFilters));

@@ -50,28 +50,9 @@ export default function DashboardCustomizer() {
     }
     setSaving(true);
 
-    const { data, error } = await supabase
-      .from("dashboard_presets")
-      .insert({
-        user_id: user.id,
-        name: name.trim(),
-        filters,
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Could not save dashboard" });
-      setSaving(false);
-      return;
-    }
-
-    const newId = data?.id;
-    toast({ title: "Dashboard saved" });
-
-    // redirect back and auto-select
-    navigate(`/dashboards?select=${newId}`);
+    // TODO: Re-enable when saved_dashboards table is properly typed
+    toast({ variant: "destructive", title: "Dashboard creation temporarily disabled" });
+    setSaving(false);
   };
 
   return (

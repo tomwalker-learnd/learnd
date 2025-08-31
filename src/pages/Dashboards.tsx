@@ -209,69 +209,68 @@ export default function Dashboards() {
     setDataError(null);
 
     const filters = effectiveFilters;
-    let lastError: string | null = null;
+    console.log("Fetching lessons with filters:", filters);
 
-    // 1) Try candidate user/date column pairs
-    for (const ucol of CANDIDATE_USER_COLS) {
-      for (const dcol of CANDIDATE_DATE_COLS) {
-        try {
-          let q = supabase.from("lessons").select("*");
+    try {
+      let q = supabase.from("lessons").select("*");
 
-          // Apply user filter
-          if (user && ucol === "created_by") {
-            q = q.eq("created_by", user.id);
-          }
-
-          // Date window  
-          if (filters.dateFrom && dcol === "created_at") {
-            q = q.gte("created_at", filters.dateFrom + "T00:00:00.000Z");
-          }
-          if (filters.dateTo && dcol === "created_at") {
-            q = q.lte("created_at", filters.dateTo + "T23:59:59.999Z");
-          }
-
-          // Other filters
-          if (filters.customer) {
-            q = q.ilike("client_name", `%${filters.customer}%`);
-          }
-          if (filters.project) {
-            q = q.ilike("project_name", `%${filters.project}%`);
-          }
-          if (filters.budgetStatus) {
-            q = q.eq("budget_status", filters.budgetStatus);
-          }
-          if (filters.timelineStatus) {
-            q = q.eq("timeline_status", filters.timelineStatus);
-          }
-          if (typeof filters.satisfactionMin === "number") {
-            q = q.gte("satisfaction", filters.satisfactionMin);
-          }
-
-          const { data, error } = await q.order("created_at", { ascending: false });
-          
-          if (!error) {
-            setLessons((data || []) as LessonRow[]);
-            setActiveUserCol(ucol);
-            setActiveDateCol(dcol);
-            setLoadingData(false);
-            return;
-          }
-          lastError = error.message || "Unknown error";
-        } catch (e: any) {
-          lastError = e.message || "Unknown error";
-        }
+      // Apply user filter (should always be applied for RLS)
+      if (user) {
+        q = q.eq("created_by", user.id);
       }
-    }
 
-    // Surface error
-    console.error("Lessons load failed:", lastError);
-    setLessons([]);
-    setDataError(lastError || "Failed to load data");
-    if (!hasToastedDataErr.current) {
-      toast({ variant: "destructive", title: "Failed to load dashboard data" });
-      hasToastedDataErr.current = true;
+      // Apply date filters
+      if (filters.dateFrom) {
+        const fromDate = filters.dateFrom + "T00:00:00.000Z";
+        console.log("Applying dateFrom filter:", fromDate);
+        q = q.gte("created_at", fromDate);
+      }
+      if (filters.dateTo) {
+        const toDate = filters.dateTo + "T23:59:59.999Z";
+        console.log("Applying dateTo filter:", toDate);
+        q = q.lte("created_at", toDate);
+      }
+
+      // Other filters
+      if (filters.customer) {
+        q = q.ilike("client_name", `%${filters.customer}%`);
+      }
+      if (filters.project) {
+        q = q.ilike("project_name", `%${filters.project}%`);
+      }
+      if (filters.budgetStatus) {
+        q = q.eq("budget_status", filters.budgetStatus);
+      }
+      if (filters.timelineStatus) {
+        q = q.eq("timeline_status", filters.timelineStatus);
+      }
+      if (typeof filters.satisfactionMin === "number") {
+        q = q.gte("satisfaction", filters.satisfactionMin);
+      }
+
+      const { data, error } = await q.order("created_at", { ascending: false });
+      
+      if (error) {
+        throw error;
+      }
+      
+      console.log("Fetched lessons count:", data?.length || 0);
+      setLessons((data || []) as LessonRow[]);
+      setActiveUserCol("created_by");
+      setActiveDateCol("created_at");
+      
+    } catch (e: any) {
+      const errorMsg = e.message || "Unknown error";
+      console.error("Lessons load failed:", errorMsg);
+      setLessons([]);
+      setDataError(errorMsg);
+      if (!hasToastedDataErr.current) {
+        toast({ variant: "destructive", title: "Failed to load dashboard data" });
+        hasToastedDataErr.current = true;
+      }
+    } finally {
+      setLoadingData(false);
     }
-    setLoadingData(false);
   }, [effectiveFilters, user, toast]);
 
   useEffect(() => {

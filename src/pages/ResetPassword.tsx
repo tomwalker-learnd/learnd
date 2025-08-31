@@ -111,9 +111,6 @@ const ResetPassword = () => {
             className="mx-auto w-auto"
             style={{ height: "90px", maxHeight: "20vh" }}
           />
-          <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground">
-            Learn. Improve. Repeat.
-          </p>
         </div>
 
         <Card>

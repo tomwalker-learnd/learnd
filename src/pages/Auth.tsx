@@ -11,8 +11,6 @@ import logo from "@/assets/learnd-logo.png";
 
 type Mode = "signin" | "signup";
 
-// Official tagline
-const TAGLINE = "Learn. Improve. Repeat.";
 
 export default function Auth() {
   const { user, loading } = useAuth();
@@ -58,12 +56,9 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-start justify-center px-4">
       <div className="w-full max-w-sm pt-20 md:pt-28 pb-10">
-        {/* Bigger, lower logo + tagline */}
+        {/* Bigger, lower logo */}
         <div className="mb-6 flex flex-col items-center">
           <img src={logo} alt="Learnd" className="h-20 w-auto md:h-24" />
-          <p className="mt-2 text-sm text-muted-foreground text-center">
-            {TAGLINE}
-          </p>
         </div>
 
         <Card className="w-full">

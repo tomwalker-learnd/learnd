@@ -42,9 +42,6 @@ export default function AppHeader() {
         {/* Left: Logo + tagline */}
         <Link to="/" className="flex items-center gap-2">
           <img src={logoUrl} alt="Learnd logo" className="h-8 w-auto" />
-          <span className="hidden text-sm font-medium text-muted-foreground sm:inline">
-            Learn. Improve. Repeat.
-          </span>
         </Link>
 
         {/* Center: desktop nav */}

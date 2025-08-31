@@ -23,6 +23,7 @@ type TimelineStatus = "early" | "on" | "late";
 type LessonRow = {
   id: string;
   project_name: string | null;
+  client_name: string | null;
   // NOTE: we alias created_at -> date so existing UI can keep using `date`
   date: string; // ISO
   created_at?: string; // not used by UI, but may come back in other queries
@@ -87,7 +88,7 @@ export default function Home() {
       const { data: recentRows, error: rErr } = await supabase
         .from("lessons")
         .select(
-          "id, project_name, date:created_at, satisfaction, budget_status, timeline_status"
+          "id, project_name, client_name, date:created_at, satisfaction, budget_status, timeline_status"
         )
         .order("created_at", { ascending: false })
         .limit(8);
@@ -192,6 +193,9 @@ export default function Home() {
                     <div className="font-medium">{r.project_name || "Untitled Project"}</div>
                     <div className="text-xs text-muted-foreground">{fmtDate(r.date)}</div>
                   </div>
+                  {r.client_name && (
+                    <div className="text-sm text-muted-foreground mt-1">{r.client_name}</div>
+                  )}
                   <div className="mt-2 flex items-center gap-2">
                     <Badge variant="outline" className={badgeTone(r.budget_status)}>{r.budget_status ?? "—"}</Badge>
                     <Badge variant="outline" className={badgeTone(r.timeline_status)}>{r.timeline_status ?? "—"}</Badge>
@@ -211,6 +215,7 @@ export default function Home() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Project</TableHead>
+                    <TableHead>Client</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Budget</TableHead>
                     <TableHead>Timeline</TableHead>
@@ -220,7 +225,7 @@ export default function Home() {
                 <TableBody>
                   {recent.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                         No recent lessons.
                       </TableCell>
                     </TableRow>
@@ -228,6 +233,7 @@ export default function Home() {
                     recent.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell className="font-medium">{r.project_name || "Untitled Project"}</TableCell>
+                        <TableCell>{r.client_name || "—"}</TableCell>
                         <TableCell>{fmtDate(r.date)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={badgeTone(r.budget_status)}>{r.budget_status ?? "—"}</Badge>

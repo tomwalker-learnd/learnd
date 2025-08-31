@@ -27,6 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Autocomplete } from "@/components/ui/autocomplete";
+import { useAutocomplete } from "@/hooks/useAutocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { RefreshCw } from "lucide-react";
 
@@ -44,7 +46,8 @@ type LessonRow = {
 };
 
 type LessonFilters = {
-  search: string;
+  projectName: string;
+  clientName: string;
   budget: BudgetStatus | "any";
   timeline: TimelineStatus | "any";
   minSatisfaction: string; // UI field
@@ -53,7 +56,8 @@ type LessonFilters = {
 type DateWindow = { from?: string; to?: string } | null;
 
 const DEFAULT_FILTERS: LessonFilters = {
-  search: "",
+  projectName: "",
+  clientName: "",
   budget: "any",
   timeline: "any",
   minSatisfaction: "",
@@ -86,6 +90,10 @@ const normTimeline = (v: unknown): TimelineStatus | null => {
 export default function Lessons() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+
+  // Autocomplete hooks
+  const projectAutocomplete = useAutocomplete({ table: "lessons", column: "project_name" });
+  const clientAutocomplete = useAutocomplete({ table: "lessons", column: "client_name" });
 
   const [rows, setRows] = useState<LessonRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -148,10 +156,11 @@ export default function Lessons() {
 
     if (!hasAny) return;
 
-    // Prefill controls
+    // Prefill controls - map single 'q' to both project and client for backward compatibility
     setFilters((prev) => ({
       ...prev,
-      search: incoming.q || "",
+      projectName: incoming.q || "",
+      clientName: "",
       budget: (incoming.b as any) || "any",
       timeline: (incoming.t as any) || "any",
       minSatisfaction: incoming.min || "",
@@ -169,7 +178,8 @@ export default function Lessons() {
   // Is the user actively filtering?
   const hasUiFilters = useMemo(() => {
     return (
-      filters.search.trim() !== "" ||
+      filters.projectName.trim() !== "" ||
+      filters.clientName.trim() !== "" ||
       filters.budget !== "any" ||
       filters.timeline !== "any" ||
       filters.minSatisfaction.trim() !== ""
@@ -184,7 +194,8 @@ export default function Lessons() {
     const useDateWindow = !!(dateWindow && (dateWindow.from || dateWindow.to));
     if (!hasUiFilters && !useDateWindow) return rows;
 
-    const s = filters.search.trim().toLowerCase();
+    const projectSearch = filters.projectName.trim().toLowerCase();
+    const clientSearch = filters.clientName.trim().toLowerCase();
     const uiMinSat =
       filters.minSatisfaction.trim() === "" ? null : Number(filters.minSatisfaction);
     const useUiMinSat = Number.isFinite(uiMinSat as number) ? (uiMinSat as number) : null;
@@ -200,10 +211,16 @@ export default function Lessons() {
         if (toT && t > toT) return false;
       }
 
-      // text search
-      if (s) {
-        const hay = `${r.project_name ?? ""} ${r.client_name ?? ""}`.toLowerCase();
-        if (!hay.includes(s)) return false;
+      // project name search
+      if (projectSearch) {
+        const projectName = (r.project_name ?? "").toLowerCase();
+        if (!projectName.includes(projectSearch)) return false;
+      }
+
+      // client name search
+      if (clientSearch) {
+        const clientName = (r.client_name ?? "").toLowerCase();
+        if (!clientName.includes(clientSearch)) return false;
       }
 
       // budget
@@ -283,14 +300,32 @@ export default function Lessons() {
         </CardHeader>
         <CardContent>
           {/* Filters (UI) */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="search">Search</Label>
-              <Input
-                id="search"
-                placeholder="Project or client…"
-                value={filters.search}
-                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+              <Label>Project</Label>
+              <Autocomplete
+                value={filters.projectName}
+                onValueChange={(value) => {
+                  setFilters((prev) => ({ ...prev, projectName: value }));
+                  projectAutocomplete.getSuggestions(value);
+                }}
+                placeholder="Search projects..."
+                suggestions={projectAutocomplete.suggestions}
+                loading={projectAutocomplete.loading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Client</Label>
+              <Autocomplete
+                value={filters.clientName}
+                onValueChange={(value) => {
+                  setFilters((prev) => ({ ...prev, clientName: value }));
+                  clientAutocomplete.getSuggestions(value);
+                }}
+                placeholder="Search clients..."
+                suggestions={clientAutocomplete.suggestions}
+                loading={clientAutocomplete.loading}
               />
             </div>
 
@@ -308,7 +343,7 @@ export default function Lessons() {
                 <SelectTrigger>
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border shadow-lg z-50">
                   <SelectItem value="any">Any</SelectItem>
                   <SelectItem value="under">Under</SelectItem>
                   <SelectItem value="on">On</SelectItem>
@@ -331,7 +366,7 @@ export default function Lessons() {
                 <SelectTrigger>
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border shadow-lg z-50">
                   <SelectItem value="any">Any</SelectItem>
                   <SelectItem value="early">Early</SelectItem>
                   <SelectItem value="on">On</SelectItem>
@@ -339,7 +374,9 @@ export default function Lessons() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="minSat">Min Satisfaction</Label>
               <Input

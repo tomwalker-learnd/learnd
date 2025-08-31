@@ -1,6 +1,6 @@
 // src/components/AppHeader.tsx
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Menu, LogOut } from "lucide-react";
+import { Menu, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -94,7 +94,8 @@ export default function AppHeader() {
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="hidden md:inline-flex">
+                <Button variant="outline" size="sm" className="hidden md:inline-flex gap-2">
+                  <User className="h-4 w-4" />
                   {user.email}
                 </Button>
               </DropdownMenuTrigger>

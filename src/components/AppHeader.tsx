@@ -96,7 +96,7 @@ export default function AppHeader() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="hidden md:inline-flex gap-2">
                   <User className="h-4 w-4" />
-                  {user.email}
+                  {user.email?.[0]?.toUpperCase()}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">

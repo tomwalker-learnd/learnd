@@ -430,41 +430,84 @@ export default function Lessons() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Satisfaction</TableHead>
-                  <TableHead>Budget</TableHead>
-                  <TableHead>Timeline</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pageRows.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap font-medium">{r.project_name ?? "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell className={satisfactionColor(r.satisfaction)}>
-                      {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
-                    </TableCell>
-                    <TableCell>
+          {/* MOBILE: cards */}
+          <div className="md:hidden space-y-3">
+            {pageRows.length === 0 ? (
+              <Card><CardContent className="py-6 text-muted-foreground">No lessons found.</CardContent></Card>
+            ) : (
+              pageRows.map((r) => (
+                <Card key={r.id}>
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{r.project_name || "Untitled Project"}</div>
+                      <div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</div>
+                    </div>
+                    {r.client_name && (
+                      <div className="text-sm text-muted-foreground mt-1">{r.client_name}</div>
+                    )}
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
                       <Badge variant="outline" className={badgeTone(normBudget(r.budget_status))}>
                         {normBudget(r.budget_status) ?? "—"}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
                       <Badge variant="outline" className={badgeTone(normTimeline(r.timeline_status))}>
                         {normTimeline(r.timeline_status) ?? "—"}
                       </Badge>
-                    </TableCell>
+                      <span className={`text-xs ${satisfactionColor(r.satisfaction)}`}>
+                        Satisfaction: {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* DESKTOP: table */}
+          <div className="hidden md:block">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Satisfaction</TableHead>
+                    <TableHead>Budget</TableHead>
+                    <TableHead>Timeline</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {pageRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                        No lessons found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    pageRows.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="whitespace-nowrap font-medium">{r.project_name ?? "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className={satisfactionColor(r.satisfaction)}>
+                          {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={badgeTone(normBudget(r.budget_status))}>
+                            {normBudget(r.budget_status) ?? "—"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={badgeTone(normTimeline(r.timeline_status))}>
+                            {normTimeline(r.timeline_status) ?? "—"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           {/* Pagination */}

@@ -224,10 +224,10 @@ export default function Dashboards() {
 
           // Date window  
           if (filters.dateFrom && dcol === "created_at") {
-            q = q.gte("created_at", filters.dateFrom);
+            q = q.gte("created_at", filters.dateFrom + "T00:00:00.000Z");
           }
           if (filters.dateTo && dcol === "created_at") {
-            q = q.lte("created_at", filters.dateTo);
+            q = q.lte("created_at", filters.dateTo + "T23:59:59.999Z");
           }
 
           // Other filters

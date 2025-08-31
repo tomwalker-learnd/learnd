@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Autocomplete } from "@/components/ui/autocomplete";
+import { Badge } from "@/components/ui/badge";
 import { useAutocomplete } from "@/hooks/useAutocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { RefreshCw } from "lucide-react";
@@ -85,6 +86,29 @@ const normBudget = (v: unknown): BudgetStatus | null => {
 const normTimeline = (v: unknown): TimelineStatus | null => {
   const s = normStr(v).toLowerCase();
   return s === "early" || s === "on" || s === "late" ? (s as TimelineStatus) : null;
+};
+
+// Color coding functions
+const badgeTone = (val: BudgetStatus | TimelineStatus | null) => {
+  switch (val) {
+    case "under":
+    case "early":
+      return "bg-emerald-600/10 text-emerald-600 border-emerald-600/20";
+    case "on":
+      return "bg-blue-600/10 text-blue-600 border-blue-600/20";
+    case "over":
+    case "late":
+      return "bg-rose-600/10 text-rose-600 border-rose-600/20";
+    default:
+      return "bg-muted text-muted-foreground border-transparent";
+  }
+};
+
+const satisfactionColor = (satisfaction: number | null) => {
+  if (typeof satisfaction !== "number") return "text-muted-foreground";
+  if (satisfaction >= 4) return "text-emerald-600 font-medium";
+  if (satisfaction >= 3) return "text-blue-600 font-medium";
+  return "text-rose-600 font-medium";
 };
 
 export default function Lessons() {
@@ -421,12 +445,22 @@ export default function Lessons() {
               <TableBody>
                 {pageRows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap">{r.project_name ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap font-medium">{r.project_name ?? "—"}</TableCell>
                     <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell>
-                    <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>{typeof r.satisfaction === "number" ? r.satisfaction : "—"}</TableCell>
-                    <TableCell className="capitalize">{normBudget(r.budget_status) ?? "—"}</TableCell>
-                    <TableCell className="capitalize">{normTimeline(r.timeline_status) ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell className={satisfactionColor(r.satisfaction)}>
+                      {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={badgeTone(normBudget(r.budget_status))}>
+                        {normBudget(r.budget_status) ?? "—"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={badgeTone(normTimeline(r.timeline_status))}>
+                        {normTimeline(r.timeline_status) ?? "—"}
+                      </Badge>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

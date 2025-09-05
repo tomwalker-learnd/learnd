@@ -31,7 +31,9 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { Badge } from "@/components/ui/badge";
 import { useAutocomplete } from "@/hooks/useAutocomplete";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Download, FileText, FileSpreadsheet } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type BudgetStatus = "under" | "on" | "over";
 type TimelineStatus = "early" | "on" | "late";
@@ -125,6 +127,10 @@ export default function Lessons() {
 
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
+  
+  // Export states
+  const [isExportingCSV, setIsExportingCSV] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   const [dateWindow, setDateWindow] = useState<DateWindow>(null);
   const appliedFromUrlOnce = useRef(false);
@@ -282,6 +288,106 @@ export default function Lessons() {
 
   const onRefresh = () => setFilters({ ...filters });
 
+  // Export functions
+  const exportToCSV = async () => {
+    setIsExportingCSV(true);
+    try {
+      const headers = ['Project Name', 'Client Name', 'Date', 'Satisfaction', 'Budget Status', 'Timeline Status'];
+      const csvContent = [
+        headers.join(','),
+        ...filtered.map(row => [
+          `"${(row.project_name || '').replace(/"/g, '""')}"`,
+          `"${(row.client_name || '').replace(/"/g, '""')}"`,
+          new Date(row.created_at).toLocaleDateString(),
+          row.satisfaction || '',
+          row.budget_status || '',
+          row.timeline_status || ''
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `lessons-export-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export Complete",
+        description: `Exported ${filtered.length} lessons to CSV`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export CSV file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExportingCSV(false);
+    }
+  };
+
+  const exportToPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(16);
+      doc.text('Lessons Export', 14, 20);
+      
+      // Add export info
+      doc.setFontSize(10);
+      doc.text(`Exported on: ${new Date().toLocaleDateString()}`, 14, 30);
+      doc.text(`Total records: ${filtered.length}`, 14, 36);
+
+      // Prepare table data
+      const tableData = filtered.map(row => [
+        row.project_name || '—',
+        row.client_name || '—',
+        new Date(row.created_at).toLocaleDateString(),
+        row.satisfaction?.toString() || '—',
+        row.budget_status || '—',
+        row.timeline_status || '—'
+      ]);
+
+      // Add table
+      autoTable(doc, {
+        head: [['Project Name', 'Client Name', 'Date', 'Satisfaction', 'Budget Status', 'Timeline Status']],
+        body: tableData,
+        startY: 45,
+        styles: { fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 40 },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 25 }
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      doc.save(`lessons-export-${new Date().toISOString().split('T')[0]}.pdf`);
+
+      toast({
+        title: "Export Complete",
+        description: `Exported ${filtered.length} lessons to PDF`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export PDF file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -305,6 +411,36 @@ export default function Lessons() {
                   </Button>
                 </div>
               ) : null}
+              
+              {/* Export buttons */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportToCSV}
+                disabled={isExportingCSV || filtered.length === 0}
+              >
+                {isExportingCSV ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                )}
+                Export CSV
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportToPDF}
+                disabled={isExportingPDF || filtered.length === 0}
+              >
+                {isExportingPDF ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4 mr-2" />
+                )}
+                Export PDF
+              </Button>
+              
               <Button
                 onClick={() => {
                   setFilters(DEFAULT_FILTERS);

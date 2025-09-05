@@ -40,6 +40,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { usePermissions } from "@/hooks/usePermissions";
+import UpgradePromptModal from "@/components/UpgradePromptModal";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type BudgetStatus = "under" | "on" | "over";
 type TimelineStatus = "early" | "on" | "late";
@@ -173,6 +176,10 @@ export default function Lessons() {
   // Export states
   const [isExportingCSV, setIsExportingCSV] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Permission checks
+  const permissions = usePermissions();
 
   const [dateWindow, setDateWindow] = useState<DateWindow>(null);
   const appliedFromUrlOnce = useRef(false);
@@ -339,7 +346,25 @@ export default function Lessons() {
     });
   };
 
+  const handleExportRequest = (exportType: 'csv' | 'pdf') => {
+    if (!permissions.canExport) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    if (exportType === 'csv') {
+      exportToCSV();
+    } else {
+      exportToPDF();
+    }
+  };
+
   const exportToCSV = async () => {
+    if (!permissions.canExport) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setIsExportingCSV(true);
     try {
       const headers = [
@@ -408,6 +433,11 @@ export default function Lessons() {
   };
 
   const exportToPDF = async () => {
+    if (!permissions.canExport) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setIsExportingPDF(true);
     try {
       const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation for more columns
@@ -602,52 +632,64 @@ export default function Lessons() {
               ) : null}
               
               {/* Export buttons */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={filtered.length === 0}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem 
-                    onClick={exportToCSV}
-                    disabled={isExportingCSV || filtered.length === 0}
-                  >
-                    {isExportingCSV ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Exporting CSV...
-                      </>
-                    ) : (
-                      <>
-                        <FileSpreadsheet className="h-4 w-4 mr-2" />
-                        Export as CSV
-                      </>
+              <TooltipProvider>
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className={!permissions.canExport ? "opacity-75" : ""}
+                          disabled={filtered.length === 0}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          {permissions.canExport ? "Export" : "Upgrade to Export"}
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    {!permissions.canExport && (
+                      <TooltipContent>
+                        <p>Export is a premium feature. Upgrade to unlock.</p>
+                      </TooltipContent>
                     )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={exportToPDF}
-                    disabled={isExportingPDF || filtered.length === 0}
-                  >
-                    {isExportingPDF ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Exporting PDF...
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Export as PDF
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </Tooltip>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem 
+                      onClick={() => handleExportRequest('csv')}
+                      disabled={isExportingCSV || filtered.length === 0}
+                    >
+                      {isExportingCSV ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Exporting CSV...
+                        </>
+                      ) : (
+                        <>
+                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+                          {permissions.canExport ? "Export as CSV" : "Export as CSV (Premium)"}
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleExportRequest('pdf')}
+                      disabled={isExportingPDF || filtered.length === 0}
+                    >
+                      {isExportingPDF ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Exporting PDF...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="h-4 w-4 mr-2" />
+                          {permissions.canExport ? "Export as PDF" : "Export as PDF (Premium)"}
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TooltipProvider>
               
               <Button
                 onClick={() => {
@@ -948,6 +990,13 @@ export default function Lessons() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Upgrade Modal */}
+      <UpgradePromptModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        featureType="export"
+      />
     </div>
   );
 }

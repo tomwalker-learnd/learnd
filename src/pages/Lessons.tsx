@@ -775,7 +775,7 @@ export default function Lessons() {
           <div className="flex items-center justify-between">
             <CardTitle>Results</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {rows === null ? "Loading…" : `${total} of ${rows.length} shown`}
+              {rows === null ? "Loading…" : `${pageRows.length} of ${rows.length} shown`}
             </div>
           </div>
         </CardHeader>

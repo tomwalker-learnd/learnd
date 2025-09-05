@@ -55,7 +55,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { Badge } from "@/components/ui/badge";
 import { useAutocomplete } from "@/hooks/useAutocomplete";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, Download, FileText, FileSpreadsheet, Plus } from "lucide-react";
+import { RefreshCw, Download, FileText, FileSpreadsheet, Plus, Lock } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,8 +64,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { usePermissions } from "@/hooks/usePermissions";
-import UpgradePromptModal from "@/components/UpgradePromptModal";
+import { useUserTier } from "@/hooks/useUserTier";
+import UpgradeModal from "@/components/UpgradeModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ============================================================================
@@ -229,8 +229,8 @@ export default function Lessons() {
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  // User permission system
-  const permissions = usePermissions();
+  // User tier system
+  const { canAccessExports, isLoading: tierLoading } = useUserTier();
 
   // Dashboard integration state
   const [dateWindow, setDateWindow] = useState<DateWindow>(null);
@@ -417,9 +417,9 @@ export default function Lessons() {
     });
   };
 
-  // Permission-gated export request handler
+  // Tier-gated export request handler
   const handleExportRequest = (exportType: 'csv' | 'pdf') => {
-    if (!permissions.canExport) {
+    if (!canAccessExports()) {
       setShowUpgradeModal(true);
       return;
     }
@@ -433,7 +433,7 @@ export default function Lessons() {
 
   // CSV Export: Generate and download comma-separated values file
   const exportToCSV = async () => {
-    if (!permissions.canExport) {
+    if (!canAccessExports()) {
       setShowUpgradeModal(true);
       return;
     }
@@ -507,7 +507,7 @@ export default function Lessons() {
 
   // PDF Export: Generate comprehensive report with filtering info and statistics
   const exportToPDF = async () => {
-    if (!permissions.canExport) {
+    if (!canAccessExports()) {
       setShowUpgradeModal(true);
       return;
     }
@@ -719,24 +719,25 @@ export default function Lessons() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          className={!permissions.canExport ? "opacity-75" : ""}
-                          disabled={filtered.length === 0}
+                          className={!canAccessExports() ? "opacity-50 cursor-not-allowed" : ""}
+                          disabled={filtered.length === 0 || !canAccessExports()}
                         >
+                          {!canAccessExports() && <Lock className="h-4 w-4 mr-2" />}
                           <Download className="h-4 w-4 mr-2" />
-                          {permissions.canExport ? "Export" : "Upgrade to Export"}
+                          {canAccessExports() ? "Export" : "Export (Premium)"}
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    {!permissions.canExport && (
+                    {!canAccessExports() && (
                       <TooltipContent>
-                        <p>Export is a premium feature. Upgrade to unlock.</p>
+                        <p>Export is available on paid plans</p>
                       </TooltipContent>
                     )}
                   </Tooltip>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem 
                       onClick={() => handleExportRequest('csv')}
-                      disabled={isExportingCSV || filtered.length === 0}
+                      disabled={isExportingCSV || filtered.length === 0 || !canAccessExports()}
                     >
                       {isExportingCSV ? (
                         <>
@@ -745,14 +746,15 @@ export default function Lessons() {
                         </>
                       ) : (
                         <>
+                          {!canAccessExports() && <Lock className="h-4 w-4 mr-2" />}
                           <FileSpreadsheet className="h-4 w-4 mr-2" />
-                          {permissions.canExport ? "Export as CSV" : "Export as CSV (Premium)"}
+                          {canAccessExports() ? "Export as CSV" : "Export as CSV (Premium)"}
                         </>
                       )}
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       onClick={() => handleExportRequest('pdf')}
-                      disabled={isExportingPDF || filtered.length === 0}
+                      disabled={isExportingPDF || filtered.length === 0 || !canAccessExports()}
                     >
                       {isExportingPDF ? (
                         <>
@@ -761,8 +763,9 @@ export default function Lessons() {
                         </>
                       ) : (
                         <>
+                          {!canAccessExports() && <Lock className="h-4 w-4 mr-2" />}
                           <FileText className="h-4 w-4 mr-2" />
-                          {permissions.canExport ? "Export as PDF" : "Export as PDF (Premium)"}
+                          {canAccessExports() ? "Export as PDF" : "Export as PDF (Premium)"}
                         </>
                       )}
                     </DropdownMenuItem>
@@ -1071,7 +1074,7 @@ export default function Lessons() {
       </Card>
 
       {/* UPGRADE MODAL - Permission-gated feature access */}
-      <UpgradePromptModal 
+      <UpgradeModal 
         open={showUpgradeModal} 
         onOpenChange={setShowUpgradeModal}
         featureType="export"

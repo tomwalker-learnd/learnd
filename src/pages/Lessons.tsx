@@ -380,7 +380,8 @@ export default function Lessons() {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `lessons-export-${new Date().toISOString().split('T')[0]}.csv`);
+      const timestamp = new Date().toISOString().slice(0, 16).replace('T', '-').replace(':', '-');
+      link.setAttribute('download', `lessons-export-${timestamp}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -462,7 +463,8 @@ export default function Lessons() {
         margin: { left: 10, right: 10 }
       });
 
-      doc.save(`lessons-export-${new Date().toISOString().split('T')[0]}.pdf`);
+      const timestamp = new Date().toISOString().slice(0, 16).replace('T', '-').replace(':', '-');
+      doc.save(`lessons-export-${timestamp}.pdf`);
 
       toast({
         title: "Export Complete",

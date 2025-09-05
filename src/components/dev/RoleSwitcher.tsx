@@ -4,15 +4,16 @@
  * ============================================================================
  * 
  * FEATURES:
- * - Quick Role Switching: Toggle between free, paid, and admin tiers instantly
- * - Visual Feedback: Shows current role and permission status
+ * - Quick Role Switching: Toggle between user roles instantly
+ * - Subscription Tier Testing: Switch between subscription tiers
+ * - Visual Feedback: Shows current role, tier, and permission status
  * - Database Updates: Automatically updates user profile in Supabase
  * - Dev-Only Component: Easy to remove when no longer needed
  * - Real-Time Updates: Immediately reflects permission changes in UI
  * 
  * USAGE:
  * - Add to App.tsx or any page for quick testing access
- * - Click role buttons to switch between tiers
+ * - Click role/tier buttons to switch between different access levels
  * - Permissions will update immediately throughout the app
  * - Remove this component before production deployment
  */
@@ -24,13 +25,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Settings, Users, Crown, Zap, Minimize2, Maximize2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { usePermissions, getTierDisplayName } from "@/hooks/usePermissions";
+import { usePermissions, getTierDisplayName as getPermissionTierDisplayName } from "@/hooks/usePermissions";
+import { useUserTier, getTierDisplayName, type SubscriptionTier } from "@/hooks/useUserTier";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export default function RoleSwitcher() {
   const { profile } = useAuth();
-  const { tier, canExport, canAccessPremiumFeatures } = usePermissions();
+  const { tier: permissionTier, canExport, canAccessPremiumFeatures } = usePermissions();
+  const { tier, canAccessExports, canAccessAdvancedAnalytics, canAccessCustomDashboards, canAccessAI } = useUserTier();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -49,6 +52,9 @@ export default function RoleSwitcher() {
       if (error) throw error;
 
       toast.success(`Switched to ${getRoleDisplayName(newRole)} role`);
+      
+      // Refresh to update all components
+      setTimeout(() => window.location.reload(), 100);
     } catch (error) {
       console.error('Error updating role:', error);
       toast.error('Failed to switch role');
@@ -57,10 +63,36 @@ export default function RoleSwitcher() {
     }
   };
 
+  // Handle subscription tier switching
+  const handleTierSwitch = async (newTier: SubscriptionTier) => {
+    if (!profile?.id || newTier === tier) return;
+    
+    setIsUpdating(true);
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ subscription_tier: newTier })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+
+      toast.success(`Switched to ${getTierDisplayName(newTier)} tier`);
+      
+      // Refresh to update all components
+      setTimeout(() => window.location.reload(), 100);
+    } catch (error) {
+      console.error('Error updating tier:', error);
+      toast.error('Failed to switch tier');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   // Get user-friendly role display names
   const getRoleDisplayName = (role: string) => {
     switch (role) {
-      case 'basic_user': return 'Free User';
+      case 'basic_user': return 'Basic User';
       case 'power_user': return 'Power User';  
       case 'admin': return 'Admin';
       default: return 'Unknown';
@@ -82,7 +114,7 @@ export default function RoleSwitcher() {
   return (
     <TooltipProvider>
       <Card className={`fixed bottom-4 right-4 bg-background/95 backdrop-blur-sm border-2 border-primary/20 shadow-lg z-50 transition-all duration-300 ${
-        isCollapsed ? 'w-48' : 'w-80'
+        isCollapsed ? 'w-64' : 'w-80'
       }`}>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-sm">
@@ -116,7 +148,7 @@ export default function RoleSwitcher() {
           {/* DESCRIPTION - Only show when expanded */}
           {!isCollapsed && (
             <CardDescription className="text-xs">
-              Switch user roles to test permission restrictions
+              Switch user roles and subscription tiers to test permissions
             </CardDescription>
           )}
         </CardHeader>
@@ -124,37 +156,54 @@ export default function RoleSwitcher() {
         {/* EXPANDED CONTENT - Only show when not collapsed */}
         {!isCollapsed && (
           <CardContent className="space-y-4">
-            {/* CURRENT STATUS - Shows active role and permissions */}
+            {/* CURRENT STATUS - Shows active role, tier, and permissions */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Current Role:</span>
-                <Badge variant={tier === 'admin' ? 'default' : tier === 'paid' ? 'secondary' : 'outline'}>
-                  <span className="flex items-center gap-1">
-                    {getRoleIcon(profile.role)}
+                <span className="text-xs font-medium text-muted-foreground">Current Status:</span>
+                <div className="flex gap-1">
+                  <Badge variant="secondary" className="text-xs">
+                    <span className="flex items-center gap-1">
+                      {getRoleIcon(profile.role)}
+                      {getRoleDisplayName(profile.role)}
+                    </span>
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
                     {getTierDisplayName(tier)}
-                  </span>
-                </Badge>
+                  </Badge>
+                </div>
               </div>
               
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span>Export:</span>
-                  <Badge variant={canExport ? 'default' : 'destructive'} className="text-xs px-2 py-0">
-                    {canExport ? 'Yes' : 'No'}
+                  <span>Exports:</span>
+                  <Badge variant={canAccessExports() ? 'default' : 'destructive'} className="text-xs px-2 py-0">
+                    {canAccessExports() ? 'Yes' : 'No'}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Premium:</span>
-                  <Badge variant={canAccessPremiumFeatures ? 'default' : 'destructive'} className="text-xs px-2 py-0">
-                    {canAccessPremiumFeatures ? 'Yes' : 'No'}
+                  <span>Analytics:</span>
+                  <Badge variant={canAccessAdvancedAnalytics() ? 'default' : 'destructive'} className="text-xs px-2 py-0">
+                    {canAccessAdvancedAnalytics() ? 'Yes' : 'No'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Dashboards:</span>
+                  <Badge variant={canAccessCustomDashboards() ? 'default' : 'destructive'} className="text-xs px-2 py-0">
+                    {canAccessCustomDashboards() ? 'Yes' : 'No'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>AI Features:</span>
+                  <Badge variant={canAccessAI() ? 'default' : 'destructive'} className="text-xs px-2 py-0">
+                    {canAccessAI() ? 'Yes' : 'No'}
                   </Badge>
                 </div>
               </div>
             </div>
 
-            {/* ROLE SWITCHING BUTTONS - Quick access to test different tiers */}
+            {/* USER ROLE SWITCHING BUTTONS */}
             <div className="space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">Switch to:</span>
+              <span className="text-xs font-medium text-muted-foreground">User Role:</span>
               <div className="grid grid-cols-3 gap-2">
                 <Button
                   size="sm"
@@ -164,7 +213,7 @@ export default function RoleSwitcher() {
                   className="text-xs h-8"
                 >
                   <Users className="h-3 w-3 mr-1" />
-                  Free
+                  Basic
                 </Button>
                 
                 <Button
@@ -175,7 +224,7 @@ export default function RoleSwitcher() {
                   className="text-xs h-8"
                 >
                   <Zap className="h-3 w-3 mr-1" />
-                  Paid
+                  Power
                 </Button>
                 
                 <Button
@@ -187,6 +236,52 @@ export default function RoleSwitcher() {
                 >
                   <Crown className="h-3 w-3 mr-1" />
                   Admin
+                </Button>
+              </div>
+            </div>
+
+            {/* SUBSCRIPTION TIER SWITCHING BUTTONS */}
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-muted-foreground">Subscription Tier:</span>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  variant={tier === 'free' ? 'default' : 'outline'}
+                  onClick={() => handleTierSwitch('free')}
+                  disabled={isUpdating || tier === 'free'}
+                  className="text-xs h-8"
+                >
+                  Free
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant={tier === 'team' ? 'default' : 'outline'}
+                  onClick={() => handleTierSwitch('team')}
+                  disabled={isUpdating || tier === 'team'}
+                  className="text-xs h-8"
+                >
+                  Team
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant={tier === 'business' ? 'default' : 'outline'}
+                  onClick={() => handleTierSwitch('business')}
+                  disabled={isUpdating || tier === 'business'}
+                  className="text-xs h-8"
+                >
+                  Business
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant={tier === 'enterprise' ? 'default' : 'outline'}
+                  onClick={() => handleTierSwitch('enterprise')}
+                  disabled={isUpdating || tier === 'enterprise'}
+                  className="text-xs h-8"
+                >
+                  Enterprise
                 </Button>
               </div>
             </div>
@@ -204,12 +299,17 @@ export default function RoleSwitcher() {
         {isCollapsed && (
           <CardContent className="pt-0">
             <div className="flex items-center justify-between">
-              <Badge variant={tier === 'admin' ? 'default' : tier === 'paid' ? 'secondary' : 'outline'} className="text-xs">
-                <span className="flex items-center gap-1">
-                  {getRoleIcon(profile.role)}
+              <div className="flex gap-1">
+                <Badge variant="secondary" className="text-xs">
+                  <span className="flex items-center gap-1">
+                    {getRoleIcon(profile.role)}
+                    {getRoleDisplayName(profile.role)}
+                  </span>
+                </Badge>
+                <Badge variant="outline" className="text-xs">
                   {getTierDisplayName(tier)}
-                </span>
-              </Badge>
+                </Badge>
+              </div>
             </div>
           </CardContent>
         )}

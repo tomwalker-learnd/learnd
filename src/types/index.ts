@@ -2,6 +2,7 @@ export interface Profile {
   id: string;
   email: string;
   role: 'admin' | 'power_user' | 'basic_user';
+  subscription_tier: 'free' | 'team' | 'business' | 'enterprise';
   first_name?: string;
   last_name?: string;
   created_at: string;

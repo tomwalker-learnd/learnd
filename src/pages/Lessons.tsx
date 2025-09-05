@@ -31,7 +31,13 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { Badge } from "@/components/ui/badge";
 import { useAutocomplete } from "@/hooks/useAutocomplete";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, Download, FileText, FileSpreadsheet } from "lucide-react";
+import { RefreshCw, Download, FileText, FileSpreadsheet, Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -597,33 +603,52 @@ export default function Lessons() {
               ) : null}
               
               {/* Export buttons */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportToCSV}
-                disabled={isExportingCSV || filtered.length === 0}
-              >
-                {isExportingCSV ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                )}
-                Export CSV
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportToPDF}
-                disabled={isExportingPDF || filtered.length === 0}
-              >
-                {isExportingPDF ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FileText className="h-4 w-4 mr-2" />
-                )}
-                Export PDF
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={filtered.length === 0}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={exportToCSV}
+                    disabled={isExportingCSV || filtered.length === 0}
+                  >
+                    {isExportingCSV ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Exporting CSV...
+                      </>
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Export as CSV
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={exportToPDF}
+                    disabled={isExportingPDF || filtered.length === 0}
+                  >
+                    {isExportingPDF ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Exporting PDF...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Export as PDF
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               <Button
                 onClick={() => {

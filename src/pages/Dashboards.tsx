@@ -703,6 +703,15 @@ export default function Dashboards() {
                 View in Lessons
               </Button>
               
+              <Button
+                onClick={handleCreate}
+                style={{ backgroundColor: '#ca0573', color: 'white' }}
+                className="hover:opacity-90"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Custom Dashboard
+              </Button>
+
               {/* Export Dropdown */}
               <div className="relative group">
                 <Button
@@ -730,15 +739,6 @@ export default function Dashboards() {
                   </button>
                 </div>
               </div>
-
-              <Button
-                onClick={handleCreate}
-                style={{ backgroundColor: '#ca0573', color: 'white' }}
-                className="hover:opacity-90"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Create Custom Dashboard
-              </Button>
             </div>
           </div>
 

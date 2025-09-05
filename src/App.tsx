@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "r
 import AppHeader from "@/components/AppHeader";
 import { useAuth } from "@/hooks/useAuth";
 import LearndAI from "@/components/LearndAI"; // <-- Floating AI bubble
+import RoleSwitcher from "@/components/dev/RoleSwitcher"; // <-- Dev role testing component
 
 // PAGES
 import Home from "@/pages/Home";
@@ -113,6 +114,9 @@ function Shell() {
           <LearndAI context={{ from: "global" }} />
         </div>
       )}
+
+      {/* Dev Role Switcher (hidden on auth screens) - REMOVE BEFORE PRODUCTION */}
+      {!isAuthScreen && <RoleSwitcher />}
     </>
   );
 }

@@ -406,17 +406,94 @@ export default function Lessons() {
     setIsExportingPDF(true);
     try {
       const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation for more columns
+      let currentY = 20;
       
-      // Add title
-      doc.setFontSize(16);
-      doc.text('Lessons Export', 14, 20);
+      // Title
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Lessons Learned Report', 14, currentY);
+      currentY += 15;
       
-      // Add export info
+      // Subtitle and export info
       doc.setFontSize(10);
-      doc.text(`Exported on: ${formatDate(new Date().toISOString())}`, 14, 30);
-      doc.text(`Total records: ${filtered.length}`, 14, 36);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Generated on: ${formatDate(new Date().toISOString())}`, 14, currentY);
+      currentY += 8;
+      
+      // Applied Filters Section
+      if (hasUiFilters || (dateWindow && (dateWindow.from || dateWindow.to))) {
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Applied Filters:', 14, currentY);
+        currentY += 8;
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        
+        // Date window filters
+        if (dateWindow && (dateWindow.from || dateWindow.to)) {
+          const fromDate = dateWindow.from ? formatDate(dateWindow.from) : 'Not specified';
+          const toDate = dateWindow.to ? formatDate(dateWindow.to) : 'Not specified';
+          doc.text(`• Date Range: ${fromDate} to ${toDate}`, 18, currentY);
+          currentY += 6;
+        }
+        
+        // UI filters
+        if (filters.projectName.trim()) {
+          doc.text(`• Project Name: "${filters.projectName}"`, 18, currentY);
+          currentY += 6;
+        }
+        if (filters.clientName.trim()) {
+          doc.text(`• Client Name: "${filters.clientName}"`, 18, currentY);
+          currentY += 6;
+        }
+        if (filters.budget !== 'any') {
+          doc.text(`• Budget Status: ${filters.budget}`, 18, currentY);
+          currentY += 6;
+        }
+        if (filters.timeline !== 'any') {
+          doc.text(`• Timeline Status: ${filters.timeline}`, 18, currentY);
+          currentY += 6;
+        }
+        if (filters.minSatisfaction.trim()) {
+          doc.text(`• Minimum Satisfaction: ${filters.minSatisfaction}/5`, 18, currentY);
+          currentY += 6;
+        }
+        currentY += 5;
+      }
+      
+      // Summary statistics
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Summary:', 14, currentY);
+      currentY += 8;
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Total Records: ${filtered.length} ${rows ? `of ${rows.length}` : ''}`, 18, currentY);
+      currentY += 6;
+      
+      // Calculate some basic stats
+      const avgSatisfaction = filtered.length > 0 ? 
+        (filtered.reduce((sum, row) => sum + (row.satisfaction || 0), 0) / filtered.filter(r => r.satisfaction).length).toFixed(1) : 'N/A';
+      const budgetBreakdown = filtered.reduce((acc, row) => {
+        const status = row.budget_status || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      doc.text(`Average Satisfaction: ${avgSatisfaction}/5`, 18, currentY);
+      currentY += 6;
+      
+      const budgetText = Object.entries(budgetBreakdown)
+        .map(([status, count]) => `${status}: ${count}`)
+        .join(', ');
+      if (budgetText) {
+        doc.text(`Budget Status Distribution: ${budgetText}`, 18, currentY);
+        currentY += 10;
+      }
 
-      // Prepare table data with comprehensive fields
+      // Prepare table data
       const tableData = filtered.map(row => [
         row.project_name || '—',
         row.client_name || '—',
@@ -427,44 +504,58 @@ export default function Lessons() {
         row.timeline_status || '—',
         row.scope_change ? 'Yes' : 'No',
         row.project_type || '—',
-        row.phase || '—',
         row.industry || '—',
-        row.initial_budget_usd?.toString() || '—',
-        row.actual_days?.toString() || '—',
-        row.planned_days?.toString() || '—'
+        row.initial_budget_usd ? `$${row.initial_budget_usd.toLocaleString()}` : '—',
+        row.actual_days?.toString() || '—'
       ]);
 
-      // Add table with key fields (limited columns due to PDF width constraints)
+      // Table with professional styling
       autoTable(doc, {
         head: [[
-          'Project', 'Client', 'Role', 'Created', 'Satisfaction', 'Budget', 
-          'Timeline', 'Scope Change', 'Type', 'Phase', 'Industry', 'Budget($)', 
-          'Actual Days', 'Planned Days'
+          'Project', 'Client', 'Role', 'Date Created', 'Satisfaction', 'Budget Status', 
+          'Timeline', 'Scope Change', 'Project Type', 'Industry', 'Budget', 'Days'
         ]],
         body: tableData,
-        startY: 45,
-        styles: { fontSize: 7 },
-        columnStyles: {
-          0: { cellWidth: 20 },
-          1: { cellWidth: 20 },
-          2: { cellWidth: 15 },
-          3: { cellWidth: 18 },
-          4: { cellWidth: 12 },
-          5: { cellWidth: 15 },
-          6: { cellWidth: 15 },
-          7: { cellWidth: 12 },
-          8: { cellWidth: 15 },
-          9: { cellWidth: 12 },
-          10: { cellWidth: 15 },
-          11: { cellWidth: 15 },
-          12: { cellWidth: 12 },
-          13: { cellWidth: 12 }
+        startY: currentY,
+        styles: { 
+          fontSize: 8,
+          cellPadding: 3,
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1
         },
-        margin: { left: 10, right: 10 }
+        headStyles: {
+          fillColor: [66, 139, 202],
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 8
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        },
+        columnStyles: {
+          0: { cellWidth: 24 }, // Project
+          1: { cellWidth: 20 }, // Client  
+          2: { cellWidth: 16 }, // Role
+          3: { cellWidth: 18 }, // Date
+          4: { cellWidth: 14 }, // Satisfaction
+          5: { cellWidth: 18 }, // Budget Status
+          6: { cellWidth: 16 }, // Timeline
+          7: { cellWidth: 16 }, // Scope Change
+          8: { cellWidth: 18 }, // Project Type
+          9: { cellWidth: 16 }, // Industry
+          10: { cellWidth: 18 }, // Budget
+          11: { cellWidth: 12 }  // Days
+        },
+        margin: { left: 14, right: 14 },
+        didDrawPage: (data) => {
+          // Add page numbers
+          doc.setFontSize(8);
+          doc.text(`Page ${data.pageNumber}`, doc.internal.pageSize.width - 25, doc.internal.pageSize.height - 10);
+        }
       });
 
       const timestamp = new Date().toISOString().slice(0, 16).replace('T', '-').replace(':', '-');
-      doc.save(`lessons-export-${timestamp}.pdf`);
+      doc.save(`lessons-report-${timestamp}.pdf`);
 
       toast({
         title: "Export Complete",

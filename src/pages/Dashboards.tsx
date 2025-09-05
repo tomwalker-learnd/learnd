@@ -1,8 +1,11 @@
 // src/pages/Dashboards.tsx
+// src/pages/Dashboards.tsx
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, Plus, Trash, Eye } from "lucide-react";
+import { RefreshCw, Plus, Trash, Eye, Download } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -172,6 +175,8 @@ export default function Dashboards() {
 
   const [activeUserCol, setActiveUserCol] = useState<string>("-");
   const [activeDateCol, setActiveDateCol] = useState<string>("-");
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   const hasToastedCustomErr = useRef(false);
   const hasToastedDataErr = useRef(false);
@@ -328,6 +333,239 @@ export default function Dashboards() {
     return val || "—";
   };
 
+  const formatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        month: '2-digit', 
+        day: '2-digit', 
+        year: 'numeric' 
+      });
+    } catch {
+      return dateString.slice(0, 10);
+    }
+  };
+
+  const generateTimestamp = (): string => {
+    const now = new Date();
+    return now.toISOString()
+      .slice(0, 16)
+      .replace(/T/, '-')
+      .replace(/:/g, '-');
+  };
+
+  const getFiltersSummary = (): string[] => {
+    const summary = [];
+    const preset = PRESETS[presetKey];
+    const selectedCustom = customList.find((c) => c.id === selectedCustomId);
+    
+    summary.push(`Preset: ${preset.label}`);
+    if (selectedCustom) {
+      summary.push(`Custom Dashboard: ${selectedCustom.name}`);
+    }
+    summary.push(`Date Range: ${formatDate(effectiveFilters.dateFrom)} - ${formatDate(effectiveFilters.dateTo)}`);
+    
+    if (effectiveFilters.customer) summary.push(`Customer: ${effectiveFilters.customer}`);
+    if (effectiveFilters.project) summary.push(`Project: ${effectiveFilters.project}`);
+    if (effectiveFilters.budgetStatus) summary.push(`Budget Status: ${effectiveFilters.budgetStatus}`);
+    if (effectiveFilters.timelineStatus) summary.push(`Timeline Status: ${effectiveFilters.timelineStatus}`);
+    if (typeof effectiveFilters.satisfactionMin === 'number') {
+      summary.push(`Min Satisfaction: ${effectiveFilters.satisfactionMin}`);
+    }
+    
+    return summary;
+  };
+
+  const handleExportCSV = async () => {
+    if (lessons.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No data to export",
+        description: "There are no lessons in the current view.",
+      });
+      return;
+    }
+
+    setExportingCSV(true);
+    try {
+      const headers = [
+        "Project",
+        "Client",
+        "Date",
+        "Satisfaction",
+        "Budget Status", 
+        "Timeline Status",
+        "Role",
+        "Description",
+        "Quality Rating",
+        "Budget Amount",
+        "Final Budget",
+        "Scope Changes",
+        "Notes",
+        "Tags",
+        "Created By"
+      ];
+
+      const csvContent = [
+        headers.join(","),
+        ...lessons.map(lesson => [
+          `"${getProject(lesson)}"`,
+          `"${(lesson as any).client_name || ''}"`,
+          `"${formatDate((lesson as any)[activeDateCol] || lesson.created_at || lesson.date)}"`,
+          `"${lesson.satisfaction || ''}"`,
+          `"${lesson.budget_status || ''}"`,
+          `"${lesson.timeline_status || ''}"`,
+          `"${(lesson as any).role || ''}"`,
+          `"${((lesson as any).description || '').replace(/"/g, '""')}"`,
+          `"${(lesson as any).quality_rating || ''}"`,
+          `"${(lesson as any).budget_amount || ''}"`,
+          `"${(lesson as any).final_budget || ''}"`,
+          `"${(lesson as any).scope_changes || ''}"`,
+          `"${((lesson as any).notes || '').replace(/"/g, '""')}"`,
+          `"${Array.isArray(lesson.tags) ? lesson.tags.join('; ') : ''}"`,
+          `"${lesson.created_by || lesson.owner || ''}"`,
+        ].join(","))
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `dashboard-export-${generateTimestamp()}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Export successful",
+        description: `Exported ${lessons.length} lessons to CSV`,
+      });
+    } catch (error) {
+      console.error("CSV export failed:", error);
+      toast({
+        variant: "destructive",
+        title: "Export failed",
+        description: "An error occurred while exporting to CSV",
+      });
+    } finally {
+      setExportingCSV(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (lessons.length === 0) {
+      toast({
+        variant: "destructive", 
+        title: "No data to export",
+        description: "There are no lessons in the current view.",
+      });
+      return;
+    }
+
+    setExportingPDF(true);
+    try {
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm", 
+        format: "a4"
+      });
+
+      // Header
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Dashboard Export Report", 14, 20);
+      
+      // Export info
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+
+      // Filters Summary
+      const filtersSummary = getFiltersSummary();
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Applied Filters:", 14, 45);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      let yPos = 52;
+      filtersSummary.forEach(filter => {
+        doc.text(`• ${filter}`, 14, yPos);
+        yPos += 5;
+      });
+
+      // KPI Summary
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Summary Metrics:", 14, yPos);
+      
+      yPos += 10;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Total Lessons: ${metrics.total}`, 14, yPos);
+      doc.text(`Avg. Satisfaction: ${metrics.avgSatisfaction.toFixed(2)}`, 80, yPos);
+      doc.text(`On Budget: ${metrics.onBudgetPct}%`, 160, yPos);
+      doc.text(`On Time: ${metrics.onTimePct}%`, 220, yPos);
+
+      // Lessons Table
+      yPos += 15;
+      const tableData = lessons.map(lesson => [
+        getProject(lesson),
+        (lesson as any).client_name || '',
+        formatDate((lesson as any)[activeDateCol] || lesson.created_at || lesson.date),
+        lesson.satisfaction?.toString() || '',
+        lesson.budget_status || '',
+        lesson.timeline_status || ''
+      ]);
+
+      (doc as any).autoTable({
+        head: [["Project", "Client", "Date", "Satisfaction", "Budget", "Timeline"]],
+        body: tableData,
+        startY: yPos,
+        styles: { 
+          fontSize: 9,
+          cellPadding: 2,
+        },
+        headStyles: { 
+          fillColor: [64, 64, 64],
+          textColor: 255,
+          fontStyle: "bold"
+        },
+        alternateRowStyles: { 
+          fillColor: [240, 240, 240] 
+        },
+        margin: { left: 14, right: 14 },
+        columnStyles: {
+          0: { cellWidth: 50 },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 20 },
+          5: { cellWidth: 20 }
+        }
+      });
+
+      doc.save(`dashboard-export-${generateTimestamp()}.pdf`);
+
+      toast({
+        title: "Export successful",
+        description: `Exported dashboard report with ${lessons.length} lessons to PDF`,
+      });
+    } catch (error) {
+      console.error("PDF export failed:", error);
+      toast({
+        variant: "destructive",
+        title: "Export failed", 
+        description: "An error occurred while exporting to PDF",
+      });
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6 text-sm text-muted-foreground">Checking session…</div>
@@ -464,6 +702,35 @@ export default function Dashboards() {
                 <Eye className="mr-2 h-4 w-4" />
                 View in Lessons
               </Button>
+              
+              {/* Export Dropdown */}
+              <div className="relative group">
+                <Button
+                  style={{ backgroundColor: '#0d3240', color: 'white' }}
+                  className="hover:opacity-90"
+                  disabled={loadingData || lessons.length === 0}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Current View
+                </Button>
+                <div className="absolute right-0 top-full mt-1 bg-background border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[140px]">
+                  <button
+                    onClick={handleExportCSV}
+                    disabled={exportingCSV || loadingData || lessons.length === 0}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent rounded-t-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exportingCSV ? "Exporting..." : "Export as CSV"}
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={exportingPDF || loadingData || lessons.length === 0}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent rounded-b-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exportingPDF ? "Exporting..." : "Export as PDF"}
+                  </button>
+                </div>
+              </div>
+
               <Button
                 onClick={handleCreate}
                 style={{ backgroundColor: '#ca0573', color: 'white' }}

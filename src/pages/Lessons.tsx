@@ -780,6 +780,27 @@ export default function Lessons() {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Top Rows per page selector */}
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Label className="text-sm">Rows per page</Label>
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="250">250</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {total === 0 ? "0 of 0" : `${startIndex + 1}–${endIndex} of ${total}`}
+            </div>
+          </div>
           {/* MOBILE: cards */}
           <div className="md:hidden space-y-3">
             {pageRows.length === 0 ? (

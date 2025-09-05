@@ -1,3 +1,22 @@
+/**
+ * ============================================================================
+ * UPGRADE PROMPT MODAL - Subscription tier upgrade interface
+ * ============================================================================
+ * 
+ * FEATURES:
+ * - Permission Gate: Blocks premium features for free tier users
+ * - Feature Showcase: Highlights export capabilities and premium benefits
+ * - Upgrade Flow: Redirects to subscription page for plan upgrade
+ * - Responsive Design: Works across all device sizes
+ * - Visual Hierarchy: Clear pricing and feature comparison
+ * - User Experience: Non-intrusive modal with clear value proposition
+ * 
+ * USAGE:
+ * - Triggered when free users attempt to access export functionality
+ * - Can be extended for other premium features beyond export
+ * - Integrates with permission system from usePermissions hook
+ */
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +25,7 @@ import { CheckCircle, Download, FileSpreadsheet, FileText } from "lucide-react";
 interface UpgradePromptModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  featureType: "export" | "general";
+  featureType: "export" | "general"; // Feature type for customized messaging
 }
 
 export default function UpgradePromptModal({ 
@@ -14,6 +33,7 @@ export default function UpgradePromptModal({
   onOpenChange, 
   featureType = "export" 
 }: UpgradePromptModalProps) {
+  // Handle upgrade button click - redirects to subscription management
   const handleUpgrade = () => {
     // TODO: Implement upgrade flow - redirect to subscription page
     window.open('/subscription', '_blank');
@@ -36,7 +56,7 @@ export default function UpgradePromptModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Premium Features */}
+          {/* PREMIUM FEATURES SHOWCASE - Highlights export capabilities */}
           <div className="space-y-3">
             <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
               Premium Export Features
@@ -71,7 +91,7 @@ export default function UpgradePromptModal({
             </div>
           </div>
 
-          {/* Plan Options */}
+          {/* PRICING PLAN - Clear value proposition with pricing */}
           <div className="grid grid-cols-1 gap-3 pt-4">
             <div className="border rounded-lg p-3 hover:shadow-sm transition-shadow">
               <div className="flex items-center justify-between">
@@ -91,6 +111,7 @@ export default function UpgradePromptModal({
           </div>
         </div>
 
+        {/* ACTION BUTTONS - Clear upgrade path with dismissal option */}
         <div className="flex gap-3 pt-4">
           <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
             Maybe Later

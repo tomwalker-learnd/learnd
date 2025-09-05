@@ -1,7 +1,34 @@
+/**
+ * ============================================================================
+ * EXPORT UTILITIES - Reusable data formatting and export operations
+ * ============================================================================
+ * 
+ * FEATURES:
+ * - CSV Export: Generate comma-separated values files with proper escaping
+ * - PDF Export: Create professional reports with tables, filters, and statistics
+ * - Data Formatting: Standardize lesson data for consistent export output
+ * - File Management: Handle browser downloads with timestamped filenames
+ * - Error Handling: Consistent error reporting with toast notifications
+ * - Filter Integration: Include applied filters in export documentation
+ * - Statistics: Calculate and include summary statistics in PDF reports
+ * 
+ * EXPORT FORMATS:
+ * - CSV: Spreadsheet-compatible format for data analysis
+ * - PDF: Professional reports with formatting and context
+ * 
+ * USAGE:
+ * - Imported by Lessons page and Dashboard pages
+ * - Reduces code duplication across export implementations
+ * - Provides consistent export experience across the application
+ */
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// Type definitions for export utilities
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+// Complete lesson data structure for export operations
 export interface LessonExportData {
   id: string;
   project_name: string | null;
@@ -9,9 +36,9 @@ export interface LessonExportData {
   role: string | null;
   created_at: string;
   updated_at: string;
-  satisfaction: number | null;
-  budget_status: string | null;
-  timeline_status: string | null;
+  satisfaction: number | null; // 1-5 rating
+  budget_status: string | null; // under/on/over
+  timeline_status: string | null; // early/on/late
   scope_change: boolean | null;
   notes: string | null;
   created_by: string | null;
@@ -23,39 +50,43 @@ export interface LessonExportData {
   initial_budget_usd: number | null;
   actual_days: number | null;
   planned_days: number | null;
-  requirements_clarity: number | null;
-  stakeholder_engagement: number | null;
-  team_morale: number | null;
-  tooling_effectiveness: number | null;
-  internal_comms_effectiveness: number | null;
+  requirements_clarity: number | null; // 1-5 rating
+  stakeholder_engagement: number | null; // 1-5 rating
+  team_morale: number | null; // 1-5 rating
+  tooling_effectiveness: number | null; // 1-5 rating
+  internal_comms_effectiveness: number | null; // 1-5 rating
 }
 
+// Filter configuration for documenting applied filters in exports
 export interface ExportFilters {
-  projectName?: string;
-  clientName?: string;
-  budget?: string;
-  timeline?: string;
-  minSatisfaction?: string;
-  dateWindow?: {
+  projectName?: string; // Project name search filter
+  clientName?: string; // Client name search filter
+  budget?: string; // Budget status filter
+  timeline?: string; // Timeline status filter
+  minSatisfaction?: string; // Minimum satisfaction rating
+  dateWindow?: { // Date range from dashboard integration
     from?: string;
     to?: string;
   } | null;
 }
 
+// PDF export customization options
 export interface PDFExportOptions {
-  title?: string;
-  subtitle?: string;
-  includeFilters?: boolean;
-  includeSummary?: boolean;
-  orientation?: 'portrait' | 'landscape';
-  pageSize?: 'a4' | 'letter';
+  title?: string; // Report title
+  subtitle?: string; // Report subtitle/description
+  includeFilters?: boolean; // Include applied filters section
+  includeSummary?: boolean; // Include statistics summary
+  orientation?: 'portrait' | 'landscape'; // Page orientation
+  pageSize?: 'a4' | 'letter'; // Page size format
 }
 
+// CSV export customization options
 export interface CSVExportOptions {
-  filename?: string;
-  includeHeaders?: boolean;
+  filename?: string; // Custom filename (without extension)
+  includeHeaders?: boolean; // Include column headers
 }
 
+// Toast notification function interface for consistent user feedback
 export interface ToastFunction {
   (options: {
     title: string;
@@ -64,7 +95,10 @@ export interface ToastFunction {
   }): void;
 }
 
-// Utility function to format dates consistently
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+// Consistent date formatting for all export operations
 export const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
@@ -74,12 +108,15 @@ export const formatDate = (dateString: string): string => {
   });
 };
 
-// Utility function to escape CSV values
+// CSV value escaping to handle quotes and special characters
 const escapeCSVValue = (value: string): string => {
   return `\"${value.replace(/\"/g, '\"\"')}\"`;
 };
 
-// Utility function to format lesson data for export
+// ============================================================================
+// DATA FORMATTING FUNCTIONS
+// ============================================================================
+// Transform raw lesson data into export-ready format with consistent null handling
 export const formatLessonForExport = (lesson: LessonExportData): Record<string, string | number> => {
   return {
     project_name: lesson.project_name || '—',
@@ -109,7 +146,10 @@ export const formatLessonForExport = (lesson: LessonExportData): Record<string, 
   };
 };
 
-// Generate CSV content from lesson data
+// ============================================================================
+// CSV EXPORT FUNCTIONS
+// ============================================================================
+// Generate CSV content with proper headers and data formatting
 export const generateCSVContent = (
   lessons: LessonExportData[],
   options: CSVExportOptions = {}
@@ -156,7 +196,10 @@ export const generateCSVContent = (
   return content;
 };
 
-// Generate PDF document from lesson data
+// ============================================================================
+// PDF EXPORT FUNCTIONS
+// ============================================================================
+// Generate comprehensive PDF report with tables, filters, and statistics
 export const generatePDFContent = (
   lessons: LessonExportData[],
   filters: ExportFilters = {},
@@ -327,7 +370,10 @@ export const generatePDFContent = (
   return doc;
 };
 
-// Download file utility
+// ============================================================================
+// FILE MANAGEMENT FUNCTIONS
+// ============================================================================
+// Handle browser file downloads with proper cleanup
 export const downloadFile = (content: string | Blob, filename: string, mimeType?: string): void => {
   const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType || 'text/plain;charset=utf-8;' });
   const link = document.createElement('a');
@@ -341,13 +387,16 @@ export const downloadFile = (content: string | Blob, filename: string, mimeType?
   URL.revokeObjectURL(url);
 };
 
-// Generate timestamped filename
+// Create unique filenames with timestamps to prevent overwrites
 export const generateTimestampedFilename = (baseName: string, extension: string): string => {
   const timestamp = new Date().toISOString().slice(0, 16).replace('T', '-').replace(':', '-');
   return `${baseName}-${timestamp}.${extension}`;
 };
 
-// Handle export errors consistently
+// ============================================================================
+// ERROR HANDLING FUNCTIONS
+// ============================================================================
+// Centralized export error handling with logging and user notification
 export const handleExportError = (error: Error, exportType: 'CSV' | 'PDF', toast?: ToastFunction): void => {
   console.error(`${exportType} export error:`, error);
   
@@ -360,7 +409,10 @@ export const handleExportError = (error: Error, exportType: 'CSV' | 'PDF', toast
   }
 };
 
-// Check if filters are active
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+// Determine if any filters are currently active for documentation purposes
 const hasActiveFilters = (filters: ExportFilters): boolean => {
   return !!(
     filters.projectName?.trim() ||
@@ -372,7 +424,7 @@ const hasActiveFilters = (filters: ExportFilters): boolean => {
   );
 };
 
-// Export success notification
+// Consistent success notifications for export operations
 export const handleExportSuccess = (exportType: 'CSV' | 'PDF', recordCount: number, toast?: ToastFunction): void => {
   if (toast) {
     toast({

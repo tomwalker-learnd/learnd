@@ -1,3 +1,27 @@
+/**
+ * ============================================================================
+ * LESSONS PAGE - Main lessons learned management interface
+ * ============================================================================
+ * 
+ * FEATURES INCLUDED:
+ * - Data Loading & Display: Loads and displays lessons from Supabase database
+ * - Advanced Filtering System: Project name, client name, budget/timeline status, satisfaction ratings
+ * - Autocomplete Search: Intelligent search suggestions for project and client names
+ * - Pagination Controls: Configurable rows per page with navigation (duplicated top/bottom)
+ * - Responsive Design: Mobile card view and desktop table view
+ * - Export Functionality: CSV and PDF export with permission-based access controls
+ * - User Permission System: Tier-based restrictions (free/paid/admin) with upgrade prompts
+ * - Dashboard Integration: URL parameter support for dashboard filtering
+ * - Date Range Filtering: Support for custom date windows from dashboards
+ * - Real-time Toast Notifications: Success/error feedback for all operations
+ * - Color-coded Status Badges: Visual indicators for budget/timeline/satisfaction status
+ * 
+ * PERMISSION TIERS:
+ * - Free Tier: View-only access, no export capabilities
+ * - Paid Tier: Full export functionality (CSV/PDF)
+ * - Admin Tier: All features unrestricted
+ */
+
 // src/pages/Lessons.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -44,17 +68,21 @@ import { usePermissions } from "@/hooks/usePermissions";
 import UpgradePromptModal from "@/components/UpgradePromptModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
 type BudgetStatus = "under" | "on" | "over";
 type TimelineStatus = "early" | "on" | "late";
 
+// Main lesson record structure from database
 type LessonRow = {
   id: string;
   project_name: string | null;
   client_name: string | null;
   role: string | null;
-  created_at: string; // ISO
-  updated_at: string; // ISO
-  satisfaction: number | null; // 1..5
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+  satisfaction: number | null; // Rating 1-5
   budget_status: BudgetStatus | string | null;
   timeline_status: TimelineStatus | string | null;
   scope_change: boolean | null;
@@ -68,23 +96,28 @@ type LessonRow = {
   initial_budget_usd: number | null;
   actual_days: number | null;
   planned_days: number | null;
-  requirements_clarity: number | null;
-  stakeholder_engagement: number | null;
-  team_morale: number | null;
-  tooling_effectiveness: number | null;
-  internal_comms_effectiveness: number | null;
+  requirements_clarity: number | null; // Rating 1-5
+  stakeholder_engagement: number | null; // Rating 1-5
+  team_morale: number | null; // Rating 1-5
+  tooling_effectiveness: number | null; // Rating 1-5
+  internal_comms_effectiveness: number | null; // Rating 1-5
 };
 
+// UI filter state structure
 type LessonFilters = {
-  projectName: string;
-  clientName: string;
-  budget: BudgetStatus | "any";
-  timeline: TimelineStatus | "any";
-  minSatisfaction: string; // UI field
+  projectName: string; // Text search for project names
+  clientName: string; // Text search for client names  
+  budget: BudgetStatus | "any"; // Budget status filter
+  timeline: TimelineStatus | "any"; // Timeline status filter
+  minSatisfaction: string; // Minimum satisfaction rating (UI field)
 };
 
+// Date range window for dashboard integration
 type DateWindow = { from?: string; to?: string } | null;
 
+// ============================================================================
+// CONSTANTS & DEFAULTS
+// ============================================================================
 const DEFAULT_FILTERS: LessonFilters = {
   projectName: "",
   clientName: "",
@@ -93,6 +126,7 @@ const DEFAULT_FILTERS: LessonFilters = {
   minSatisfaction: "",
 };
 
+// Database fields to select (performance optimization)
 const SELECT_FIELDS = [
   "id",
   "project_name",
@@ -121,83 +155,107 @@ const SELECT_FIELDS = [
   "internal_comms_effectiveness"
 ].join(", ");
 
-// helpers
+// ============================================================================
+// UTILITY HELPER FUNCTIONS
+// ============================================================================
+// Normalize values to strings for consistent handling
 const normStr = (v: unknown) =>
   (typeof v === "string" ? v : v == null ? "" : String(v)).trim();
 
+// Validate and normalize budget status values
 const normBudget = (v: unknown): BudgetStatus | null => {
   const s = normStr(v).toLowerCase();
   return s === "under" || s === "on" || s === "over" ? (s as BudgetStatus) : null;
 };
 
+// Validate and normalize timeline status values
 const normTimeline = (v: unknown): TimelineStatus | null => {
   const s = normStr(v).toLowerCase();
   return s === "early" || s === "on" || s === "late" ? (s as TimelineStatus) : null;
 };
 
-// Color coding functions
+// ============================================================================
+// UI STYLING & COLOR FUNCTIONS
+// ============================================================================
+// Color-coded badge styling for status indicators
 const badgeTone = (val: BudgetStatus | TimelineStatus | null) => {
   switch (val) {
-    case "under":
-    case "early":
+    case "under": // Under budget (good)
+    case "early": // Ahead of schedule (good)
       return "bg-emerald-600/10 text-emerald-600 border-emerald-600/20";
-    case "on":
+    case "on": // On budget/schedule (neutral)
       return "bg-blue-600/10 text-blue-600 border-blue-600/20";
-    case "over":
-    case "late":
+    case "over": // Over budget (bad)
+    case "late": // Behind schedule (bad)
       return "bg-rose-600/10 text-rose-600 border-rose-600/20";
     default:
       return "bg-muted text-muted-foreground border-transparent";
   }
 };
 
+// Color-coded satisfaction rating display
 const satisfactionColor = (satisfaction: number | null) => {
   if (typeof satisfaction !== "number") return "text-muted-foreground";
-  if (satisfaction >= 4) return "text-emerald-600 font-medium";
-  if (satisfaction >= 3) return "text-blue-600 font-medium";
-  return "text-rose-600 font-medium";
+  if (satisfaction >= 4) return "text-emerald-600 font-medium"; // High satisfaction (4-5)
+  if (satisfaction >= 3) return "text-blue-600 font-medium";   // Medium satisfaction (3)
+  return "text-rose-600 font-medium"; // Low satisfaction (1-2)
 };
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 export default function Lessons() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
-  // Autocomplete hooks
+  // ========================================
+  // HOOKS & STATE MANAGEMENT
+  // ========================================
+  // Autocomplete functionality for intelligent search suggestions
   const projectAutocomplete = useAutocomplete({ table: "lessons", column: "project_name" });
   const clientAutocomplete = useAutocomplete({ table: "lessons", column: "client_name" });
 
+  // Core data state
   const [rows, setRows] = useState<LessonRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<LessonFilters>(DEFAULT_FILTERS);
 
+  // Pagination state
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
   
-  // Export states
+  // Export functionality state
   const [isExportingCSV, setIsExportingCSV] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  // Permission checks
+  // User permission system
   const permissions = usePermissions();
 
+  // Dashboard integration state
   const [dateWindow, setDateWindow] = useState<DateWindow>(null);
   const appliedFromUrlOnce = useRef(false);
 
-  // Parse incoming params from Dashboards/custom dashboards
+  // ========================================
+  // DASHBOARD INTEGRATION
+  // ========================================
+  // Parse incoming URL parameters from dashboards/custom dashboards
   const incoming = useMemo(() => {
     const get = (k: string) => (searchParams.get(k) ?? "").trim();
     return {
-      from: get("from"),
-      to: get("to"),
-      q: get("q"),
-      b: get("b"), // under|on|over
-      t: get("t"), // early|on|late
-      min: get("min"), // number as string
-      apply: get("apply") === "1",
+      from: get("from"), // Date range start
+      to: get("to"), // Date range end
+      q: get("q"), // Generic query term
+      b: get("b"), // Budget status filter (under|on|over)
+      t: get("t"), // Timeline status filter (early|on|late)
+      min: get("min"), // Minimum satisfaction rating
+      apply: get("apply") === "1", // Whether to apply filters immediately
     };
   }, [searchParams]);
 
+  // ========================================
+  // DATA LOADING
+  // ========================================
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -227,14 +285,17 @@ export default function Lessons() {
     };
   }, [toast]);
 
-  // Prefill from URL; only APPLY the date window when apply=1
+  // ========================================
+  // URL PARAMETER HANDLING
+  // ========================================
+  // Prefill filters from URL parameters; only apply date window when apply=1
   useEffect(() => {
     const hasAny =
       incoming.from || incoming.to || incoming.q || incoming.b || incoming.t || incoming.min;
 
     if (!hasAny) return;
 
-    // Prefill controls - map single 'q' to both project and client for backward compatibility
+    // Prefill UI controls - map single 'q' to project name for backward compatibility
     setFilters((prev) => ({
       ...prev,
       projectName: incoming.q || "",
@@ -244,6 +305,7 @@ export default function Lessons() {
       minSatisfaction: incoming.min || "",
     }));
 
+    // Only apply date window when explicitly requested (apply=1)
     if (incoming.apply && !appliedFromUrlOnce.current) {
       setDateWindow({
         from: incoming.from || undefined,
@@ -253,7 +315,10 @@ export default function Lessons() {
     }
   }, [incoming]);
 
-  // Is the user actively filtering?
+  // ========================================
+  // FILTERING LOGIC
+  // ========================================
+  // Detect if the user has applied any UI filters
   const hasUiFilters = useMemo(() => {
     return (
       filters.projectName.trim() !== "" ||
@@ -264,8 +329,8 @@ export default function Lessons() {
     );
   }, [filters]);
 
-  // Show ALL rows by default; only narrow when UI filters are used,
-  // or when a dateWindow was explicitly applied via apply=1.
+  // Apply comprehensive filtering: show ALL rows by default; 
+  // only narrow when UI filters are used or date window is applied
   const filtered = useMemo(() => {
     if (!rows) return [];
 
@@ -322,7 +387,10 @@ export default function Lessons() {
     });
   }, [rows, filters, dateWindow, hasUiFilters]);
 
-  // Pagination
+  // ========================================
+  // PAGINATION SYSTEM
+  // ========================================
+  // Reset to page 1 when filters or page size changes
   useEffect(() => {
     setPage(1);
   }, [filters, pageSize, dateWindow]);
@@ -336,7 +404,10 @@ export default function Lessons() {
 
   const onRefresh = () => setFilters({ ...filters });
 
-  // Export functions
+  // ========================================
+  // EXPORT FUNCTIONALITY
+  // ========================================
+  // Consistent date formatting for exports
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
@@ -346,6 +417,7 @@ export default function Lessons() {
     });
   };
 
+  // Permission-gated export request handler
   const handleExportRequest = (exportType: 'csv' | 'pdf') => {
     if (!permissions.canExport) {
       setShowUpgradeModal(true);
@@ -359,6 +431,7 @@ export default function Lessons() {
     }
   };
 
+  // CSV Export: Generate and download comma-separated values file
   const exportToCSV = async () => {
     if (!permissions.canExport) {
       setShowUpgradeModal(true);
@@ -432,6 +505,7 @@ export default function Lessons() {
     }
   };
 
+  // PDF Export: Generate comprehensive report with filtering info and statistics
   const exportToPDF = async () => {
     if (!permissions.canExport) {
       setShowUpgradeModal(true);
@@ -607,8 +681,12 @@ export default function Lessons() {
     }
   };
 
+  // ========================================
+  // RENDER COMPONENT
+  // ========================================
   return (
     <div className="space-y-6">
+      {/* HEADER CARD - Contains filters, export controls, and dashboard integration indicators */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
@@ -617,6 +695,7 @@ export default function Lessons() {
               <CardDescription>Filter, browse, and analyze recent lessons.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              {/* Dashboard Integration Indicator - Shows active date window from dashboard */}
               {dateWindow && (dateWindow.from || dateWindow.to) ? (
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-muted px-2 py-1 text-xs">
@@ -631,7 +710,7 @@ export default function Lessons() {
                 </div>
               ) : null}
               
-              {/* Export buttons */}
+              {/* Export Controls - Permission-based with upgrade prompts */}
               <TooltipProvider>
                 <DropdownMenu>
                   <Tooltip>
@@ -705,7 +784,7 @@ export default function Lessons() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Filters (UI) */}
+          {/* ADVANCED FILTERING SYSTEM - Intelligent search with autocomplete */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Project</Label>
@@ -811,7 +890,7 @@ export default function Lessons() {
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* RESULTS DISPLAY CARD - Responsive table/card view with pagination */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -822,7 +901,7 @@ export default function Lessons() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Top Rows per page selector */}
+          {/* TOP PAGINATION CONTROLS - Duplicated for user convenience */}
           <div className="mb-4 flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Label className="text-sm">Rows per page</Label>
@@ -843,7 +922,7 @@ export default function Lessons() {
               {total === 0 ? "0 of 0" : `${startIndex + 1}–${endIndex} of ${total}`}
             </div>
           </div>
-          {/* MOBILE: cards */}
+          {/* MOBILE RESPONSIVE VIEW - Card-based layout for small screens */}
           <div className="md:hidden space-y-3">
             {pageRows.length === 0 ? (
               <Card><CardContent className="py-6 text-muted-foreground">No lessons found.</CardContent></Card>
@@ -875,7 +954,7 @@ export default function Lessons() {
             )}
           </div>
 
-          {/* DESKTOP: table */}
+          {/* DESKTOP TABLE VIEW - Full-featured table for larger screens */}
           <div className="hidden md:block">
             <div className="overflow-x-auto">
               <Table>
@@ -923,7 +1002,7 @@ export default function Lessons() {
             </div>
           </div>
 
-          {/* Pagination */}
+          {/* BOTTOM PAGINATION CONTROLS - Duplicated for long tables */}
           <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
@@ -991,9 +1070,9 @@ export default function Lessons() {
         </CardContent>
       </Card>
 
-      {/* Upgrade Modal */}
-      <UpgradePromptModal
-        open={showUpgradeModal}
+      {/* UPGRADE MODAL - Permission-gated feature access */}
+      <UpgradePromptModal 
+        open={showUpgradeModal} 
         onOpenChange={setShowUpgradeModal}
         featureType="export"
       />

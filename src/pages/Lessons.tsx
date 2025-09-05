@@ -199,8 +199,7 @@ export default function Lessons() {
         const { data, error } = await supabase
           .from("lessons")
           .select(SELECT_FIELDS)
-          .order("created_at", { ascending: false })
-          .limit(500);
+          .order("created_at", { ascending: false });
         if (error) throw error;
         if (!cancelled) setRows((data as unknown as LessonRow[]) ?? []);
       } catch (e: any) {

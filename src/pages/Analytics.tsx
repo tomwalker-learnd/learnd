@@ -2,12 +2,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, LineChart, Line,
 } from "recharts";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
-// --- Types --- //
+// ---------- Brand colors (adjust to your palette) ----------
+const COLORS = {
+  purple: "#7c3aed",         // Avg Satisfaction
+  green:  "#16a34a",         // Budget Under / Timeline Early
+  blue:   "#2563eb",         // Budget On / Timeline On
+  red:    "#ef4444",         // Budget Over / Timeline Late
+  gold:   "#f59e0b",         // On-Budget % line
+  teal:   "#0ea5a4",         // Change Orders Revenue
+};
+
+// ---------- Types ----------
 type BudgetStatus = "under" | "on" | "over" | null;
 type TimelineStatus = "early" | "on" | "late" | null;
 
@@ -15,7 +30,7 @@ type LessonRow = {
   id: string;
   project_name: string | null;
   created_at: string; // ISO
-  satisfaction: number | null; // 1-5
+  satisfaction: number | null;
   budget_status: BudgetStatus;
   timeline_status: TimelineStatus;
   change_request_count: number | null;
@@ -24,7 +39,7 @@ type LessonRow = {
   created_by: string;
 };
 
-// --- Metric registry --- //
+// ---------- Metric registry ----------
 type MetricKey =
   | "avgSatisfaction"
   | "budgetStatus"
@@ -48,16 +63,13 @@ const METRIC_OPTIONS: MetricKey[] = [
   "changeOrdersRevenue",
 ];
 
-// --- Helpers --- //
+// ---------- Helpers ----------
 const monthKey = (iso: string) => {
   const d = new Date(iso);
-  // YYYY-MM
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
-
-function zeroish(n: number | null | undefined) {
-  return typeof n === "number" && !isNaN(n) ? n : 0;
-}
+const zeroish = (n: number | null | undefined) =>
+  typeof n === "number" && !isNaN(n) ? n : 0;
 
 type MonthlyBuckets = {
   [ym: string]: {
@@ -73,7 +85,6 @@ type MonthlyBuckets = {
   };
 };
 
-// Aggregate once; reuse everywhere
 function useMonthlyAggregation(rows: LessonRow[]) {
   const buckets = useMemo<MonthlyBuckets>(() => {
     const b: MonthlyBuckets = {};
@@ -91,22 +102,19 @@ function useMonthlyAggregation(rows: LessonRow[]) {
       m.count += 1;
       m.satsum += zeroish(r.satisfaction);
 
-      switch (r.budget_status) {
-        case "under": m.budgetUnder += 1; break;
-        case "on": m.budgetOn += 1; break;
-        case "over": m.budgetOver += 1; break;
-      }
-      switch (r.timeline_status) {
-        case "early": m.timelineEarly += 1; break;
-        case "on": m.timelineOn += 1; break;
-        case "late": m.timelineLate += 1; break;
-      }
+      if (r.budget_status === "under") m.budgetUnder += 1;
+      if (r.budget_status === "on") m.budgetOn += 1;
+      if (r.budget_status === "over") m.budgetOver += 1;
+
+      if (r.timeline_status === "early") m.timelineEarly += 1;
+      if (r.timeline_status === "on") m.timelineOn += 1;
+      if (r.timeline_status === "late") m.timelineLate += 1;
 
       m.changeOrdersRevenue += zeroish(r.change_orders_revenue_usd);
     }
-    // return array sorted by month ascending
-    const entries = Object.entries(b).sort((a,b) => a[0].localeCompare(b[0]));
-    return Object.fromEntries(entries);
+    return Object.fromEntries(
+      Object.entries(b).sort((a, b) => a[0].localeCompare(b[0]))
+    );
   }, [rows]);
 
   const series = useMemo(() => {
@@ -128,8 +136,14 @@ function useMonthlyAggregation(rows: LessonRow[]) {
   return series;
 }
 
-// --- Widget renderer --- //
-function WidgetChart({ metric, data }: { metric: MetricKey; data: ReturnType<typeof useMonthlyAggregation> }) {
+// ---------- Charts ----------
+function WidgetChart({
+  metric,
+  data,
+}: {
+  metric: MetricKey;
+  data: ReturnType<typeof useMonthlyAggregation>;
+}) {
   switch (metric) {
     case "avgSatisfaction":
       return (
@@ -139,21 +153,21 @@ function WidgetChart({ metric, data }: { metric: MetricKey; data: ReturnType<typ
             <YAxis domain={[0, 5]} />
             <Tooltip />
             <Legend />
-            <Bar dataKey="avgSatisfaction" name="Avg Satisfaction" />
+            <Bar dataKey="avgSatisfaction" name="Avg Satisfaction" fill={COLORS.purple} />
           </BarChart>
         </ResponsiveContainer>
       );
     case "budgetStatus":
       return (
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data} stackOffset="sign">
+          <BarChart data={data}>
             <XAxis dataKey="month" />
             <YAxis />
             <Tooltip />
             <Legend />
-            <Bar dataKey="budgetUnder" name="Under" stackId="a" />
-            <Bar dataKey="budgetOn" name="On" stackId="a" />
-            <Bar dataKey="budgetOver" name="Over" stackId="a" />
+            <Bar dataKey="budgetUnder" name="Under" stackId="a" fill={COLORS.green} />
+            <Bar dataKey="budgetOn" name="On" stackId="a" fill={COLORS.blue} />
+            <Bar dataKey="budgetOver" name="Over" stackId="a" fill={COLORS.red} />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -165,9 +179,9 @@ function WidgetChart({ metric, data }: { metric: MetricKey; data: ReturnType<typ
             <YAxis />
             <Tooltip />
             <Legend />
-            <Bar dataKey="timelineEarly" name="Early" stackId="b" />
-            <Bar dataKey="timelineOn" name="On" stackId="b" />
-            <Bar dataKey="timelineLate" name="Late" stackId="b" />
+            <Bar dataKey="timelineEarly" name="Early" stackId="b" fill={COLORS.green} />
+            <Bar dataKey="timelineOn" name="On" stackId="b" fill={COLORS.blue} />
+            <Bar dataKey="timelineLate" name="Late" stackId="b" fill={COLORS.red} />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -179,7 +193,15 @@ function WidgetChart({ metric, data }: { metric: MetricKey; data: ReturnType<typ
             <YAxis domain={[0, 100]} />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="onBudgetRate" name="On-Budget %" />
+            <Line
+              type="monotone"
+              dataKey="onBudgetRate"
+              name="On-Budget %"
+              stroke={COLORS.gold}
+              strokeWidth={3}
+              dot={false}
+              isAnimationActive={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       );
@@ -191,7 +213,11 @@ function WidgetChart({ metric, data }: { metric: MetricKey; data: ReturnType<typ
             <YAxis />
             <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
             <Legend />
-            <Bar dataKey="changeOrdersRevenue" name="Change Orders Revenue" />
+            <Bar
+              dataKey="changeOrdersRevenue"
+              name="Change Orders Revenue"
+              fill={COLORS.teal}
+            />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -200,7 +226,7 @@ function WidgetChart({ metric, data }: { metric: MetricKey; data: ReturnType<typ
   }
 }
 
-// --- Reusable card with selector --- //
+// ---------- Reusable card with selector ----------
 function MetricCard({
   slotKey,
   metric,
@@ -216,7 +242,7 @@ function MetricCard({
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-xl">{METRIC_LABELS[metric]}</CardTitle>
-        <div className="w-56">
+        <div className="w-64">
           <Select
             value={metric}
             onValueChange={(v) => {
@@ -240,22 +266,28 @@ function MetricCard({
   );
 }
 
-// --- Main page --- //
+// ---------- Main page ----------
 export default function Analytics() {
   const [rows, setRows] = useState<LessonRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // restore persisted selection
-  const [metricA, setMetricA] = useState<MetricKey>(() => (localStorage.getItem("analytics:slotA") as MetricKey) || "avgSatisfaction");
-  const [metricB, setMetricB] = useState<MetricKey>(() => (localStorage.getItem("analytics:slotB") as MetricKey) || "budgetStatus");
+  // Restore user choices
+  const [metricA, setMetricA] = useState<MetricKey>(
+    () => (localStorage.getItem("analytics:slotA") as MetricKey) || "avgSatisfaction"
+  );
+  const [metricB, setMetricB] = useState<MetricKey>(
+    () => (localStorage.getItem("analytics:slotB") as MetricKey) || "budgetStatus"
+  );
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
       const { data, error } = await supabase
-        .from("lessons") // <-- adjust table name if needed
-        .select("id, project_name, created_at, satisfaction, budget_status, timeline_status, change_request_count, change_orders_approved_count, change_orders_revenue_usd, created_by")
+        .from("lessons") // adjust table name if different
+        .select(
+          "id, project_name, created_at, satisfaction, budget_status, timeline_status, change_request_count, change_orders_approved_count, change_orders_revenue_usd, created_by"
+        )
         .order("created_at", { ascending: true });
       if (!mounted) return;
       if (error) {
@@ -271,11 +303,23 @@ export default function Analytics() {
 
   const monthly = useMonthlyAggregation(rows);
 
+  const recent = useMemo(() => {
+    // last 10 most recent lessons
+    return [...rows].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    ).slice(0, 10);
+  }, [rows]);
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "numeric", day: "numeric" });
+
   return (
     <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">
-          <div className="text-sm text-muted-foreground">{rows.length} lessons total</div>
+          <div className="text-sm text-muted-foreground">
+            {rows.length} lessons total
+          </div>
         </CardContent>
       </Card>
 
@@ -284,7 +328,51 @@ export default function Analytics() {
         <MetricCard slotKey="slotB" metric={metricB} setMetric={setMetricB} data={monthly} />
       </div>
 
-      {/* keep your Recent Lessons section below as-is */}
+      {/* ---------- Recent Lessons table (restored) ---------- */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">Recent Lessons</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="w-full overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[40%]">Project</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Satisfaction</TableHead>
+                  <TableHead>Budget</TableHead>
+                  <TableHead>Timeline</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recent.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">
+                      {r.project_name ?? "—"}
+                    </TableCell>
+                    <TableCell>{fmtDate(r.created_at)}</TableCell>
+                    <TableCell>{r.satisfaction ?? "—"}</TableCell>
+                    <TableCell className="capitalize">
+                      {r.budget_status ?? "—"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {r.timeline_status ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!loading && recent.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-muted-foreground">
+                      No lessons found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

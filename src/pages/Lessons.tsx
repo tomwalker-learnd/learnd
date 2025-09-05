@@ -660,10 +660,6 @@ export default function Lessons() {
               >
                 Clear Filters
               </Button>
-              <Button variant="outline" onClick={onRefresh}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
             </div>
           </div>
         </CardHeader>
@@ -760,6 +756,16 @@ export default function Lessons() {
                 onChange={(e) => setFilters((prev) => ({ ...prev, minSatisfaction: e.target.value }))}
               />
             </div>
+          </div>
+
+          <div className="mt-4">
+            <Button
+              style={{ backgroundColor: '#ca0573', color: 'white' }}
+              className="hover:opacity-90"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Submit
+            </Button>
           </div>
         </CardContent>
       </Card>

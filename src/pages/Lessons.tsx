@@ -42,10 +42,28 @@ type LessonRow = {
   id: string;
   project_name: string | null;
   client_name: string | null;
+  role: string | null;
   created_at: string; // ISO
+  updated_at: string; // ISO
   satisfaction: number | null; // 1..5
   budget_status: BudgetStatus | string | null;
   timeline_status: TimelineStatus | string | null;
+  scope_change: boolean | null;
+  notes: string | null;
+  created_by: string | null;
+  project_type: string | null;
+  phase: string | null;
+  industry: string | null;
+  region: string | null;
+  billing_model: string | null;
+  initial_budget_usd: number | null;
+  actual_days: number | null;
+  planned_days: number | null;
+  requirements_clarity: number | null;
+  stakeholder_engagement: number | null;
+  team_morale: number | null;
+  tooling_effectiveness: number | null;
+  internal_comms_effectiveness: number | null;
 };
 
 type LessonFilters = {
@@ -69,11 +87,29 @@ const DEFAULT_FILTERS: LessonFilters = {
 const SELECT_FIELDS = [
   "id",
   "project_name",
-  "client_name",
+  "client_name", 
+  "role",
   "created_at",
+  "updated_at",
   "satisfaction",
   "budget_status",
   "timeline_status",
+  "scope_change",
+  "notes",
+  "created_by",
+  "project_type",
+  "phase", 
+  "industry",
+  "region",
+  "billing_model",
+  "initial_budget_usd",
+  "actual_days",
+  "planned_days",
+  "requirements_clarity",
+  "stakeholder_engagement", 
+  "team_morale",
+  "tooling_effectiveness",
+  "internal_comms_effectiveness"
 ].join(", ");
 
 // helpers
@@ -289,19 +325,54 @@ export default function Lessons() {
   const onRefresh = () => setFilters({ ...filters });
 
   // Export functions
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: '2-digit', 
+      day: '2-digit', 
+      year: 'numeric' 
+    });
+  };
+
   const exportToCSV = async () => {
     setIsExportingCSV(true);
     try {
-      const headers = ['Project Name', 'Client Name', 'Date', 'Satisfaction', 'Budget Status', 'Timeline Status'];
+      const headers = [
+        'Project Name', 'Client Name', 'Role', 'Created Date', 'Updated Date', 
+        'Satisfaction', 'Budget Status', 'Timeline Status', 'Scope Change', 
+        'Notes', 'Created By', 'Project Type', 'Phase', 'Industry', 'Region',
+        'Billing Model', 'Initial Budget (USD)', 'Actual Days', 'Planned Days',
+        'Requirements Clarity', 'Stakeholder Engagement', 'Team Morale', 
+        'Tooling Effectiveness', 'Internal Comms Effectiveness'
+      ];
+      
       const csvContent = [
         headers.join(','),
         ...filtered.map(row => [
           `"${(row.project_name || '').replace(/"/g, '""')}"`,
           `"${(row.client_name || '').replace(/"/g, '""')}"`,
-          new Date(row.created_at).toLocaleDateString(),
+          `"${(row.role || '').replace(/"/g, '""')}"`,
+          formatDate(row.created_at),
+          formatDate(row.updated_at),
           row.satisfaction || '',
           row.budget_status || '',
-          row.timeline_status || ''
+          row.timeline_status || '',
+          row.scope_change ? 'Yes' : 'No',
+          `"${(row.notes || '').replace(/"/g, '""')}"`,
+          row.created_by || '',
+          `"${(row.project_type || '').replace(/"/g, '""')}"`,
+          `"${(row.phase || '').replace(/"/g, '""')}"`,
+          `"${(row.industry || '').replace(/"/g, '""')}"`,
+          `"${(row.region || '').replace(/"/g, '""')}"`,
+          `"${(row.billing_model || '').replace(/"/g, '""')}"`,
+          row.initial_budget_usd || '',
+          row.actual_days || '',
+          row.planned_days || '',
+          row.requirements_clarity || '',
+          row.stakeholder_engagement || '',
+          row.team_morale || '',
+          row.tooling_effectiveness || '',
+          row.internal_comms_effectiveness || ''
         ].join(','))
       ].join('\n');
 
@@ -333,7 +404,7 @@ export default function Lessons() {
   const exportToPDF = async () => {
     setIsExportingPDF(true);
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation for more columns
       
       // Add title
       doc.setFontSize(16);
@@ -341,34 +412,54 @@ export default function Lessons() {
       
       // Add export info
       doc.setFontSize(10);
-      doc.text(`Exported on: ${new Date().toLocaleDateString()}`, 14, 30);
+      doc.text(`Exported on: ${formatDate(new Date().toISOString())}`, 14, 30);
       doc.text(`Total records: ${filtered.length}`, 14, 36);
 
-      // Prepare table data
+      // Prepare table data with comprehensive fields
       const tableData = filtered.map(row => [
         row.project_name || '—',
         row.client_name || '—',
-        new Date(row.created_at).toLocaleDateString(),
+        row.role || '—',
+        formatDate(row.created_at),
         row.satisfaction?.toString() || '—',
         row.budget_status || '—',
-        row.timeline_status || '—'
+        row.timeline_status || '—',
+        row.scope_change ? 'Yes' : 'No',
+        row.project_type || '—',
+        row.phase || '—',
+        row.industry || '—',
+        row.initial_budget_usd?.toString() || '—',
+        row.actual_days?.toString() || '—',
+        row.planned_days?.toString() || '—'
       ]);
 
-      // Add table
+      // Add table with key fields (limited columns due to PDF width constraints)
       autoTable(doc, {
-        head: [['Project Name', 'Client Name', 'Date', 'Satisfaction', 'Budget Status', 'Timeline Status']],
+        head: [[
+          'Project', 'Client', 'Role', 'Created', 'Satisfaction', 'Budget', 
+          'Timeline', 'Scope Change', 'Type', 'Phase', 'Industry', 'Budget($)', 
+          'Actual Days', 'Planned Days'
+        ]],
         body: tableData,
         startY: 45,
-        styles: { fontSize: 8 },
+        styles: { fontSize: 7 },
         columnStyles: {
-          0: { cellWidth: 40 },
-          1: { cellWidth: 40 },
-          2: { cellWidth: 25 },
-          3: { cellWidth: 20 },
-          4: { cellWidth: 25 },
-          5: { cellWidth: 25 }
+          0: { cellWidth: 20 },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 15 },
+          3: { cellWidth: 18 },
+          4: { cellWidth: 12 },
+          5: { cellWidth: 15 },
+          6: { cellWidth: 15 },
+          7: { cellWidth: 12 },
+          8: { cellWidth: 15 },
+          9: { cellWidth: 12 },
+          10: { cellWidth: 15 },
+          11: { cellWidth: 15 },
+          12: { cellWidth: 12 },
+          13: { cellWidth: 12 }
         },
-        margin: { left: 14, right: 14 }
+        margin: { left: 10, right: 10 }
       });
 
       doc.save(`lessons-export-${new Date().toISOString().split('T')[0]}.pdf`);
@@ -576,7 +667,7 @@ export default function Lessons() {
                   <CardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div className="font-medium">{r.project_name || "Untitled Project"}</div>
-                      <div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</div>
+                      <div className="text-xs text-muted-foreground">{formatDate(r.created_at)}</div>
                     </div>
                     {r.client_name && (
                       <div className="text-sm text-muted-foreground mt-1">{r.client_name}</div>
@@ -624,7 +715,7 @@ export default function Lessons() {
                       <TableRow key={r.id}>
                         <TableCell className="whitespace-nowrap font-medium">{r.project_name ?? "—"}</TableCell>
                         <TableCell className="whitespace-nowrap">{r.client_name ?? "—"}</TableCell>
-                        <TableCell className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDate(r.created_at)}</TableCell>
                         <TableCell className={satisfactionColor(r.satisfaction)}>
                           {typeof r.satisfaction === "number" ? r.satisfaction : "—"}
                         </TableCell>

@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -521,7 +521,7 @@ export default function Dashboards() {
         lesson.timeline_status || ''
       ]);
 
-      (doc as any).autoTable({
+      autoTable(doc, {
         head: [["Project", "Client", "Date", "Satisfaction", "Budget", "Timeline"]],
         body: tableData,
         startY: yPos,

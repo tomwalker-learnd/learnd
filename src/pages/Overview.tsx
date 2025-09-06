@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserTier } from "@/hooks/useUserTier";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import { supabase } from "@/integrations/supabase/client";
 import PremiumFeature from "@/components/premium/PremiumFeature";
 import { FeatureBadge, UsageIndicator, FeatureRestriction } from "@/components/premium";
@@ -73,6 +74,7 @@ export default function Overview() {
   const { user, loading } = useAuth();
   const { tier, canAccessAdvancedAnalytics } = useUserTier();
   const { usage, trackUsage, getUpgradeOpportunity } = useUsageTracking();
+  const { isOnboarding, sampleData, trackInteraction, completeStep } = useOnboarding();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -97,17 +99,37 @@ export default function Overview() {
   });
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && (user || isOnboarding)) {
       refresh();
-      trackUsage('overview_page_visit');
+      if (user) trackUsage('overview_page_visit');
+      if (isOnboarding) {
+        trackInteraction('page_visit', '/overview');
+        completeStep('overview');
+      }
     }
-  }, [loading, user, trackUsage]);
+  }, [loading, user, isOnboarding, trackUsage, trackInteraction, completeStep]);
 
   const refresh = async () => {
     try {
       setBusy(true);
 
-      // Apply freemium data retention limits
+      // Use sample data in onboarding mode
+      if (isOnboarding) {
+        const sampleLessons = sampleData.projects.map(project => ({
+          id: project.id,
+          satisfaction: project.satisfaction,
+          budget_status: project.budget_status,
+          timeline_status: project.timeline_status,
+          created_at: project.created_at,
+          project_status: project.project_status
+        }));
+        
+        processSameLessonsData(sampleLessons);
+        setBusy(false);
+        return;
+      }
+
+      // Normal mode - load from Supabase
       const dataRetentionDays = usage.dataRetentionDays;
       let lessonsQuery = supabase
         .from("lessons")
@@ -127,79 +149,109 @@ export default function Overview() {
 
       if (error) throw error;
 
-      const projects = (lessons || []).map(lesson => ({
-        ...lesson,
-        project_status: 'active' as const
-      })) as ProjectWithStatus[];
-      
-      // Separate active and completed projects
-      const activeProjects = projects.filter(p => isActiveProject(p.project_status || 'active'));
-      const completedProjects = projects.filter(p => isCompletedProject(p.project_status || 'active'));
-      
-      // Get health distributions
-      const activeHealth = getActiveProjectHealthDistribution(activeProjects);
-      const completedHealth = getCompletedProjectHealthDistribution(completedProjects);
-      
-      // Calculate active project budget/timeline health
-      const activeOnBudget = activeProjects.filter(p => p.budget_status === "on").length;
-      const activeOnTime = activeProjects.filter(p => 
-        p.timeline_status === "on-time" || p.timeline_status === "early"
-      ).length;
-      
-      // Get completed projects from last quarter (90 days)
-      const quarterAgo = new Date();
-      quarterAgo.setDate(quarterAgo.getDate() - 90);
-      const quarterCompleted = completedProjects.filter(p => 
-        new Date(p.created_at || '') > quarterAgo
-      );
-
-      // Overall satisfaction (all projects)
-      const totalProjects = projects.length;
-      const avgSatisfaction = totalProjects > 0
-        ? projects.reduce((s, p) => s + (Number(p.satisfaction) || 0), 0) / totalProjects
-        : 0;
-
-      // Calculate trends (last 30 days vs previous 30 days)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-
-      const recentLessons = projects.filter(p => 
-        new Date(p.created_at || '') > thirtyDaysAgo
-      );
-      const previousLessons = projects.filter(p => 
-        new Date(p.created_at || '') > sixtyDaysAgo && new Date(p.created_at || '') <= thirtyDaysAgo
-      );
-
-      const recentAvgSat = recentLessons.length > 0 
-        ? recentLessons.reduce((s, p) => s + (Number(p.satisfaction) || 0), 0) / recentLessons.length
-        : 0;
-      const prevAvgSat = previousLessons.length > 0
-        ? previousLessons.reduce((s, p) => s + (Number(p.satisfaction) || 0), 0) / previousLessons.length
-        : 0;
-
-      const satisfactionTrend = prevAvgSat > 0 ? ((recentAvgSat - prevAvgSat) / prevAvgSat) * 100 : 0;
-
-      setKpis({
-        // Active projects
-        activeTotal: activeProjects.length,
-        activeHealthy: activeHealth.healthy,
-        activeAtRisk: activeHealth['at-risk'],
-        activeCritical: activeHealth.critical,
-        activeBudgetPct: activeProjects.length ? Math.round((activeOnBudget / activeProjects.length) * 100) : 0,
-        activeTimelinePct: activeProjects.length ? Math.round((activeOnTime / activeProjects.length) * 100) : 0,
-        // Completed projects
-        completedQuarter: quarterCompleted.length,
-        completedSuccessful: completedHealth.successful,
-        completedUnderperformed: completedHealth.underperformed,
-        completedMixed: completedHealth.mixed,
-        // Overall metrics
-        avgSatisfaction: Number(avgSatisfaction.toFixed(2)),
-        satisfactionTrend: Number(satisfactionTrend.toFixed(1)),
+      processSameLessonsData(lessons || []);
+    } catch (e: any) {
+      toast({
+        title: "Couldn't refresh",
+        description: e?.message ?? "Unexpected error",
+        variant: "destructive",
       });
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      // Recent lessons with same data retention limits
+  const processSameLessonsData = async (lessonsData: any[]) => {
+    const projects = lessonsData.map(lesson => ({
+      ...lesson,
+      project_status: lesson.project_status || 'active' as const
+    })) as ProjectWithStatus[];
+      
+    // Separate active and completed projects
+    const activeProjects = projects.filter(p => isActiveProject(p.project_status || 'active'));
+    const completedProjects = projects.filter(p => isCompletedProject(p.project_status || 'active'));
+    
+    // Get health distributions
+    const activeHealth = getActiveProjectHealthDistribution(activeProjects);
+    const completedHealth = getCompletedProjectHealthDistribution(completedProjects);
+    
+    // Calculate active project budget/timeline health
+    const activeOnBudget = activeProjects.filter(p => p.budget_status === "on").length;
+    const activeOnTime = activeProjects.filter(p => 
+      p.timeline_status === "on-time" || p.timeline_status === "early"
+    ).length;
+    
+    // Get completed projects from last quarter (90 days)
+    const quarterAgo = new Date();
+    quarterAgo.setDate(quarterAgo.getDate() - 90);
+    const quarterCompleted = completedProjects.filter(p => 
+      new Date(p.created_at || '') > quarterAgo
+    );
+
+    // Overall satisfaction (all projects)
+    const totalProjects = projects.length;
+    const avgSatisfaction = totalProjects > 0
+      ? projects.reduce((s, p) => s + (Number(p.satisfaction) || 0), 0) / totalProjects
+      : 0;
+
+    // Calculate trends (last 30 days vs previous 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const recentLessons = projects.filter(p => 
+      new Date(p.created_at || '') > thirtyDaysAgo
+    );
+    const previousLessons = projects.filter(p => 
+      new Date(p.created_at || '') > sixtyDaysAgo && new Date(p.created_at || '') <= thirtyDaysAgo
+    );
+
+    const recentAvgSat = recentLessons.length > 0 
+      ? recentLessons.reduce((s, p) => s + (Number(p.satisfaction) || 0), 0) / recentLessons.length
+      : 0;
+    const prevAvgSat = previousLessons.length > 0
+      ? previousLessons.reduce((s, p) => s + (Number(p.satisfaction) || 0), 0) / previousLessons.length
+      : 0;
+
+    const satisfactionTrend = prevAvgSat > 0 ? ((recentAvgSat - prevAvgSat) / prevAvgSat) * 100 : 0;
+
+    setKpis({
+      // Active projects
+      activeTotal: activeProjects.length,
+      activeHealthy: activeHealth.healthy,
+      activeAtRisk: activeHealth['at-risk'],
+      activeCritical: activeHealth.critical,
+      activeBudgetPct: activeProjects.length ? Math.round((activeOnBudget / activeProjects.length) * 100) : 0,
+      activeTimelinePct: activeProjects.length ? Math.round((activeOnTime / activeProjects.length) * 100) : 0,
+      // Completed projects
+      completedQuarter: quarterCompleted.length,
+      completedSuccessful: completedHealth.successful,
+      completedUnderperformed: completedHealth.underperformed,
+      completedMixed: completedHealth.mixed,
+      // Overall metrics
+      avgSatisfaction: Number(avgSatisfaction.toFixed(2)),
+      satisfactionTrend: Number(satisfactionTrend.toFixed(1)),
+    });
+
+    // Recent lessons data
+    if (isOnboarding) {
+      const recentSampleData = sampleData.projects
+        .slice(0, 5)
+        .map(project => ({
+          id: project.id,
+          project_name: project.project_name,
+          client_name: project.client_name,
+          created_at: project.created_at,
+          satisfaction: project.satisfaction,
+          budget_status: project.budget_status,
+          timeline_status: project.timeline_status,
+          notes: project.notes
+        }));
+      setRecent(recentSampleData as unknown as LessonRow[]);
+    } else {
+      // Load real recent data
+      const dataRetentionDays = usage.dataRetentionDays;
       let recentQuery = supabase
         .from("lessons")
         .select("id, project_name, client_name, created_at, satisfaction, budget_status, timeline_status, notes")
@@ -218,14 +270,6 @@ export default function Overview() {
 
       if (rErr) throw rErr;
       setRecent((recentRows as unknown as LessonRow[]) || []);
-    } catch (e: any) {
-      toast({
-        title: "Couldn't refresh",
-        description: e?.message ?? "Unexpected error",
-        variant: "destructive",
-      });
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -337,7 +381,7 @@ export default function Overview() {
   // Get upgrade opportunity for proactive prompts
   const upgradeOpportunity = getUpgradeOpportunity();
 
-  if (!user && !loading) return null;
+  if (!user && !loading && !isOnboarding) return null;
 
   const fmtDate = (iso?: string) => {
     if (!iso) return "";
@@ -386,9 +430,13 @@ export default function Overview() {
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Executive Overview</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Executive Overview
+              {isOnboarding && <Badge variant="secondary" className="ml-2">Demo Mode</Badge>}
+            </h1>
             <p className="text-muted-foreground">
               Strategic intelligence dashboard for data-driven decision making
+              {isOnboarding && " (showing sample data)"}
             </p>
           </div>
           <div className="flex gap-2">

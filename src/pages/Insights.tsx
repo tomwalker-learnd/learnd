@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserTier } from "@/hooks/useUserTier";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import { supabase } from "@/integrations/supabase/client";
 import { PremiumFeature, FeatureBadge, FeatureRestriction } from "@/components/premium";
 import { EnhancedLearndAI } from "@/components/ai/EnhancedLearndAI";
@@ -84,6 +85,7 @@ export default function Insights() {
   const { user } = useAuth();
   const { canAccessAdvancedAnalytics, canAccessAI, tier } = useUserTier();
   const { usage, trackUsage, checkLimitation } = useUsageTracking();
+  const { isOnboarding, sampleData, trackInteraction, completeStep } = useOnboarding();
   const { toast } = useToast();
 
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -93,18 +95,52 @@ export default function Insights() {
   const [selectedAnalysis, setSelectedAnalysis] = useState<string>('');
 
   useEffect(() => {
-    if (user) {
+    if (user || isOnboarding) {
       loadData();
       generateAIInsights();
-      trackUsage('insights_page_visit');
+      if (user) trackUsage('insights_page_visit');
+      if (isOnboarding) {
+        trackInteraction('page_visit', '/insights');
+        completeStep('insights');
+      }
     }
-  }, [user, period, trackUsage]);
+  }, [user, isOnboarding, period, trackUsage, trackInteraction, completeStep]);
 
   const loadData = async () => {
-    if (!user) return;
+    if (!user && !isOnboarding) return;
     
     try {
       setLoading(true);
+
+      // Use sample data in onboarding mode
+      if (isOnboarding) {
+        const endDate = new Date();
+        const startDate = new Date();
+        
+        switch (period) {
+          case "7d":
+            startDate.setDate(endDate.getDate() - 7);
+            break;
+          case "30d":
+            startDate.setDate(endDate.getDate() - 30);
+            break;
+          case "90d":
+            startDate.setDate(endDate.getDate() - 90);
+            break;
+          case "1y":
+            startDate.setFullYear(endDate.getFullYear() - 1);
+            break;
+        }
+
+        const filteredSampleData = sampleData.projects.filter(project => {
+          const projectDate = new Date(project.created_at);
+          return projectDate >= startDate && projectDate <= endDate;
+        });
+
+        setLessons(filteredSampleData as unknown as Lesson[]);
+        setLoading(false);
+        return;
+      }
       
       // Calculate date range
       const endDate = new Date();
@@ -391,9 +427,11 @@ export default function Insights() {
               <Brain className="h-8 w-8 text-primary" />
               AI Analytics Hub
               <Badge variant="secondary">Premium</Badge>
+              {isOnboarding && <Badge variant="secondary">Demo Mode</Badge>}
             </h1>
             <p className="text-muted-foreground">
               AI-generated insights, predictive analytics, and automated pattern detection.
+              {isOnboarding && " (showing sample data)"}
             </p>
           </div>
           <div className="flex items-center gap-2">

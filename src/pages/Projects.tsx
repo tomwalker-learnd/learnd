@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserTier } from "@/hooks/useUserTier";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import { supabase } from "@/integrations/supabase/client";
 import { PremiumFeature, UpgradeButton } from "@/components/premium";
 import { 
@@ -100,6 +101,7 @@ type LessonFilters = {
 export default function Projects() {
   const { user } = useAuth();
   const { canAccessExports, canAccessAI } = useUserTier();
+  const { isOnboarding, sampleData, trackInteraction, completeStep } = useOnboarding();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -133,7 +135,11 @@ export default function Projects() {
 
   useEffect(() => {
     loadLessons();
-  }, [user, projectStatusTab]);
+    if (isOnboarding) {
+      trackInteraction('page_visit', '/projects');
+      completeStep('projects');
+    }
+  }, [user, isOnboarding, projectStatusTab, trackInteraction, completeStep]);
 
   // Set filters from URL params on component mount
   useEffect(() => {
@@ -150,10 +156,30 @@ export default function Projects() {
   }, [searchParams]);
 
   const loadLessons = async () => {
-    if (!user) return;
+    if (!user && !isOnboarding) return;
     
     try {
       setLoading(true);
+
+      // Use sample data in onboarding mode
+      if (isOnboarding) {
+        let filteredSampleData = sampleData.projects;
+        
+        // Apply project status filter based on current tab
+        if (projectStatusTab === "active") {
+          filteredSampleData = filteredSampleData.filter(p => 
+            p.project_status === "active" || p.project_status === "on_hold"
+          );
+        } else if (projectStatusTab === "completed") {
+          filteredSampleData = filteredSampleData.filter(p => 
+            p.project_status === "completed" || p.project_status === "cancelled"
+          );
+        }
+        
+        setLessons(filteredSampleData as unknown as Lesson[]);
+        setLoading(false);
+        return;
+      }
       
       let query = supabase
         .from("lessons")
@@ -510,9 +536,13 @@ export default function Projects() {
     <div className="mx-auto w-full max-w-7xl px-4 py-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Project Portfolio</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Project Portfolio
+          {isOnboarding && <Badge variant="secondary" className="ml-2">Demo Mode</Badge>}
+        </h1>
         <p className="text-muted-foreground">
           Business intelligence for your project outcomes and portfolio health.
+          {isOnboarding && " (showing sample data)"}
         </p>
 
         {/* Project Status Tabs */}

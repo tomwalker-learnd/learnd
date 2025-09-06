@@ -13,6 +13,7 @@ import Reports from "@/pages/Reports";
 import DashboardCustomizer from "@/pages/DashboardCustomizer";
 import SubmitWizard from "@/pages/SubmitWizard";
 import Submit from "@/pages/Submit";
+import ProjectSubmissionWizard from "@/pages/ProjectSubmissionWizard";
 import Auth from "@/pages/Auth";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
@@ -99,6 +100,14 @@ function Shell() {
             element={
               <ProtectedRoute>
                 <SubmitWizard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/project-wizard"
+            element={
+              <ProtectedRoute>
+                <ProjectSubmissionWizard />
               </ProtectedRoute>
             }
           />

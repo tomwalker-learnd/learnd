@@ -1,1 +1,4 @@
 project_id = "rakdsvojiwpdunruenmg"
+
+[functions.project-status-notification]
+verify_jwt = true

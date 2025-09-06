@@ -14,6 +14,8 @@ import { TemplateSelector } from '@/components/forms/TemplateSelector';
 import { DynamicFieldRenderer } from '@/components/forms/DynamicFieldRenderer';
 import { CustomFieldBuilder } from '@/components/forms/CustomFieldBuilder';
 import { FieldGroupToggle } from '@/components/forms/FieldGroupToggle';
+import { ProjectStatusManager } from '@/components/forms/ProjectStatusManager';
+import { ProjectLifecycleStatus } from '@/lib/statusUtils';
 
 interface CustomField {
   id: string;
@@ -38,7 +40,9 @@ const ProjectSubmissionWizard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, any>>({
+    project_status: 'active' // Default new projects to active
+  });
   const [enabledGroups, setEnabledGroups] = useState<Set<string>>(new Set(['core']));
 
   const steps = [
@@ -165,9 +169,17 @@ const ProjectSubmissionWizard = () => {
     setIsSubmitting(true);
     
     try {
-      // Validate required fields
-      const requiredFields = ['project_name', 'satisfaction', 'budget_status', 'timeline_status'];
+      // Validate required fields including project_status
+      const requiredFields = ['project_name', 'project_status', 'satisfaction', 'budget_status', 'timeline_status'];
       const missingFields = requiredFields.filter(field => !formData[field]);
+      
+      // Additional validation based on project status
+      if (formData.project_status === 'completed' && !formData.completion_summary) {
+        missingFields.push('completion_summary (required for completed projects)');
+      }
+      if (formData.project_status === 'on_hold' && !formData.status_change_reason) {
+        missingFields.push('status_change_reason (required for projects on hold)');
+      }
       
       if (missingFields.length > 0) {
         toast({
@@ -183,11 +195,14 @@ const ProjectSubmissionWizard = () => {
         project_name: formData.project_name,
         role: formData.role || 'Project Member',
         client_name: formData.client_name,
+        project_status: formData.project_status || 'active',
         satisfaction: parseInt(formData.satisfaction),
         budget_status: formData.budget_status,
         scope_change: formData.scope_change === 'true',
         timeline_status: formData.timeline_status,
         notes: formData.notes,
+        status_change_reason: formData.status_change_reason,
+        completion_summary: formData.completion_summary,
         created_by: user?.id,
         
         // Industry-specific data
@@ -220,10 +235,7 @@ const ProjectSubmissionWizard = () => {
 
       const { error } = await supabase
         .from('lessons')
-        .insert({
-          ...lessonData,
-          project_status: 'active' // Default new projects to active
-        });
+        .insert(lessonData);
 
       if (error) throw error;
 
@@ -249,6 +261,14 @@ const ProjectSubmissionWizard = () => {
     setFormData(prev => ({
       ...prev,
       [fieldId]: value
+    }));
+  };
+
+  const handleStatusChange = (newStatus: ProjectLifecycleStatus, metadata: Record<string, any>) => {
+    setFormData(prev => ({
+      ...prev,
+      project_status: newStatus,
+      ...metadata
     }));
   };
 
@@ -308,7 +328,11 @@ const ProjectSubmissionWizard = () => {
       case 'configure':
         return true;
       case 'form':
-        return formData.project_name && formData.satisfaction && formData.budget_status && formData.timeline_status;
+        return formData.project_name && formData.project_status && formData.satisfaction && 
+               formData.budget_status && formData.timeline_status &&
+               // Additional validation based on status
+               (formData.project_status !== 'completed' || formData.completion_summary) &&
+               (formData.project_status !== 'on_hold' || formData.status_change_reason);
       default:
         return true;
     }
@@ -394,13 +418,22 @@ const ProjectSubmissionWizard = () => {
               )}
 
               {currentStepData?.id === 'form' && (
-                <DynamicFieldRenderer
-                  enabledTemplates={selectedTemplates.filter(template => enabledGroups.has(template))}
-                  customFields={enabledGroups.has('custom') ? customFields as any : []}
-                  formData={formData}
-                  onFieldChange={handleFieldChange}
-                  onGroupToggle={handleGroupToggle}
-                />
+                <div className="space-y-6">
+                  <ProjectStatusManager
+                    currentStatus={formData.project_status || 'active'}
+                    formData={formData}
+                    onStatusChange={handleStatusChange}
+                    onFieldChange={handleFieldChange}
+                  />
+                  <DynamicFieldRenderer
+                    enabledTemplates={selectedTemplates.filter(template => enabledGroups.has(template))}
+                    customFields={enabledGroups.has('custom') ? customFields as any : []}
+                    formData={formData}
+                    onFieldChange={handleFieldChange}
+                    onGroupToggle={handleGroupToggle}
+                    projectStatus={formData.project_status || 'active'}
+                  />
+                </div>
               )}
 
               {currentStepData?.id === 'review' && (
@@ -431,6 +464,10 @@ const ProjectSubmissionWizard = () => {
                         <div>
                           <span className="font-medium">Satisfaction:</span>
                           <p className="text-muted-foreground">{formData.satisfaction ? `${formData.satisfaction}/5` : 'Not rated'}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium">Project Status:</span>
+                          <p className="text-muted-foreground">{formData.project_status?.replace('_', ' ') || 'Not specified'}</p>
                         </div>
                         <div>
                           <span className="font-medium">Budget Status:</span>

@@ -76,6 +76,45 @@ export type Database = {
           },
         ]
       }
+      client_normalization_requests: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          existing_clients: string[]
+          final_name: string | null
+          id: string
+          original_name: string
+          suggested_name: string | null
+          updated_at: string
+          user_choice: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          existing_clients: string[]
+          final_name?: string | null
+          id?: string
+          original_name: string
+          suggested_name?: string | null
+          updated_at?: string
+          user_choice?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          existing_clients?: string[]
+          final_name?: string | null
+          id?: string
+          original_name?: string
+          suggested_name?: string | null
+          updated_at?: string
+          user_choice?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           created_at: string

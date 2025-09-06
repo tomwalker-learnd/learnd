@@ -44,13 +44,15 @@ const nowIso = () => new Date().toISOString();
 export interface LearndAIProps {
   context?: Record<string, unknown>;
   anchor?: "right" | "left";
+  suggestedPrompt?: string;
+  suggestedAction?: AiAction;
 }
 
-export default function LearndAI({ context, anchor = "right" }: LearndAIProps) {
+export default function LearndAI({ context, anchor = "right", suggestedPrompt, suggestedAction }: LearndAIProps) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [action, setAction] = useState<AiAction>("ask");
-  const [prompt, setPrompt] = useState("");
+  const [action, setAction] = useState<AiAction>(suggestedAction || "ask");
+  const [prompt, setPrompt] = useState(suggestedPrompt || "");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [title, setTitle] = useState("");

@@ -64,6 +64,8 @@ import {
   Settings
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AIInsightsBanner } from "@/components/ai/AIInsightsBanner";
+import { EnhancedLearndAI } from "@/components/ai/EnhancedLearndAI";
 
 type BudgetStatus = "under" | "on" | "over";
 type TimelineStatus = "early" | "on-time" | "late";
@@ -112,6 +114,10 @@ export default function Projects() {
   const [viewMode, setViewMode] = useState<"cards" | "table" | "timeline">("cards");
   const [exportingCSV, setExportingCSV] = useState(false);
   const [projectStatusTab, setProjectStatusTab] = useState<"active" | "completed" | "all">("active");
+  
+  // AI Integration state
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiAction, setAiAction] = useState<"ask" | "trend" | "data_pack">("ask");
 
   // Parse filters from URL
   const filtersFromURL = useMemo(() => {
@@ -256,6 +262,12 @@ export default function Projects() {
     } finally {
       setExportingCSV(false);
     }
+  };
+
+  // AI Integration handlers
+  const handleAIPromptSelect = (prompt: string, action: "ask" | "trend" | "data_pack") => {
+    setAiPrompt(prompt);
+    setAiAction(action);
   };
 
   const getBadgeVariant = (status: string | null) => {
@@ -752,6 +764,14 @@ export default function Projects() {
         </Tabs>
       </div>
 
+      {/* AI Insights Banner */}
+      <AIInsightsBanner
+        projectCount={filteredLessons.length}
+        lifecycleFilter={projectStatusTab === 'active' ? ['active'] : projectStatusTab === 'completed' ? ['completed'] : ['active', 'completed', 'on_hold', 'cancelled']}
+        healthFilter={selectedHealthStatus !== 'all' ? [selectedHealthStatus] : []}
+        onPromptSelect={handleAIPromptSelect}
+      />
+
       {/* Smart Filters */}
       <Card className="mb-6">
         <CardHeader>
@@ -1067,6 +1087,15 @@ export default function Projects() {
           )}
         </>
       )}
+
+      {/* Enhanced AI Assistant */}
+      <EnhancedLearndAI 
+        lifecycleContext={projectStatusTab === 'active' ? ['active'] : projectStatusTab === 'completed' ? ['completed'] : ['active', 'completed', 'on_hold', 'cancelled']}
+        healthContext={selectedHealthStatus !== 'all' ? [selectedHealthStatus] : []}
+        projectData={filteredLessons}
+        suggestedPrompt={aiPrompt}
+        suggestedAction={aiAction}
+      />
     </div>
   );
 }

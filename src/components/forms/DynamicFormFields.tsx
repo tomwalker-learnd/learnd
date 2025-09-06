@@ -232,8 +232,26 @@ export function DynamicFormFields({
     }
   };
 
+  const isFieldEditable = (fieldId: string) => {
+    if (!isCompleted) return true;
+    
+    // For completed projects, allow editing of completion-specific fields
+    const completionFields = [
+      'notes',
+      'completion_summary',
+      'lessons_learned',
+      'final_budget_assessment',
+      'final_timeline_assessment',
+      'stakeholder_feedback',
+      'knowledge_transfer_status'
+    ];
+    
+    return completionFields.includes(fieldId);
+  };
+
   const renderField = (field: any) => {
     const value = formData[field.id] || '';
+    const disabled = !isFieldEditable(field.id);
 
     switch (field.type) {
       case 'textarea':
@@ -243,7 +261,7 @@ export function DynamicFormFields({
             onChange={(e) => onFieldChange(field.id, e.target.value)}
             placeholder={field.placeholder}
             rows={field.rows || 3}
-            disabled={isCompleted && field.id !== 'notes'}
+            disabled={disabled}
           />
         );
 
@@ -252,7 +270,7 @@ export function DynamicFormFields({
           <Select 
             value={value} 
             onValueChange={(val) => onFieldChange(field.id, val)}
-            disabled={isCompleted && field.id !== 'notes'}
+            disabled={disabled}
           >
             <SelectTrigger>
               <SelectValue placeholder={field.placeholder} />
@@ -277,7 +295,7 @@ export function DynamicFormFields({
             min={field.min}
             max={field.max}
             step={field.step}
-            disabled={isCompleted && field.id !== 'notes'}
+            disabled={disabled}
           />
         );
 
@@ -287,7 +305,7 @@ export function DynamicFormFields({
             value={value}
             onChange={(e) => onFieldChange(field.id, e.target.value)}
             placeholder={field.placeholder}
-            disabled={isCompleted && field.id !== 'notes'}
+            disabled={disabled}
           />
         );
     }

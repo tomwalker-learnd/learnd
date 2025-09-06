@@ -4,6 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserTier } from "@/hooks/useUserTier";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { AIInsightModal } from "@/components/AIInsightModal";
+import { CountdownTimer } from "@/components/CountdownTimer";
 import { supabase } from "@/integrations/supabase/client";
 import PremiumFeature from "@/components/premium/PremiumFeature";
 import { FeatureBadge, UsageIndicator, FeatureRestriction } from "@/components/premium";
@@ -80,6 +82,8 @@ export default function Overview() {
 
   const [busy, setBusy] = useState(false);
   const [recent, setRecent] = useState<LessonRow[]>([]);
+  const [aiInsightModalOpen, setAiInsightModalOpen] = useState(false);
+  const [showCountdown, setShowCountdown] = useState(false);
   const [kpis, setKpis] = useState({
     // Active projects
     activeTotal: 0,
@@ -97,6 +101,25 @@ export default function Overview() {
     avgSatisfaction: 0,
     satisfactionTrend: 0,
   });
+
+  // Sample KPIs for onboarding mode
+  const sampleKpis = useMemo(() => ({
+    activeTotal: 8,
+    activeHealthy: 4,
+    activeAtRisk: 3,
+    activeCritical: 1,
+    activeBudgetPct: 62,
+    activeTimelinePct: 87,
+    completedQuarter: 7,
+    completedSuccessful: 4,
+    completedUnderperformed: 2,
+    completedMixed: 1,
+    avgSatisfaction: 4.2,
+    satisfactionTrend: 8.5,
+  }), []);
+
+  // Use sample KPIs in onboarding mode
+  const displayKpis = isOnboarding ? sampleKpis : kpis;
 
   useEffect(() => {
     if (!loading && (user || isOnboarding)) {
@@ -275,24 +298,54 @@ export default function Overview() {
 
   // Generate key insights based on data
   const keyInsights = useMemo((): KeyInsight[] => {
-    if (!kpis.activeTotal && !kpis.completedQuarter) return [];
+    const currentKpis = isOnboarding ? sampleKpis : kpis;
+    
+    if (!currentKpis.activeTotal && !currentKpis.completedQuarter && !isOnboarding) return [];
 
     const insights: KeyInsight[] = [];
-    const totalAtRisk = kpis.activeAtRisk + kpis.activeCritical;
+
+    // Sample insights for onboarding mode
+    if (isOnboarding) {
+      insights.push({
+        id: 'onboarding-ai-insight',
+        title: 'Budget Pattern Discovery',
+        description: 'Your tech projects are 40% more likely to go over budget than consulting projects. This pattern emerged in Q3 and correlates with team size.',
+        trend: 'down',
+        severity: 'warning',
+        action: 'View AI Analysis',
+        link: '#',
+        metric: '40% higher risk'
+      });
+      
+      insights.push({
+        id: 'onboarding-timeline-insight',
+        title: 'Strong Timeline Performance',
+        description: '87% of your active projects are on schedule - well above industry average of 65%.',
+        trend: 'up',
+        severity: 'success',
+        action: 'Review Success Factors',
+        link: '/projects?filter=active&timeline=on-time',
+        metric: '87% on-time'
+      });
+
+      return insights;
+    }
+
+    const totalAtRisk = currentKpis.activeAtRisk + currentKpis.activeCritical;
 
     // Active Portfolio Health
     if (totalAtRisk > 0) {
       insights.push({
         id: 'active-portfolio-health',
         title: 'Active Portfolio Health Alert',
-        description: `${totalAtRisk} of ${kpis.activeTotal} active projects need attention`,
+        description: `${totalAtRisk} of ${currentKpis.activeTotal} active projects need attention`,
         trend: 'down',
-        severity: totalAtRisk > kpis.activeTotal * 0.3 ? 'critical' : 'warning',
+        severity: totalAtRisk > currentKpis.activeTotal * 0.3 ? 'critical' : 'warning',
         action: 'Review At-Risk Projects',
         link: '/projects?filter=active&health=at-risk',
-        metric: `${Math.round((totalAtRisk / kpis.activeTotal) * 100)}% at risk`
+        metric: `${Math.round((totalAtRisk / currentKpis.activeTotal) * 100)}% at risk`
       });
-    } else if (kpis.activeTotal > 0) {
+    } else if (currentKpis.activeTotal > 0) {
       insights.push({
         id: 'active-portfolio-health',
         title: 'Active Portfolio Performing Well',
@@ -306,13 +359,13 @@ export default function Overview() {
     }
 
     // Recent Completions Performance
-    if (kpis.completedQuarter > 0) {
-      const underperformanceRate = (kpis.completedUnderperformed / kpis.completedQuarter) * 100;
+    if (currentKpis.completedQuarter > 0) {
+      const underperformanceRate = (currentKpis.completedUnderperformed / currentKpis.completedQuarter) * 100;
       if (underperformanceRate > 30) {
         insights.push({
           id: 'completion-performance',
           title: 'Recent Completions Analysis Needed',
-          description: `${kpis.completedUnderperformed} of ${kpis.completedQuarter} recent completions underperformed`,
+          description: `${currentKpis.completedUnderperformed} of ${currentKpis.completedQuarter} recent completions underperformed`,
           trend: 'down',
           severity: underperformanceRate > 50 ? 'critical' : 'warning',
           action: 'Analyze Underperformed Projects',
@@ -323,60 +376,86 @@ export default function Overview() {
         insights.push({
           id: 'completion-performance',
           title: 'Strong Completion Performance',
-          description: `${kpis.completedSuccessful} of ${kpis.completedQuarter} recent projects were successful`,
+          description: `${currentKpis.completedSuccessful} of ${currentKpis.completedQuarter} recent projects were successful`,
           trend: 'up',
           severity: 'success',
           action: 'Review Success Patterns',
           link: '/projects?filter=completed&health=successful',
-          metric: `${Math.round((kpis.completedSuccessful / kpis.completedQuarter) * 100)}% successful`
+          metric: `${Math.round((currentKpis.completedSuccessful / currentKpis.completedQuarter) * 100)}% successful`
         });
       }
     }
 
     // Satisfaction trend insight
-    if (Math.abs(kpis.satisfactionTrend) > 5) {
+    if (Math.abs(currentKpis.satisfactionTrend) > 5) {
       insights.push({
         id: 'satisfaction-trend',
-        title: `Client Satisfaction ${kpis.satisfactionTrend > 0 ? 'Improving' : 'Declining'}`,
-        description: `${Math.abs(kpis.satisfactionTrend)}% ${kpis.satisfactionTrend > 0 ? 'increase' : 'decrease'} this month`,
-        trend: kpis.satisfactionTrend > 0 ? 'up' : 'down',
-        severity: kpis.satisfactionTrend > 0 ? 'success' : kpis.satisfactionTrend < -10 ? 'critical' : 'warning',
+        title: `Client Satisfaction ${currentKpis.satisfactionTrend > 0 ? 'Improving' : 'Declining'}`,
+        description: `${Math.abs(currentKpis.satisfactionTrend)}% ${currentKpis.satisfactionTrend > 0 ? 'increase' : 'decrease'} this month`,
+        trend: currentKpis.satisfactionTrend > 0 ? 'up' : 'down',
+        severity: currentKpis.satisfactionTrend > 0 ? 'success' : currentKpis.satisfactionTrend < -10 ? 'critical' : 'warning',
         action: 'Analyze Satisfaction Trends',
         link: '/insights?metric=satisfaction',
-        metric: `${kpis.avgSatisfaction}/5 average`
+        metric: `${currentKpis.avgSatisfaction}/5 average`
       });
     }
 
     // Active Budget performance insight
-    if (kpis.activeTotal > 0 && kpis.activeBudgetPct < 70) {
+    if (currentKpis.activeTotal > 0 && currentKpis.activeBudgetPct < 70) {
       insights.push({
         id: 'active-budget-performance',
         title: 'Active Budget Performance Review Needed',
-        description: `Only ${kpis.activeBudgetPct}% of active projects are on budget`,
+        description: `Only ${currentKpis.activeBudgetPct}% of active projects are on budget`,
         trend: 'down',
-        severity: kpis.activeBudgetPct < 50 ? 'critical' : 'warning',
+        severity: currentKpis.activeBudgetPct < 50 ? 'critical' : 'warning',
         action: 'Review Budget Issues',
         link: '/projects?filter=active&budget=over',
-        metric: `${100 - kpis.activeBudgetPct}% over budget`
+        metric: `${100 - currentKpis.activeBudgetPct}% over budget`
       });
     }
 
     // Active Timeline performance insight
-    if (kpis.activeTotal > 0 && kpis.activeTimelinePct < 80) {
+    if (currentKpis.activeTotal > 0 && currentKpis.activeTimelinePct < 80) {
       insights.push({
         id: 'active-timeline-performance',
         title: 'Active Timeline Challenges Detected',
-        description: `${100 - kpis.activeTimelinePct}% of active projects are behind schedule`,
+        description: `${100 - currentKpis.activeTimelinePct}% of active projects are behind schedule`,
         trend: 'down',
-        severity: kpis.activeTimelinePct < 60 ? 'critical' : 'warning',
+        severity: currentKpis.activeTimelinePct < 60 ? 'critical' : 'warning',
         action: 'Address Timeline Issues',
         link: '/projects?filter=active&timeline=late',
-        metric: `${kpis.activeTimelinePct}% on time`
+        metric: `${currentKpis.activeTimelinePct}% on time`
       });
     }
 
     return insights.slice(0, 4); // Limit to 4 insights
-  }, [kpis]);
+  }, [kpis, isOnboarding, sampleKpis]);
+
+  // Handle AI insight interaction for onboarding
+  const handleAIInsightClick = (insightId: string) => {
+    if (isOnboarding && insightId === 'onboarding-ai-insight') {
+      trackInteraction('ai_click', { context: 'overview_ai_insight' });
+      setAiInsightModalOpen(true);
+    } else {
+      // Normal behavior for non-onboarding users
+      const insight = keyInsights.find(i => i.id === insightId);
+      if (insight && insight.link !== '#') {
+        navigate(insight.link);
+      }
+    }
+  };
+
+  const handleAIModalInteractionComplete = () => {
+    if (isOnboarding) {
+      completeStep('overview');
+      setShowCountdown(true);
+      // Auto-advance to projects after 3 seconds
+      setTimeout(() => {
+        setAiInsightModalOpen(false);
+        navigate('/projects?onboarding=true');
+      }, 3000);
+    }
+  };
 
   // Get upgrade opportunity for proactive prompts
   const upgradeOpportunity = getUpgradeOpportunity();
@@ -489,17 +568,21 @@ export default function Overview() {
 
       {/* Key Insights */}
       {keyInsights.length > 0 && (
-        <div className="mb-8">
+        <div className="mb-8" data-onboarding="key-insights">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Brain className="h-5 w-5" />
             Key Business Insights
+            {isOnboarding && <Badge variant="secondary" className="text-xs">AI-Powered</Badge>}
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {keyInsights.map((insight) => (
               <Card 
                 key={insight.id} 
-                className={`cursor-pointer transition-all hover:shadow-md border-l-4 ${getSeverityColor(insight.severity)}`}
-                onClick={() => navigate(insight.link)}
+                className={`cursor-pointer transition-all hover:shadow-md border-l-4 ${getSeverityColor(insight.severity)} ${
+                  isOnboarding && insight.id === 'onboarding-ai-insight' ? 'ring-2 ring-primary/20 shadow-lg' : ''
+                }`}
+                onClick={() => handleAIInsightClick(insight.id)}
+                data-onboarding={insight.id === 'onboarding-ai-insight' ? 'ai-insight-card' : undefined}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -525,6 +608,12 @@ export default function Overview() {
                   <Button variant="ghost" size="sm" className="h-auto p-0 font-medium text-primary">
                     {insight.action} →
                   </Button>
+                  {isOnboarding && insight.id === 'onboarding-ai-insight' && (
+                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                      <Brain className="h-3 w-3" />
+                      Click to explore AI analysis
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -533,35 +622,27 @@ export default function Overview() {
       )}
 
       {/* Smart Metrics */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Performance Metrics</h2>
+      <div className="mb-8" data-onboarding="portfolio-metrics">
+        <h2 className="text-xl font-semibold mb-4">
+          Performance Metrics
+          {isOnboarding && <Badge variant="outline" className="ml-2 text-xs">Sample Portfolio</Badge>}
+        </h2>
         <div className="grid grid-cols-1 gap-6">
           
           {/* Active Projects Section */}
-          <div>
+          <div data-onboarding="active-projects-section">
             <h3 className="text-lg font-medium mb-3 text-blue-600">Active Project Health</h3>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4" data-onboarding="project-kpis">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
                   <Target className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpis.activeTotal}</div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                    {(kpis.activeAtRisk + kpis.activeCritical) > 0 && (
-                      <>
-                        <AlertTriangle className="h-3 w-3 text-amber-500" />
-                        {kpis.activeAtRisk + kpis.activeCritical} at risk
-                      </>
-                    )}
-                    {(kpis.activeAtRisk + kpis.activeCritical) === 0 && kpis.activeTotal > 0 && (
-                      <>
-                        <CheckCircle className="h-3 w-3 text-emerald-500" />
-                        All healthy
-                      </>
-                    )}
-                  </div>
+                  <div className="text-2xl font-bold">{displayKpis.activeTotal}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {isOnboarding ? "8 projects in portfolio" : "Total in progress"}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -876,8 +957,15 @@ export default function Overview() {
               </div>
             )}
           </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
+         </Card>
+       </div>
+
+       {/* AI Insight Modal */}
+       <AIInsightModal
+         isOpen={aiInsightModalOpen}
+         onClose={() => setAiInsightModalOpen(false)}
+         onInteractionComplete={handleAIModalInteractionComplete}
+       />
+     </div>
+   );
+ }

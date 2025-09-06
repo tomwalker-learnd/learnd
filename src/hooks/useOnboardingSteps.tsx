@@ -41,27 +41,25 @@ export const useOnboardingSteps = () => {
   }, [currentStep, isOnboarding]);
 
   const runOverviewSteps = async () => {
-    // Try to find key insights first
-    const insightsFound = await highlightElement('[data-testid="key-insights"], .key-insights, [class*="insight"]', 12);
+    // First highlight the key insights section
+    const insightsFound = await highlightElement('[data-onboarding="key-insights"]', 12);
     
     if (insightsFound) {
       showTooltip({
-        title: "AI-Generated Insights",
-        description: "Learnd automatically analyzes your portfolio and surfaces critical patterns. These insights help you make data-driven decisions.",
-        ctaText: "Explore Pattern",
-        skipText: "Next",
+        title: "Your Portfolio Intelligence Hub",
+        description: "These AI-generated insights analyze your entire portfolio to surface critical patterns and opportunities you might miss.",
+        ctaText: "View AI Insights",
+        skipText: "Skip",
         onCTA: () => {
-          trackInteraction('ai_click', { context: 'overview_insights' });
-          showSuccessTooltip("Great! You've discovered how AI identifies portfolio risks automatically.", () => {
-            setTimeout(() => highlightMetrics(), 500);
-          });
+          // Highlight the specific AI insight card
+          setTimeout(() => highlightAIInsightCard(), 500);
         },
         onSkip: () => {
           hideOverlay();
-          setTimeout(() => highlightMetrics(), 500);
+          setTimeout(() => highlightMetrics(), 1000);
         },
         position: 'bottom',
-        type: 'interactive'
+        type: 'default'
       });
     } else {
       // Fallback: highlight the main KPI cards
@@ -69,21 +67,52 @@ export const useOnboardingSteps = () => {
     }
   };
 
+  const highlightAIInsightCard = async () => {
+    const aiInsightFound = await highlightElement('[data-onboarding="ai-insight-card"]', 12);
+    
+    if (aiInsightFound) {
+      showTooltip({
+        title: "Discover Portfolio Patterns",
+        description: "Click this AI insight to see how machine learning identified a critical budget pattern in your tech projects.",
+        ctaText: "Click to Explore",
+        skipText: "Skip Demo",
+        onCTA: () => {
+          // The actual click will be handled by the card's onClick
+          hideOverlay();
+        },
+        onSkip: () => {
+          hideOverlay();
+          setTimeout(() => highlightMetrics(), 500);
+        },
+        position: 'right',
+        type: 'interactive',
+        requireInteraction: true
+      });
+    } else {
+      // Continue to metrics
+      await highlightMetrics();
+    }
+  };
+
   const highlightMetrics = async () => {
-    const metricsFound = await highlightElement('[data-testid="kpi-cards"], .grid:has([class*="card"]), [class*="metric"]', 8);
+    const metricsFound = await highlightElement('[data-onboarding="project-kpis"]', 8);
     
     if (metricsFound) {
       showTooltip({
-        title: "Portfolio Health Metrics",
-        description: "Get instant visibility into active project health, budget performance, and timeline adherence across your entire portfolio.",
-        ctaText: "View Projects",
+        title: "Portfolio Health at a Glance",
+        description: "These key metrics show your portfolio's health: 3 projects at risk, 4.2/5 client satisfaction, and 87% on-time delivery rate.",
+        ctaText: "Explore Projects",
         onCTA: () => {
+          trackInteraction('completion', { context: 'overview_metrics' });
           hideOverlay();
           nextStep();
         },
         position: 'top',
         type: 'default'
       });
+    } else {
+      // Continue to next step anyway
+      nextStep();
     }
   };
 

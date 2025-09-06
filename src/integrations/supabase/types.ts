@@ -100,6 +100,74 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_fields: {
+        Row: {
+          created_at: string
+          field_name: string
+          field_options: Json | null
+          field_type: string
+          id: string
+          is_required: boolean
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          field_name: string
+          field_options?: Json | null
+          field_type: string
+          id?: string
+          is_required?: boolean
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          field_name?: string
+          field_options?: Json | null
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_fields_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organization_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_templates: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          fields: Json
+          id: string
+          name: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          fields: Json
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       lessons: {
         Row: {
           acceptance_criteria_completeness: number | null
@@ -118,11 +186,13 @@ export type Database = {
           client_responsiveness: number | null
           created_at: string
           created_by: string
+          custom_field_data: Json | null
           discounts_concessions_usd: number | null
           effort_variance_pct: number | null
           expectation_alignment: number | null
           id: string
           industry: string | null
+          industry_data: Json | null
           initial_budget_usd: number | null
           internal_comms_effectiveness: number | null
           notes: string | null
@@ -169,11 +239,13 @@ export type Database = {
           client_responsiveness?: number | null
           created_at?: string
           created_by: string
+          custom_field_data?: Json | null
           discounts_concessions_usd?: number | null
           effort_variance_pct?: number | null
           expectation_alignment?: number | null
           id?: string
           industry?: string | null
+          industry_data?: Json | null
           initial_budget_usd?: number | null
           internal_comms_effectiveness?: number | null
           notes?: string | null
@@ -220,11 +292,13 @@ export type Database = {
           client_responsiveness?: number | null
           created_at?: string
           created_by?: string
+          custom_field_data?: Json | null
           discounts_concessions_usd?: number | null
           effort_variance_pct?: number | null
           expectation_alignment?: number | null
           id?: string
           industry?: string | null
+          industry_data?: Json | null
           initial_budget_usd?: number | null
           internal_comms_effectiveness?: number | null
           notes?: string | null
@@ -253,6 +327,36 @@ export type Database = {
           timeline_status?: string
           tooling_effectiveness?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      organization_settings: {
+        Row: {
+          created_at: string
+          custom_field_limit: number
+          id: string
+          selected_templates: string[] | null
+          subscription_tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_field_limit?: number
+          id?: string
+          selected_templates?: string[] | null
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_field_limit?: number
+          id?: string
+          selected_templates?: string[] | null
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

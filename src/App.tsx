@@ -1,4 +1,5 @@
 // src/App.tsx
+import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import AppHeader from "@/components/AppHeader";

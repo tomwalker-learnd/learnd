@@ -93,6 +93,7 @@ export default function Insights() {
   const [period, setPeriod] = useState<InsightPeriod>("30d");
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [selectedAnalysis, setSelectedAnalysis] = useState<string>('');
+  const [showOnboardingAnalysis, setShowOnboardingAnalysis] = useState(false);
 
   useEffect(() => {
     if (user || isOnboarding) {
@@ -202,6 +203,30 @@ export default function Insights() {
     // Simulate AI-generated insights based on data patterns
     const insights: AIInsight[] = [];
 
+    // Onboarding mode - show pre-populated insights
+    if (isOnboarding) {
+      insights.push({
+        id: 'onboarding-budget-pattern',
+        type: 'pattern',
+        title: 'Budget Performance by Industry',
+        description: 'Marketing projects deliver 15% better ROI but take 20% longer to complete compared to technology projects.',
+        severity: 'medium',
+        action: 'Consider industry-specific estimation models'
+      });
+      
+      insights.push({
+        id: 'onboarding-client-trend',
+        type: 'opportunity',
+        title: 'Client Retention Opportunity',
+        description: 'Clients with 4+ satisfaction score show 85% higher project renewal rates.',
+        severity: 'low',
+        action: 'Focus on satisfaction improvement strategies'
+      });
+
+      setAiInsights(insights);
+      return;
+    }
+
     // Budget trend analysis
     const overBudgetRate = lessons.filter(l => l.budget_status === 'over').length / lessons.length;
     if (overBudgetRate > 0.3) {
@@ -275,6 +300,38 @@ export default function Insights() {
 
   const analytics = useMemo(() => {
     if (!lessons.length) return null;
+
+    // Onboarding mode - show sample analytics with industry breakdown
+    if (isOnboarding) {
+      return {
+        total: 15,
+        avgSatisfaction: "4.2",
+        scopeChangeRate: "18.5",
+        budgetChartData: [
+          { status: "Under", count: 2, percentage: "13.3" },
+          { status: "On", count: 8, percentage: "53.3" },
+          { status: "Over", count: 5, percentage: "33.3" }
+        ],
+        timelineChartData: [
+          { status: "Early", count: 1, percentage: "6.7" },
+          { status: "On-time", count: 9, percentage: "60.0" },
+          { status: "Late", count: 5, percentage: "33.3" }
+        ],
+        satisfactionTrend: [
+          { week: "Week 1", satisfaction: "3.8" },
+          { week: "Week 2", satisfaction: "4.0" },
+          { week: "Week 3", satisfaction: "4.1" },
+          { week: "Week 4", satisfaction: "4.2" },
+          { week: "Week 5", satisfaction: "4.3" },
+          { week: "Week 6", satisfaction: "4.2" }
+        ],
+        industryBreakdown: [
+          { industry: "Marketing", avgROI: 1.15, avgDuration: 1.20, count: 4 },
+          { industry: "Technology", avgROI: 1.00, avgDuration: 1.00, count: 6 },
+          { industry: "Consulting", avgROI: 1.08, avgDuration: 0.95, count: 5 }
+        ]
+      };
+    }
 
     const total = lessons.length;
     const avgSatisfaction = lessons.reduce((sum, l) => sum + (l.satisfaction || 0), 0) / total;
@@ -526,75 +583,98 @@ export default function Insights() {
             </Card>
           )}
 
-          {/* Interactive AI Analysis Tools */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5 text-primary" />
-                Interactive AI Analysis
-              </CardTitle>
-              <CardDescription>
-                Click for instant AI analysis of specific areas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                <Button
-                  variant={selectedAnalysis === 'budget' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setSelectedAnalysis('budget');
-                    trackUsage('ai_analysis_clicked', { type: 'budget' });
-                  }}
-                  className="justify-start"
-                  disabled={!canAccessAdvancedAnalytics()}
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Budget Performance Analysis
-                </Button>
-                <Button
-                  variant={selectedAnalysis === 'satisfaction' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setSelectedAnalysis('satisfaction');
-                    trackUsage('ai_analysis_clicked', { type: 'satisfaction' });
-                  }}
-                  className="justify-start"
-                  disabled={!canAccessAdvancedAnalytics()}
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  Client Satisfaction Trends
-                </Button>
-                <Button
-                  variant={selectedAnalysis === 'timeline' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setSelectedAnalysis('timeline');
-                    trackUsage('ai_analysis_clicked', { type: 'timeline' });
-                  }}
-                  className="justify-start"
-                  disabled={!canAccessAdvancedAnalytics()}
-                >
-                  <Clock className="h-4 w-4 mr-2" />
-                  Timeline Analysis
-                </Button>
-              </div>
-              
-              {selectedAnalysis && (
-                <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Brain className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">AI Analysis Results</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedAnalysis === 'budget' && 
-                      `Budget analysis shows ${analytics.budgetChartData.find(d => d.status === 'On')?.percentage || '0'}% on-budget performance. AI recommends focusing on project estimation accuracy.`}
-                    {selectedAnalysis === 'satisfaction' && 
-                      `Client satisfaction averaging ${analytics.avgSatisfaction}/5. AI identified communication frequency as key success factor.`}
-                    {selectedAnalysis === 'timeline' && 
-                      `Timeline performance shows room for improvement. AI suggests implementing milestone-based tracking.`}
-                  </p>
+            {/* Interactive AI Analysis Tools */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-primary" />
+                  Interactive AI Analysis
+                  {isOnboarding && <Badge variant="secondary" className="text-xs">Demo Ready</Badge>}
+                </CardTitle>
+                <CardDescription>
+                  Click for instant AI analysis of specific areas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4" data-onboarding="preset-analysis">
+                  <Button
+                    variant={selectedAnalysis === 'budget' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setSelectedAnalysis('budget');
+                      if (isOnboarding) {
+                        trackInteraction('ai_click', { context: 'insights_budget_analysis' });
+                        setShowOnboardingAnalysis(true);
+                      } else {
+                        trackUsage('ai_analysis_clicked', { type: 'budget' });
+                      }
+                    }}
+                    className="justify-start"
+                    disabled={!canAccessAdvancedAnalytics() && !isOnboarding}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Budget Performance Analysis
+                  </Button>
+                  <Button
+                    variant={selectedAnalysis === 'satisfaction' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setSelectedAnalysis('satisfaction');
+                      if (isOnboarding) {
+                        trackInteraction('ai_click', { context: 'insights_satisfaction_analysis' });
+                        setShowOnboardingAnalysis(true);
+                      } else {
+                        trackUsage('ai_analysis_clicked', { type: 'satisfaction' });
+                      }
+                    }}
+                    className="justify-start"
+                    disabled={!canAccessAdvancedAnalytics() && !isOnboarding}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Client Satisfaction Trends
+                  </Button>
+                  <Button
+                    variant={selectedAnalysis === 'timeline' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setSelectedAnalysis('timeline');
+                      if (isOnboarding) {
+                        trackInteraction('ai_click', { context: 'insights_timeline_analysis' });
+                        setShowOnboardingAnalysis(true);
+                      } else {
+                        trackUsage('ai_analysis_clicked', { type: 'timeline' });
+                      }
+                    }}
+                    className="justify-start"
+                    disabled={!canAccessAdvancedAnalytics() && !isOnboarding}
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    Timeline Analysis
+                  </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                
+                {selectedAnalysis && (showOnboardingAnalysis || canAccessAdvancedAnalytics()) && (
+                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Brain className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-sm">AI Analysis Results</span>
+                      {isOnboarding && <Badge variant="secondary" className="text-xs">Sample Analysis</Badge>}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedAnalysis === 'budget' && isOnboarding && 
+                        "Marketing projects deliver 15% better ROI but take 20% longer to complete. Consider industry-specific estimation models and timeline adjustments for optimal performance."}
+                      {selectedAnalysis === 'satisfaction' && isOnboarding && 
+                        "Client satisfaction averaging 4.2/5 with marketing clients showing highest scores (4.6/5). Weekly check-ins correlate with 35% higher satisfaction rates."}
+                      {selectedAnalysis === 'timeline' && isOnboarding && 
+                        "60% of projects completed on-time, with consulting projects showing best timeline performance. Implement milestone-based tracking for technology projects."}
+                      {selectedAnalysis === 'budget' && !isOnboarding && 
+                        `Budget analysis shows ${analytics?.budgetChartData.find(d => d.status === 'On')?.percentage || '0'}% on-budget performance. AI recommends focusing on project estimation accuracy.`}
+                      {selectedAnalysis === 'satisfaction' && !isOnboarding && 
+                        `Client satisfaction averaging ${analytics?.avgSatisfaction}/5. AI identified communication frequency as key success factor.`}
+                      {selectedAnalysis === 'timeline' && !isOnboarding && 
+                        "Timeline performance shows room for improvement. AI suggests implementing milestone-based tracking."}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
           {/* Key Metrics with AI Explanations */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

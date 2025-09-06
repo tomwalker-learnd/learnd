@@ -57,6 +57,11 @@ interface OnboardingState extends OnboardingProgress {
   trackInteraction: (type: 'ai_click' | 'completion' | 'page_visit', data?: any) => void;
   resetOnboarding: () => void;
   finishOnboarding: () => void;
+  showCompletionModal: boolean;
+  setShowCompletionModal: (show: boolean) => void;
+  onImportData: () => void;
+  onInviteTeam: () => void;
+  onStartTrial: () => void;
   // Overlay system functions
   highlightElement: (selector: string, padding?: number) => Promise<boolean>;
   showTooltip: (content: TooltipContent) => void;
@@ -101,6 +106,9 @@ export const useOnboarding = (): OnboardingState => {
     target: null,
     tooltip: null
   });
+  
+  // Completion modal state
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   
   // Load progress from localStorage
   const [progress, setProgress] = useState<OnboardingProgress>(() => {
@@ -271,15 +279,77 @@ export const useOnboarding = (): OnboardingState => {
   }, [navigate]);
 
   const finishOnboarding = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setOverlayState({ isVisible: false, target: null, tooltip: null });
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      newParams.delete('onboarding');
-      return newParams;
+    // Mark current step as completed
+    const updatedProgress = {
+      ...progress,
+      completedSteps: [...progress.completedSteps, progress.currentStep].filter((step, index, array) => 
+        array.indexOf(step) === index
+      ),
+      currentStep: 'complete' as OnboardingStep,
+      completedAt: new Date().toISOString()
+    };
+    
+    setProgress(updatedProgress);
+    
+    // Track completion analytics
+    trackInteraction('completion', { 
+      context: 'onboarding_finished',
+      totalSteps: 5, // welcome, overview, projects, insights, reports
+      completedSteps: updatedProgress.completedSteps.length,
+      completionTime: new Date().toISOString()
     });
-    navigate('/');
-  }, [navigate, setSearchParams]);
+    
+    // Show completion modal
+    setShowCompletionModal(true);
+    hideOverlay();
+  }, [progress, trackInteraction]);
+
+  const onImportData = useCallback(() => {
+    // Track conversion event
+    trackInteraction('completion', { 
+      context: 'import_data_selected',
+      conversionType: 'real_usage'
+    });
+    
+    // Clear sample data mode
+    localStorage.setItem('onboarding_completed', 'true');
+    localStorage.setItem('onboarding_converted_to_usage', 'true');
+    
+    // Remove onboarding params
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('onboarding');
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams, trackInteraction]);
+
+  const onInviteTeam = useCallback(() => {
+    // Track collaboration interest
+    trackInteraction('completion', { 
+      context: 'team_invite_selected',
+      conversionType: 'collaboration'
+    });
+    
+    localStorage.setItem('onboarding_completed', 'true');
+    localStorage.setItem('onboarding_interested_in_team', 'true');
+    
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('onboarding');
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams, trackInteraction]);
+
+  const onStartTrial = useCallback(() => {
+    // Track premium interest
+    trackInteraction('completion', { 
+      context: 'premium_trial_selected',
+      conversionType: 'premium_upgrade'
+    });
+    
+    localStorage.setItem('onboarding_completed', 'true');
+    localStorage.setItem('onboarding_interested_in_premium', 'true');
+    
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('onboarding');
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams, trackInteraction]);
 
   // Overlay system functions
   const highlightElement = useCallback(async (selector: string, padding: number = 8): Promise<boolean> => {
@@ -379,7 +449,13 @@ export const useOnboarding = (): OnboardingState => {
     showTooltip,
     hideOverlay,
     overlayState,
-    waitForInteraction
+    waitForInteraction,
+    // Completion flow
+    showCompletionModal,
+    setShowCompletionModal,
+    onImportData,
+    onInviteTeam,
+    onStartTrial
   };
 };
 

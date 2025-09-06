@@ -180,69 +180,49 @@ export const useOnboardingSteps = () => {
   };
 
   const runInsightsSteps = async () => {
-    // Look for AI insights or analytics content
-    const insightsFound = await highlightElement('[data-testid="ai-insights"], [class*="brain"], .insights-section, [class*="chart"]', 12);
+    // Highlight the preset analysis buttons
+    const presetFound = await highlightElement('[data-onboarding="preset-analysis"]', 12);
     
-    if (insightsFound) {
+    if (presetFound) {
       showTooltip({
-        title: "Advanced AI Analytics",
-        description: "Discover patterns invisible to the human eye. AI analyzes trends, predicts risks, and recommends actions.",
+        title: "AI-Powered Analysis Tools",
+        description: "Click 'Budget Performance Analysis' to see how AI identifies patterns like 'Marketing projects deliver 15% better ROI but take 20% longer'.",
         ctaText: "Try Analysis",
-        onCTA: async () => {
-          trackInteraction('ai_click', { context: 'insights_analysis' });
-          await highlightPredictiveMetrics();
-        },
-        position: 'bottom',
-        type: 'interactive'
-      });
-    }
-  };
-
-  const highlightPredictiveMetrics = async () => {
-    // Look for charts, metrics, or analytics
-    const metricsFound = await highlightElement('[data-testid="metrics"], [class*="chart"], .recharts-wrapper, [class*="analytic"]', 8);
-    
-    if (metricsFound) {
-      showTooltip({
-        title: "Predictive Intelligence",
-        description: "These metrics forecast project outcomes and identify optimization opportunities before issues occur.",
-        ctaText: "Explore Reports",
         onCTA: () => {
           hideOverlay();
-          nextStep();
+          // The button click will be handled by the page
         },
-        position: 'top'
+        position: 'bottom',
+        type: 'interactive',
+        requireInteraction: true
       });
     } else {
-      // Continue to reports
-      hideOverlay();
-      setTimeout(() => nextStep(), 1000);
+      nextStep();
     }
   };
 
   const runReportsSteps = async () => {
-    // Look for report-related elements
-    const reportsFound = await highlightElement('[data-testid="reports"], [class*="report"], button:has-text("Report"), button:has-text("Export")', 10);
+    // Highlight the report preview
+    const reportFound = await highlightElement('[data-onboarding="report-preview"]', 12);
     
-    if (reportsFound) {
+    if (reportFound) {
       showTooltip({
-        title: "Professional Reporting",
-        description: "Generate executive summaries, client reports, and portfolio analyses with one click. Impress stakeholders with data-driven insights.",
-        ctaText: "Generate Sample Report",
+        title: "Professional Portfolio Reports",
+        description: "This Q4 Portfolio Health Report shows how Learnd generates executive-ready reports with actionable insights and professional formatting.",
+        ctaText: "Complete Tour",
         onCTA: () => {
-          trackInteraction('completion', { context: 'report_generation' });
+          trackInteraction('completion', { context: 'reports_completed' });
           showSuccessTooltip("Excellent! You've mastered Learnd's portfolio intelligence system. Ready to make smarter project decisions?", () => {
-            nextStep(); // This will go to 'complete'
+            hideOverlay();
+            setTimeout(() => nextStep(), 1000); // This will trigger completion
           });
         },
-        position: 'bottom',
-        type: 'interactive'
+        position: 'right',
+        type: 'default'
       });
     } else {
-      // Complete the tour
-      showSuccessTooltip("Tour completed! You're ready to use Learnd's powerful portfolio intelligence features.", () => {
-        nextStep();
-      });
+      // Complete anyway
+      nextStep();
     }
   };
 

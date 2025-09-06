@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserTier } from "@/hooks/useUserTier";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import { supabase } from "@/integrations/supabase/client";
 import { PremiumFeature, FeatureBadge } from "@/components/premium";
 import { 
@@ -65,6 +66,7 @@ type Lesson = ProjectData;
 export default function Reports() {
   const { user } = useAuth();
   const { canAccessExports } = useUserTier();
+  const { isOnboarding, sampleData, trackInteraction, completeStep } = useOnboarding();
   const { toast } = useToast();
 
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -82,20 +84,33 @@ export default function Reports() {
   const [includeRecommendations, setIncludeRecommendations] = useState(true);
 
   useEffect(() => {
-    if (user) loadData();
+    if (user || isOnboarding) {
+      loadData();
+      if (isOnboarding) {
+        trackInteraction('page_visit', '/reports');
+        completeStep('reports');
+      }
+    }
     
     // Set default date range to last 90 days for better lifecycle analysis
     const today = new Date();
     const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
     setDateTo(today.toISOString().split('T')[0]);
     setDateFrom(ninetyDaysAgo.toISOString().split('T')[0]);
-  }, [user]);
+  }, [user, isOnboarding, trackInteraction, completeStep]);
 
   const loadData = async () => {
-    if (!user) return;
+    if (!user && !isOnboarding) return;
     
     try {
       setLoading(true);
+      
+      // Use sample data in onboarding mode
+      if (isOnboarding) {
+        setLessons(sampleData.projects as unknown as Lesson[]);
+        setLoading(false);
+        return;
+      }
       
       const { data, error } = await supabase
         .from("lessons")
@@ -275,9 +290,13 @@ export default function Reports() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Lifecycle-Aware Reports</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Lifecycle-Aware Reports
+          {isOnboarding && <Badge variant="secondary" className="ml-2">Demo Mode</Badge>}
+        </h1>
         <p className="text-muted-foreground">
           Generate professional reports tailored to different project lifecycle stages and stakeholder needs.
+          {isOnboarding && " (showing sample portfolio report)"}
         </p>
         <div className="mt-3 flex gap-2">
           <Button variant="outline" onClick={loadData} disabled={loading}>
@@ -304,6 +323,72 @@ export default function Reports() {
         </Card>
       ) : (
         <div className="space-y-6">
+          {/* Q4 Portfolio Health Report Preview for Onboarding */}
+          {isOnboarding && (
+            <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent" data-onboarding="report-preview">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Q4 Portfolio Health Report
+                  <Badge variant="secondary" className="text-xs">Live Preview</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Professional report showing your portfolio's performance with executive summary
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-white rounded-lg border">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">8</div>
+                    <div className="text-xs text-muted-foreground">Active Projects</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">7</div>
+                    <div className="text-xs text-muted-foreground">Completed This Quarter</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-amber-600">3</div>
+                    <div className="text-xs text-muted-foreground">At Risk</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">4.2/5</div>
+                    <div className="text-xs text-muted-foreground">Avg Satisfaction</div>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-slate-50 rounded-lg">
+                  <h4 className="font-semibold mb-2">Executive Summary</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Q4 portfolio performance shows strong momentum with 87% on-time delivery rate. 
+                    Three projects require immediate attention due to budget variances. Technology 
+                    projects consistently outperform timeline estimates while marketing initiatives 
+                    deliver superior client satisfaction scores.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Professional formatting ready for stakeholders</p>
+                    <p className="text-xs text-muted-foreground">
+                      Includes charts, risk analysis, and recommendations
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled className="gap-1">
+                      <Share2 className="h-3 w-3" />
+                      Share with Team
+                      <Badge variant="secondary" className="text-xs ml-1">Premium</Badge>
+                    </Button>
+                    <Button variant="outline" size="sm" disabled className="gap-1">
+                      <Download className="h-3 w-3" />
+                      Export PDF
+                      <Badge variant="secondary" className="text-xs ml-1">Premium</Badge>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {/* Template Recommendations */}
           {getTemplateRecommendations().length > 0 && (
             <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">

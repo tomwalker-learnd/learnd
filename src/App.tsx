@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import AppHeader from "@/components/AppHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { OnboardingCompletionModal } from "@/components/OnboardingCompletionModal";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
 import { OnboardingProgress } from "@/components/OnboardingProgress";
 import { OnboardingOverlay } from "@/components/OnboardingOverlay";
@@ -45,7 +46,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function Shell() {
   const location = useLocation();
   const { user, loading } = useAuth();
-  const { isOnboarding, overlayState, hideOverlay } = useOnboarding();
+  const { isOnboarding, overlayState, hideOverlay, showCompletionModal, setShowCompletionModal, onImportData, onInviteTeam, onStartTrial } = useOnboarding();
   const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
 
   // Initialize onboarding steps logic
@@ -197,8 +198,16 @@ function Shell() {
         </div>
       )}
 
-      {/* Dev Role Switcher (hidden on auth screens) - REMOVE BEFORE PRODUCTION */}
-      {!isAuthScreen && !showWelcomeScreen && <RoleSwitcher />}
+      {/* Onboarding Completion Modal */}
+      {isOnboarding && (
+        <OnboardingCompletionModal
+          isOpen={showCompletionModal}
+          onClose={() => setShowCompletionModal(false)}
+          onImportData={onImportData}
+          onInviteTeam={onInviteTeam}
+          onStartTrial={onStartTrial}
+        />
+      )}
     </>
   );
 }

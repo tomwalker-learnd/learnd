@@ -5,6 +5,13 @@ import { useUserTier } from "@/hooks/useUserTier";
 import { supabase } from "@/integrations/supabase/client";
 import PremiumFeature from "@/components/premium/PremiumFeature";
 import { FeatureBadge } from "@/components/premium";
+import { 
+  getActiveProjectHealthDistribution, 
+  getCompletedProjectHealthDistribution,
+  isActiveProject,
+  isCompletedProject,
+  type ProjectWithStatus 
+} from "@/lib/statusUtils";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,10 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { 
   RefreshCw, 
   TrendingUp, 
@@ -30,7 +34,6 @@ import {
   Clock,
   DollarSign,
   ArrowUpRight,
-  ArrowDownRight,
   Activity,
   FileText,
   Brain,
@@ -50,6 +53,7 @@ type LessonRow = {
   satisfaction: number | null;
   budget_status: BudgetStatus | null;
   timeline_status: TimelineStatus | null;
+  project_status?: 'active' | 'on_hold' | 'completed' | 'cancelled';
   notes?: string | null;
 };
 
@@ -73,13 +77,21 @@ export default function Overview() {
   const [busy, setBusy] = useState(false);
   const [recent, setRecent] = useState<LessonRow[]>([]);
   const [kpis, setKpis] = useState({
-    total: 0,
+    // Active projects
+    activeTotal: 0,
+    activeHealthy: 0,
+    activeAtRisk: 0,
+    activeCritical: 0,
+    activeBudgetPct: 0,
+    activeTimelinePct: 0,
+    // Completed projects
+    completedQuarter: 0,
+    completedSuccessful: 0,
+    completedUnderperformed: 0,
+    completedMixed: 0,
+    // Overall metrics
     avgSatisfaction: 0,
-    onBudgetPct: 0,
-    onTimePct: 0,
-    atRiskCount: 0,
-    satisfactionTrend: 0, // Change from last period
-    budgetTrend: 0,
+    satisfactionTrend: 0,
   });
 
   useEffect(() => {
@@ -90,7 +102,7 @@ export default function Overview() {
     try {
       setBusy(true);
 
-      // KPIs
+      // KPIs (defaulting to active status for now)
       const { data: lessons, error } = await supabase
         .from("lessons")
         .select("id, satisfaction, budget_status, timeline_status, created_at")
@@ -99,23 +111,37 @@ export default function Overview() {
 
       if (error) throw error;
 
-      const total = lessons?.length ?? 0;
-      const avgSatisfaction =
-        total > 0
-          ? (lessons!.reduce((s, r: any) => s + (Number(r.satisfaction) || 0), 0) / total)
-          : 0;
+      const projects = (lessons || []).map(lesson => ({
+        ...lesson,
+        project_status: 'active' as const
+      })) as ProjectWithStatus[];
+      
+      // Separate active and completed projects
+      const activeProjects = projects.filter(p => isActiveProject(p.project_status || 'active'));
+      const completedProjects = projects.filter(p => isCompletedProject(p.project_status || 'active'));
+      
+      // Get health distributions
+      const activeHealth = getActiveProjectHealthDistribution(activeProjects);
+      const completedHealth = getCompletedProjectHealthDistribution(completedProjects);
+      
+      // Calculate active project budget/timeline health
+      const activeOnBudget = activeProjects.filter(p => p.budget_status === "on").length;
+      const activeOnTime = activeProjects.filter(p => 
+        p.timeline_status === "on-time" || p.timeline_status === "early"
+      ).length;
+      
+      // Get completed projects from last quarter (90 days)
+      const quarterAgo = new Date();
+      quarterAgo.setDate(quarterAgo.getDate() - 90);
+      const quarterCompleted = completedProjects.filter(p => 
+        new Date(p.created_at || '') > quarterAgo
+      );
 
-      const onBudget = lessons?.filter((l: any) => l.budget_status === "on").length ?? 0;
-      const onTime = lessons?.filter((l: any) => 
-        l.timeline_status === "on-time" || l.timeline_status === "early"
-      ).length ?? 0;
-
-      // Calculate at-risk projects (low satisfaction OR over budget OR late)
-      const atRisk = lessons?.filter((l: any) => 
-        (l.satisfaction && l.satisfaction < 3) || 
-        l.budget_status === "over" || 
-        l.timeline_status === "late"
-      ).length ?? 0;
+      // Overall satisfaction (all projects)
+      const totalProjects = projects.length;
+      const avgSatisfaction = totalProjects > 0
+        ? projects.reduce((s, p) => s + (Number(p.satisfaction) || 0), 0) / totalProjects
+        : 0;
 
       // Calculate trends (last 30 days vs previous 30 days)
       const thirtyDaysAgo = new Date();
@@ -123,33 +149,41 @@ export default function Overview() {
       const sixtyDaysAgo = new Date();
       sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-      const recentLessons = lessons?.filter((l: any) => 
-        new Date(l.created_at) > thirtyDaysAgo
-      ) || [];
-      const previousLessons = lessons?.filter((l: any) => 
-        new Date(l.created_at) > sixtyDaysAgo && new Date(l.created_at) <= thirtyDaysAgo
-      ) || [];
+      const recentLessons = projects.filter(p => 
+        new Date(p.created_at || '') > thirtyDaysAgo
+      );
+      const previousLessons = projects.filter(p => 
+        new Date(p.created_at || '') > sixtyDaysAgo && new Date(p.created_at || '') <= thirtyDaysAgo
+      );
 
       const recentAvgSat = recentLessons.length > 0 
-        ? recentLessons.reduce((s, r: any) => s + (Number(r.satisfaction) || 0), 0) / recentLessons.length
+        ? recentLessons.reduce((s, p) => s + (Number(p.satisfaction) || 0), 0) / recentLessons.length
         : 0;
       const prevAvgSat = previousLessons.length > 0
-        ? previousLessons.reduce((s, r: any) => s + (Number(r.satisfaction) || 0), 0) / previousLessons.length
+        ? previousLessons.reduce((s, p) => s + (Number(p.satisfaction) || 0), 0) / previousLessons.length
         : 0;
 
       const satisfactionTrend = prevAvgSat > 0 ? ((recentAvgSat - prevAvgSat) / prevAvgSat) * 100 : 0;
 
       setKpis({
-        total,
+        // Active projects
+        activeTotal: activeProjects.length,
+        activeHealthy: activeHealth.healthy,
+        activeAtRisk: activeHealth['at-risk'],
+        activeCritical: activeHealth.critical,
+        activeBudgetPct: activeProjects.length ? Math.round((activeOnBudget / activeProjects.length) * 100) : 0,
+        activeTimelinePct: activeProjects.length ? Math.round((activeOnTime / activeProjects.length) * 100) : 0,
+        // Completed projects
+        completedQuarter: quarterCompleted.length,
+        completedSuccessful: completedHealth.successful,
+        completedUnderperformed: completedHealth.underperformed,
+        completedMixed: completedHealth.mixed,
+        // Overall metrics
         avgSatisfaction: Number(avgSatisfaction.toFixed(2)),
-        onBudgetPct: total ? Math.round((onBudget / total) * 100) : 0,
-        onTimePct: total ? Math.round((onTime / total) * 100) : 0,
-        atRiskCount: atRisk,
         satisfactionTrend: Number(satisfactionTrend.toFixed(1)),
-        budgetTrend: 0, // Could calculate similar to satisfaction
       });
 
-      // Recent lessons
+      // Recent lessons (defaulting to active status)
       const { data: recentRows, error: rErr } = await supabase
         .from("lessons")
         .select("id, project_name, client_name, created_at, satisfaction, budget_status, timeline_status, notes")
@@ -172,33 +206,62 @@ export default function Overview() {
 
   // Generate key insights based on data
   const keyInsights = useMemo((): KeyInsight[] => {
-    if (!kpis.total) return [];
+    if (!kpis.activeTotal && !kpis.completedQuarter) return [];
 
     const insights: KeyInsight[] = [];
+    const totalAtRisk = kpis.activeAtRisk + kpis.activeCritical;
 
-    // Portfolio health insight
-    if (kpis.atRiskCount > 0) {
+    // Active Portfolio Health
+    if (totalAtRisk > 0) {
       insights.push({
-        id: 'portfolio-health',
-        title: 'Portfolio Health Alert',
-        description: `${kpis.atRiskCount} of ${kpis.total} projects need attention`,
+        id: 'active-portfolio-health',
+        title: 'Active Portfolio Health Alert',
+        description: `${totalAtRisk} of ${kpis.activeTotal} active projects need attention`,
         trend: 'down',
-        severity: kpis.atRiskCount > kpis.total * 0.3 ? 'critical' : 'warning',
+        severity: totalAtRisk > kpis.activeTotal * 0.3 ? 'critical' : 'warning',
         action: 'Review At-Risk Projects',
-        link: '/projects?filter=at-risk',
-        metric: `${Math.round((kpis.atRiskCount / kpis.total) * 100)}% at risk`
+        link: '/projects?filter=active&health=at-risk',
+        metric: `${Math.round((totalAtRisk / kpis.activeTotal) * 100)}% at risk`
       });
-    } else {
+    } else if (kpis.activeTotal > 0) {
       insights.push({
-        id: 'portfolio-health',
-        title: 'Portfolio Performing Well',
-        description: 'All projects are on track with healthy metrics',
+        id: 'active-portfolio-health',
+        title: 'Active Portfolio Performing Well',
+        description: 'All active projects are on track with healthy metrics',
         trend: 'up',
         severity: 'success',
-        action: 'View Portfolio',
-        link: '/projects',
+        action: 'View Active Portfolio',
+        link: '/projects?filter=active',
         metric: '0% at risk'
       });
+    }
+
+    // Recent Completions Performance
+    if (kpis.completedQuarter > 0) {
+      const underperformanceRate = (kpis.completedUnderperformed / kpis.completedQuarter) * 100;
+      if (underperformanceRate > 30) {
+        insights.push({
+          id: 'completion-performance',
+          title: 'Recent Completions Analysis Needed',
+          description: `${kpis.completedUnderperformed} of ${kpis.completedQuarter} recent completions underperformed`,
+          trend: 'down',
+          severity: underperformanceRate > 50 ? 'critical' : 'warning',
+          action: 'Analyze Underperformed Projects',
+          link: '/projects?filter=completed&health=underperformed',
+          metric: `${Math.round(underperformanceRate)}% underperformed`
+        });
+      } else {
+        insights.push({
+          id: 'completion-performance',
+          title: 'Strong Completion Performance',
+          description: `${kpis.completedSuccessful} of ${kpis.completedQuarter} recent projects were successful`,
+          trend: 'up',
+          severity: 'success',
+          action: 'Review Success Patterns',
+          link: '/projects?filter=completed&health=successful',
+          metric: `${Math.round((kpis.completedSuccessful / kpis.completedQuarter) * 100)}% successful`
+        });
+      }
     }
 
     // Satisfaction trend insight
@@ -215,31 +278,31 @@ export default function Overview() {
       });
     }
 
-    // Budget performance insight
-    if (kpis.onBudgetPct < 70) {
+    // Active Budget performance insight
+    if (kpis.activeTotal > 0 && kpis.activeBudgetPct < 70) {
       insights.push({
-        id: 'budget-performance',
-        title: 'Budget Performance Needs Review',
-        description: `Only ${kpis.onBudgetPct}% of projects are on budget`,
+        id: 'active-budget-performance',
+        title: 'Active Budget Performance Review Needed',
+        description: `Only ${kpis.activeBudgetPct}% of active projects are on budget`,
         trend: 'down',
-        severity: kpis.onBudgetPct < 50 ? 'critical' : 'warning',
+        severity: kpis.activeBudgetPct < 50 ? 'critical' : 'warning',
         action: 'Review Budget Issues',
-        link: '/projects?filter=over-budget',
-        metric: `${100 - kpis.onBudgetPct}% over budget`
+        link: '/projects?filter=active&budget=over',
+        metric: `${100 - kpis.activeBudgetPct}% over budget`
       });
     }
 
-    // Timeline performance insight
-    if (kpis.onTimePct < 80) {
+    // Active Timeline performance insight
+    if (kpis.activeTotal > 0 && kpis.activeTimelinePct < 80) {
       insights.push({
-        id: 'timeline-performance',
-        title: 'Timeline Challenges Detected',
-        description: `${100 - kpis.onTimePct}% of projects are behind schedule`,
+        id: 'active-timeline-performance',
+        title: 'Active Timeline Challenges Detected',
+        description: `${100 - kpis.activeTimelinePct}% of active projects are behind schedule`,
         trend: 'down',
-        severity: kpis.onTimePct < 60 ? 'critical' : 'warning',
+        severity: kpis.activeTimelinePct < 60 ? 'critical' : 'warning',
         action: 'Address Timeline Issues',
-        link: '/projects?filter=late',
-        metric: `${kpis.onTimePct}% on time`
+        link: '/projects?filter=active&timeline=late',
+        metric: `${kpis.activeTimelinePct}% on time`
       });
     }
 
@@ -339,8 +402,8 @@ export default function Overview() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {insight.trend === 'up' && <ArrowUpRight className="h-4 w-4 text-emerald-600" />}
-                      {insight.trend === 'down' && <ArrowDownRight className="h-4 w-4 text-rose-600" />}
+                      {insight.trend === 'up' && <TrendingUp className="h-4 w-4 text-emerald-600" />}
+                      {insight.trend === 'down' && <TrendingDown className="h-4 w-4 text-rose-600" />}
                       <Badge variant="outline" className="text-xs">
                         {insight.metric}
                       </Badge>
@@ -361,291 +424,328 @@ export default function Overview() {
       {/* Smart Metrics */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4">Performance Metrics</h2>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
-              <Target className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{kpis.total}</div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                {kpis.atRiskCount > 0 && (
-                  <>
-                    <AlertTriangle className="h-3 w-3 text-amber-500" />
-                    {kpis.atRiskCount} at risk
-                  </>
-                )}
-                {kpis.atRiskCount === 0 && kpis.total > 0 && (
-                  <>
-                    <CheckCircle className="h-3 w-3 text-emerald-500" />
-                    All healthy
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Satisfaction</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{kpis.avgSatisfaction}/5</div>
-              <div className="flex items-center gap-1 text-xs mt-1">
-                {kpis.satisfactionTrend !== 0 && (
-                  <>
-                    {kpis.satisfactionTrend > 0 ? (
-                      <TrendingUp className="h-3 w-3 text-emerald-500" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3 text-rose-500" />
-                    )}
-                    <span className={kpis.satisfactionTrend > 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                      {Math.abs(kpis.satisfactionTrend)}% this month
-                    </span>
-                  </>
-                )}
-                {kpis.satisfactionTrend === 0 && (
-                  <span className="text-muted-foreground">Industry avg: 3.8</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 gap-6">
           
-          <PremiumFeature requiredTier="team" fallback={
-            <Card className="opacity-60">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  Budget Health
-                  <FeatureBadge tier="team" />
-                </CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-muted-foreground">—</div>
-                <div className="text-xs text-muted-foreground mt-1">Upgrade to view</div>
-              </CardContent>
-            </Card>
-          }>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Budget Health</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{kpis.onBudgetPct}%</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {kpis.onBudgetPct > 75 ? 'Excellent control' : 
-                   kpis.onBudgetPct > 60 ? 'Good performance' : 'Needs attention'}
-                </div>
-              </CardContent>
-            </Card>
-          </PremiumFeature>
+          {/* Active Projects Section */}
+          <div>
+            <h3 className="text-lg font-medium mb-3 text-blue-600">Active Project Health</h3>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{kpis.activeTotal}</div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                    {(kpis.activeAtRisk + kpis.activeCritical) > 0 && (
+                      <>
+                        <AlertTriangle className="h-3 w-3 text-amber-500" />
+                        {kpis.activeAtRisk + kpis.activeCritical} at risk
+                      </>
+                    )}
+                    {(kpis.activeAtRisk + kpis.activeCritical) === 0 && kpis.activeTotal > 0 && (
+                      <>
+                        <CheckCircle className="h-3 w-3 text-emerald-500" />
+                        All healthy
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-          <PremiumFeature requiredTier="team" fallback={
-            <Card className="opacity-60">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  Timeline Health
-                  <FeatureBadge tier="team" />
-                </CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-muted-foreground">—</div>
-                <div className="text-xs text-muted-foreground mt-1">Upgrade to view</div>
-              </CardContent>
-            </Card>
-          }>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Timeline Health</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{kpis.onTimePct}%</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {kpis.onTimePct > 80 ? 'On track' : 
-                   kpis.onTimePct > 60 ? 'Some delays' : 'Review needed'}
-                </div>
-              </CardContent>
-            </Card>
-          </PremiumFeature>
+              <PremiumFeature requiredTier="team" fallback={
+                <Card className="opacity-60">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      Budget Health (Active)
+                      <FeatureBadge tier="team" />
+                    </CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-muted-foreground">—</div>
+                    <div className="text-xs text-muted-foreground mt-1">Upgrade to view</div>
+                  </CardContent>
+                </Card>
+              }>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Budget Health (Active)</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{kpis.activeBudgetPct}%</div>
+                    <div className="text-xs text-muted-foreground mt-1">on track</div>
+                  </CardContent>
+                </Card>
+              </PremiumFeature>
+
+              <PremiumFeature requiredTier="team" fallback={
+                <Card className="opacity-60">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      Timeline Health (Active)
+                      <FeatureBadge tier="team" />
+                    </CardTitle>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-muted-foreground">—</div>
+                    <div className="text-xs text-muted-foreground mt-1">Upgrade to view</div>
+                  </CardContent>
+                </Card>
+              }>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Timeline Health (Active)</CardTitle>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{kpis.activeTimelinePct}%</div>
+                    <div className="text-xs text-muted-foreground mt-1">on schedule</div>
+                  </CardContent>
+                </Card>
+              </PremiumFeature>
+            </div>
+          </div>
+
+          {/* Completed Projects Section */}
+          <div>
+            <h3 className="text-lg font-medium mb-3 text-emerald-600">Completed Project Performance</h3>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Completed This Quarter</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{kpis.completedQuarter}</div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                    {kpis.completedSuccessful > 0 && (
+                      <>
+                        <CheckCircle className="h-3 w-3 text-emerald-500" />
+                        {kpis.completedSuccessful} successful
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Overall Satisfaction */}
+          <div>
+            <h3 className="text-lg font-medium mb-3 text-purple-600">Overall Performance</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Client Satisfaction</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{kpis.avgSatisfaction}/5</div>
+                  <div className="flex items-center gap-1 text-xs mt-1">
+                    {kpis.satisfactionTrend !== 0 && (
+                      <>
+                        {kpis.satisfactionTrend > 0 ? (
+                          <TrendingUp className="h-3 w-3 text-emerald-500" />
+                        ) : (
+                          <TrendingDown className="h-3 w-3 text-rose-500" />
+                        )}
+                        <span className={kpis.satisfactionTrend > 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                          {Math.abs(kpis.satisfactionTrend)}% this month
+                        </span>
+                      </>
+                    )}
+                    {kpis.satisfactionTrend === 0 && (
+                      <span className="text-muted-foreground">Industry avg: 3.8</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Quick Actions */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Button 
             variant="outline" 
+            onClick={() => navigate("/projects?filter=active&health=at-risk")}
             className="h-auto p-4 flex flex-col items-start gap-2"
-            onClick={() => navigate('/projects?filter=at-risk')}
-            disabled={kpis.atRiskCount === 0}
           >
             <div className="flex items-center gap-2 w-full">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="font-medium">Review At-Risk</span>
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <span className="font-medium">Review At-Risk Projects</span>
             </div>
             <span className="text-xs text-muted-foreground text-left">
-              {kpis.atRiskCount} projects need attention
+              Intervene on active projects needing attention
             </span>
           </Button>
 
-          <PremiumFeature requiredTier="business" fallback={
+          <Button 
+            variant="outline" 
+            onClick={() => navigate("/projects?filter=completed&health=underperformed")}
+            className="h-auto p-4 flex flex-col items-start gap-2"
+          >
+            <div className="flex items-center gap-2 w-full">
+              <BarChart3 className="h-4 w-4 text-orange-500" />
+              <span className="font-medium">Analyze Completion Trends</span>
+            </div>
+            <span className="text-xs text-muted-foreground text-left">
+              Learn from completed project patterns
+            </span>
+          </Button>
+
+          <Button 
+            variant="outline" 
+            onClick={() => navigate("/reports")}
+            className="h-auto p-4 flex flex-col items-start gap-2"
+          >
+            <div className="flex items-center gap-2 w-full">
+              <FileText className="h-4 w-4 text-blue-500" />
+              <span className="font-medium">Executive Report</span>
+            </div>
+            <span className="text-xs text-muted-foreground text-left">
+              Combined active status & completion learnings
+            </span>
+          </Button>
+
+          <PremiumFeature requiredTier="team" fallback={
             <Button 
               variant="outline" 
-              className="h-auto p-4 flex flex-col items-start gap-2 opacity-60"
               disabled
+              className="h-auto p-4 flex flex-col items-start gap-2 opacity-60"
             >
               <div className="flex items-center gap-2 w-full">
-                <FileText className="h-4 w-4" />
-                <span className="font-medium">Executive Report</span>
-                <FeatureBadge tier="business" />
+                <Brain className="h-4 w-4 text-purple-500" />
+                <span className="font-medium flex items-center gap-1">
+                  AI Analysis
+                  <FeatureBadge tier="team" />
+                </span>
               </div>
               <span className="text-xs text-muted-foreground text-left">
-                Generate stakeholder reports
+                Context-aware insights based on project mix
               </span>
             </Button>
           }>
             <Button 
               variant="outline" 
+              onClick={() => navigate("/insights?ai=true")}
               className="h-auto p-4 flex flex-col items-start gap-2"
-              onClick={() => navigate('/reports?template=executive')}
             >
               <div className="flex items-center gap-2 w-full">
-                <FileText className="h-4 w-4" />
-                <span className="font-medium">Executive Report</span>
-              </div>
-              <span className="text-xs text-muted-foreground text-left">
-                Generate stakeholder reports
-              </span>
-            </Button>
-          </PremiumFeature>
-
-          <PremiumFeature requiredTier="enterprise" fallback={
-            <Button 
-              variant="outline" 
-              className="h-auto p-4 flex flex-col items-start gap-2 opacity-60"
-              disabled
-            >
-              <div className="flex items-center gap-2 w-full">
-                <Brain className="h-4 w-4" />
-                <span className="font-medium">AI Analysis</span>
-                <FeatureBadge tier="enterprise" />
-              </div>
-              <span className="text-xs text-muted-foreground text-left">
-                Get intelligent insights
-              </span>
-            </Button>
-          }>
-            <Button 
-              variant="outline" 
-              className="h-auto p-4 flex flex-col items-start gap-2"
-              onClick={() => navigate('/insights?ai=true')}
-            >
-              <div className="flex items-center gap-2 w-full">
-                <Brain className="h-4 w-4" />
+                <Brain className="h-4 w-4 text-purple-500" />
                 <span className="font-medium">AI Analysis</span>
               </div>
               <span className="text-xs text-muted-foreground text-left">
-                Get intelligent insights
+                Context-aware insights based on project mix
               </span>
             </Button>
           </PremiumFeature>
-
-          <Button 
-            variant="outline" 
-            className="h-auto p-4 flex flex-col items-start gap-2"
-            onClick={() => navigate('/project-wizard')}
-          >
-            <div className="flex items-center gap-2 w-full">
-              <Plus className="h-4 w-4" />
-              <span className="font-medium">Add Project</span>
-            </div>
-            <span className="text-xs text-muted-foreground text-left">
-              Quick lesson entry
-            </span>
-          </Button>
         </div>
       </div>
 
       {/* Recent Activity */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Recent Activity
-          </h2>
-          <Button variant="outline" onClick={() => navigate("/projects")}>
-            View All Projects
-          </Button>
-        </div>
-
-        {recent.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <div className="space-y-3">
-                <Target className="h-12 w-12 text-muted-foreground mx-auto" />
-                <div>
-                  <h3 className="font-medium">No project data yet</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Start by adding your first project to see insights here.
-                  </p>
-                </div>
-                <Button onClick={() => navigate("/project-wizard")}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add First Project
-                </Button>
+        <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Latest Project Updates</CardTitle>
+            <CardDescription>
+              Mix of active project updates and recent completions with context
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {recent.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No recent activity</p>
+                <p className="text-sm">Add your first project update to get started</p>
               </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {recent.map((r, index) => (
-              <Card key={r.id} className="cursor-pointer hover:shadow-md transition-all">
-                <CardContent className="py-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="font-medium text-base">{r.project_name || "Untitled Project"}</div>
-                        {index === 0 && <Badge variant="secondary" className="text-xs">Latest</Badge>}
+            ) : (
+              <div className="space-y-4">
+                {recent.map((item) => {
+                  const projectStatus = item.project_status || 'active';
+                  const isActive = isActiveProject(projectStatus);
+                  const statusColor = isActive ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800';
+                  const actionPrompt = isActive ? 'Review progress →' : 'Analyze completion →';
+                  
+                  return (
+                    <div 
+                      key={item.id} 
+                      className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/projects?highlight=${item.id}`)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm truncate">
+                            {item.project_name || "Untitled Project"}
+                          </span>
+                          <Badge variant="outline" className={`text-xs ${statusColor} border-current`}>
+                            {projectStatus.replace('_', ' ')}
+                          </Badge>
+                          {item.client_name && (
+                            <>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="text-sm text-muted-foreground truncate">
+                                {item.client_name}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          {item.satisfaction && (
+                            <Badge variant="outline" className="text-xs">
+                              {item.satisfaction}/5 satisfaction
+                            </Badge>
+                          )}
+                          {item.budget_status && (
+                            <Badge variant="outline" className={`text-xs ${badgeTone(item.budget_status)}`}>
+                              {item.budget_status} budget
+                            </Badge>
+                          )}
+                          {item.timeline_status && (
+                            <Badge variant="outline" className={`text-xs ${badgeTone(item.timeline_status)}`}>
+                              {item.timeline_status} timeline
+                            </Badge>
+                          )}
+                        </div>
+                        {item.notes && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {item.notes}
+                          </p>
+                        )}
                       </div>
-                      
-                      {r.client_name && (
-                        <div className="text-sm text-muted-foreground mb-2">{r.client_name}</div>
-                      )}
-                      
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="outline" className={badgeTone(r.budget_status)}>
-                          Budget: {r.budget_status ?? "—"}
-                        </Badge>
-                        <Badge variant="outline" className={badgeTone(r.timeline_status)}>
-                          Timeline: {r.timeline_status ?? "—"}
-                        </Badge>
-                        <Badge variant="outline">
-                          Satisfaction: {r.satisfaction ?? "—"}
-                        </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-xs text-muted-foreground">
+                          {fmtDate(item.created_at)}
+                        </span>
+                        <span className="text-xs font-medium text-primary">
+                          {actionPrompt}
+                        </span>
                       </div>
-                      
-                      {r.notes && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {r.notes}
-                        </p>
-                      )}
                     </div>
-                    
-                    <div className="text-xs text-muted-foreground ml-4">
-                      {fmtDate(r.date)}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                  );
+                })}
+                
+                <div className="pt-4 border-t">
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => navigate("/projects")}
+                    className="w-full"
+                  >
+                    View All Projects →
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

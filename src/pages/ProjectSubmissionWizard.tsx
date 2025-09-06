@@ -30,6 +30,16 @@ interface CustomField {
   description?: string;
 }
 
+interface FieldGroup {
+  id: string;
+  title: string; 
+  description: string;
+  fieldCount: number;
+  enabled: boolean;
+  canToggle: boolean;
+  template?: string;
+}
+
 const ProjectSubmissionWizard = () => {
   const { user, loading } = useAuth();
   const { tier, canAccessCustomDashboards } = useUserTier();
@@ -282,10 +292,8 @@ const ProjectSubmissionWizard = () => {
     setEnabledGroups(newEnabledGroups);
   };
 
-  const getFieldGroups = () => {
-    console.log('Getting field groups - selectedTemplates:', selectedTemplates, 'customFields:', customFields.length);
-    
-    const groups = [
+  const getFieldGroups = (): FieldGroup[] => {
+    const groups: FieldGroup[] = [
       {
         id: 'core',
         title: 'Core Project Information',
@@ -303,7 +311,8 @@ const ProjectSubmissionWizard = () => {
         description: `Industry-specific fields for ${template}`,
         fieldCount: 5, // This would be dynamic based on actual template
         enabled: enabledGroups.has(template),
-        canToggle: true
+        canToggle: true,
+        template: template
       });
     });
 

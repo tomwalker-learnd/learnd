@@ -20,17 +20,9 @@ interface FieldGroupToggleProps {
 }
 
 export function FieldGroupToggle({ fieldGroups, onToggle }: FieldGroupToggleProps) {
-  console.log('FieldGroupToggle received fieldGroups:', fieldGroups);
-  
   const coreGroup = fieldGroups.find(group => group.id === 'core');
   const templateGroups = fieldGroups.filter(group => group.template);
   const customGroup = fieldGroups.find(group => group.id === 'custom');
-  
-  console.log('Filtered groups:', { 
-    coreGroup: !!coreGroup, 
-    templateGroupsCount: templateGroups.length, 
-    customGroup: !!customGroup 
-  });
 
   return (
     <div className="space-y-6">

@@ -22,8 +22,8 @@ All colors MUST be HSL.
     --primary: 196 64% 15%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary: Orange button color #de5722 */
-    --secondary: 19 76% 51%;
+    /* Secondary: Magenta button color #ca0475 */
+    --secondary: 321 89% 40%;
     --secondary-foreground: 0 0% 100%;
 
     /* Analytics: Dark teal #0d3240 */
@@ -34,7 +34,7 @@ All colors MUST be HSL.
     --muted: 218 27% 94%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 19 76% 51%;
+    --accent: 321 89% 40%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
@@ -80,7 +80,7 @@ All colors MUST be HSL.
     --primary: 196 64% 15%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 19 76% 51%;
+    --secondary: 321 89% 40%;
     --secondary-foreground: 0 0% 100%;
 
     --analytics: 206 66% 15%;
@@ -89,7 +89,7 @@ All colors MUST be HSL.
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 19 76% 51%;
+    --accent: 321 89% 40%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 30.6%;
@@ -124,7 +124,7 @@ All colors MUST be HSL.
 }
 /* Learnd brand utilities */
 .btn-brand {
-  background: linear-gradient(90deg, #de5722 0%, #de5722 50%, #5B3DF5 100%);
+  background: linear-gradient(90deg, #ca0475 0%, #ca0475 50%, #5B3DF5 100%);
   color: #fff !important;
   font-weight: 600;
   border-radius: 12px;

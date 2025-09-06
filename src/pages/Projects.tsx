@@ -100,7 +100,7 @@ type LessonFilters = {
 };
 
 export default function Projects() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { canAccessExports, canAccessAI } = useUserTier();
   const { isOnboarding, sampleData, trackInteraction, completeStep } = useOnboarding();
   const navigate = useNavigate();
@@ -138,27 +138,37 @@ export default function Projects() {
   }, [searchParams]);
 
   useEffect(() => {
-    loadLessons();
-    if (isOnboarding) {
-      trackInteraction('page_visit', '/projects');
-      completeStep('projects');
-      
-      // Auto-filter to at-risk projects in onboarding mode
-      setProjectStatusTab('active');
-      setSelectedHealthStatus('at-risk');
-      
-      // Auto-expand the first at-risk project after loading
-      setTimeout(() => {
-        const atRiskProject = sampleData.projects.find(p => 
-          p.project_status === 'active' && 
-          (p.budget_status === 'over' || p.timeline_status === 'late')
-        );
-        if (atRiskProject) {
-          setExpandedProjectId(atRiskProject.id);
-        }
-      }, 1500);
+    console.log('[DEBUG] Projects useEffect triggered:', { 
+      authLoading, 
+      hasUser: !!user, 
+      userId: user?.id, 
+      isOnboarding, 
+      projectStatusTab,
+      pathname: window.location.pathname
+    });
+    if (!authLoading && (user || isOnboarding)) {
+      loadLessons();
+      if (isOnboarding) {
+        trackInteraction('page_visit', '/projects');
+        completeStep('projects');
+        
+        // Auto-filter to at-risk projects in onboarding mode
+        setProjectStatusTab('active');
+        setSelectedHealthStatus('at-risk');
+        
+        // Auto-expand the first at-risk project after loading
+        setTimeout(() => {
+          const atRiskProject = sampleData.projects.find(p => 
+            p.project_status === 'active' && 
+            (p.budget_status === 'over' || p.timeline_status === 'late')
+          );
+          if (atRiskProject) {
+            setExpandedProjectId(atRiskProject.id);
+          }
+        }, 1500);
+      }
     }
-  }, [user, isOnboarding, projectStatusTab, trackInteraction, completeStep]);
+  }, [authLoading, user, isOnboarding, projectStatusTab, trackInteraction, completeStep]);
 
   // Set filters from URL params on component mount
   useEffect(() => {
@@ -175,7 +185,11 @@ export default function Projects() {
   }, [searchParams]);
 
   const loadLessons = async () => {
-    if (!user && !isOnboarding) return;
+    console.log('[DEBUG] Projects loadLessons called:', { hasUser: !!user, userId: user?.id, isOnboarding });
+    if (!user && !isOnboarding) {
+      console.log('[DEBUG] Projects loadLessons early return - no user and not onboarding');
+      return;
+    }
     
     try {
       setLoading(true);

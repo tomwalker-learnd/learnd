@@ -67,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
+        console.log('[DEBUG] Auth init starting...');
         setLoading(true);
         // 1) Get current session
         const { data, error } = await supabase.auth.getSession();
@@ -74,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const sess = data.session ?? null;
         const usr = sess?.user ?? null;
+        console.log('[DEBUG] Session loaded:', { hasSession: !!sess, hasUser: !!usr, userId: usr?.id });
 
         if (!mounted.current) return;
         setSession(sess);
@@ -81,9 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 2) Load profile if we have a user
         if (usr) {
+          console.log('[DEBUG] Loading profile for user:', usr.id);
           const p = await loadProfile(usr.id);
           if (!mounted.current) return;
           setProfile(p);
+          console.log('[DEBUG] Profile loaded:', !!p);
         } else {
           setProfile(null);
         }
@@ -91,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 3) Subscribe to auth changes
         const { data: sub } = supabase.auth.onAuthStateChange(
           async (_event, newSession) => {
+            console.log('[DEBUG] Auth state change:', _event, { hasSession: !!newSession, userId: newSession?.user?.id });
             if (!mounted.current) return;
             setSession(newSession ?? null);
             const newUser = newSession?.user ?? null;
@@ -110,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // eslint-disable-next-line no-console
         console.warn("[auth] init error:", e?.message || e);
       } finally {
+        console.log('[DEBUG] Auth init complete, setting loading to false');
         if (mounted.current) setLoading(false);
       }
     };

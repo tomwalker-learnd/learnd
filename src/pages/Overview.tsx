@@ -122,6 +122,13 @@ export default function Overview() {
   const displayKpis = isOnboarding ? sampleKpis : kpis;
 
   useEffect(() => {
+    console.log('[DEBUG] Overview useEffect triggered:', { 
+      loading, 
+      hasUser: !!user, 
+      userId: user?.id, 
+      isOnboarding,
+      pathname: window.location.pathname
+    });
     if (!loading && (user || isOnboarding)) {
       refresh();
       if (user) trackUsage('overview_page_visit');
@@ -133,6 +140,7 @@ export default function Overview() {
   }, [loading, user, isOnboarding, trackUsage, trackInteraction, completeStep]);
 
   const refresh = async () => {
+    console.log('[DEBUG] Overview refresh called:', { hasUser: !!user, userId: user?.id, isOnboarding });
     try {
       setBusy(true);
 

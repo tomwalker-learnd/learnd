@@ -82,7 +82,7 @@ type AIInsight = {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function Insights() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { canAccessAdvancedAnalytics, canAccessAI, tier } = useUserTier();
   const { usage, trackUsage, checkLimitation } = useUsageTracking();
   const { isOnboarding, sampleData, trackInteraction, completeStep } = useOnboarding();
@@ -96,7 +96,15 @@ export default function Insights() {
   const [showOnboardingAnalysis, setShowOnboardingAnalysis] = useState(false);
 
   useEffect(() => {
-    if (user || isOnboarding) {
+    console.log('[DEBUG] Insights useEffect triggered:', { 
+      authLoading,
+      hasUser: !!user, 
+      userId: user?.id, 
+      isOnboarding, 
+      period,
+      pathname: window.location.pathname
+    });
+    if (!authLoading && (user || isOnboarding)) {
       loadData();
       generateAIInsights();
       if (user) trackUsage('insights_page_visit');
@@ -105,10 +113,14 @@ export default function Insights() {
         completeStep('insights');
       }
     }
-  }, [user, isOnboarding, period, trackUsage, trackInteraction, completeStep]);
+  }, [authLoading, user, isOnboarding, period, trackUsage, trackInteraction, completeStep]);
 
   const loadData = async () => {
-    if (!user && !isOnboarding) return;
+    console.log('[DEBUG] Insights loadData called:', { hasUser: !!user, userId: user?.id, isOnboarding });
+    if (!user && !isOnboarding) {
+      console.log('[DEBUG] Insights loadData early return - no user and not onboarding');
+      return;
+    }
     
     try {
       setLoading(true);

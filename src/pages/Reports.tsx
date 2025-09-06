@@ -64,7 +64,7 @@ type ReportFormat = "pdf" | "csv" | "excel";
 type Lesson = ProjectData;
 
 export default function Reports() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { canAccessExports } = useUserTier();
   const { isOnboarding, sampleData, trackInteraction, completeStep } = useOnboarding();
   const { toast } = useToast();
@@ -84,7 +84,14 @@ export default function Reports() {
   const [includeRecommendations, setIncludeRecommendations] = useState(true);
 
   useEffect(() => {
-    if (user || isOnboarding) {
+    console.log('[DEBUG] Reports useEffect triggered:', { 
+      authLoading,
+      hasUser: !!user, 
+      userId: user?.id, 
+      isOnboarding,
+      pathname: window.location.pathname
+    });
+    if (!authLoading && (user || isOnboarding)) {
       loadData();
       if (isOnboarding) {
         trackInteraction('page_visit', '/reports');
@@ -97,10 +104,14 @@ export default function Reports() {
     const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
     setDateTo(today.toISOString().split('T')[0]);
     setDateFrom(ninetyDaysAgo.toISOString().split('T')[0]);
-  }, [user, isOnboarding, trackInteraction, completeStep]);
+  }, [authLoading, user, isOnboarding, trackInteraction, completeStep]);
 
   const loadData = async () => {
-    if (!user && !isOnboarding) return;
+    console.log('[DEBUG] Reports loadData called:', { hasUser: !!user, userId: user?.id, isOnboarding });
+    if (!user && !isOnboarding) {
+      console.log('[DEBUG] Reports loadData early return - no user and not onboarding');
+      return;
+    }
     
     try {
       setLoading(true);

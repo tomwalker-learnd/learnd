@@ -23,6 +23,30 @@ interface OnboardingProgress {
   };
 }
 
+// Overlay system types
+interface SpotlightTarget {
+  element: Element;
+  padding?: number;
+}
+
+interface TooltipContent {
+  title: string;
+  description: string;
+  ctaText?: string;
+  skipText?: string;
+  onCTA?: () => void;
+  onSkip?: () => void;
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
+  type?: 'default' | 'success' | 'warning' | 'interactive';
+  requireInteraction?: boolean;
+}
+
+interface OnboardingOverlayState {
+  isVisible: boolean;
+  target: SpotlightTarget | null;
+  tooltip: TooltipContent | null;
+}
+
 interface OnboardingState extends OnboardingProgress {
   isOnboarding: boolean;
   sampleData: ReturnType<typeof getSampleData>;
@@ -33,6 +57,12 @@ interface OnboardingState extends OnboardingProgress {
   trackInteraction: (type: 'ai_click' | 'completion' | 'page_visit', data?: any) => void;
   resetOnboarding: () => void;
   finishOnboarding: () => void;
+  // Overlay system functions
+  highlightElement: (selector: string, padding?: number) => Promise<boolean>;
+  showTooltip: (content: TooltipContent) => void;
+  hideOverlay: () => void;
+  overlayState: OnboardingOverlayState;
+  waitForInteraction: (selector: string, eventType?: string) => Promise<void>;
 }
 
 const ONBOARDING_STEPS: OnboardingStep[] = [
@@ -64,6 +94,13 @@ export const useOnboarding = (): OnboardingState => {
   
   // Check if we're in onboarding mode via URL parameter
   const isOnboarding = searchParams.get('onboarding') === 'true';
+  
+  // Overlay state
+  const [overlayState, setOverlayState] = useState<OnboardingOverlayState>({
+    isVisible: false,
+    target: null,
+    tooltip: null
+  });
   
   // Load progress from localStorage
   const [progress, setProgress] = useState<OnboardingProgress>(() => {
@@ -235,6 +272,7 @@ export const useOnboarding = (): OnboardingState => {
 
   const finishOnboarding = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
+    setOverlayState({ isVisible: false, target: null, tooltip: null });
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
       newParams.delete('onboarding');
@@ -242,6 +280,84 @@ export const useOnboarding = (): OnboardingState => {
     });
     navigate('/');
   }, [navigate, setSearchParams]);
+
+  // Overlay system functions
+  const highlightElement = useCallback(async (selector: string, padding: number = 8): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const findElement = () => {
+        const element = document.querySelector(selector);
+        if (element) {
+          setOverlayState(prev => ({
+            ...prev,
+            isVisible: true,
+            target: { element, padding }
+          }));
+          resolve(true);
+          return true;
+        }
+        return false;
+      };
+
+      // Try to find element immediately
+      if (findElement()) return;
+
+      // If not found, wait for it to appear
+      const observer = new MutationObserver(() => {
+        if (findElement()) {
+          observer.disconnect();
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        observer.disconnect();
+        resolve(false);
+      }, 5000);
+    });
+  }, []);
+
+  const showTooltip = useCallback((content: TooltipContent) => {
+    setOverlayState(prev => ({
+      ...prev,
+      tooltip: content
+    }));
+  }, []);
+
+  const hideOverlay = useCallback(() => {
+    setOverlayState({
+      isVisible: false,
+      target: null,
+      tooltip: null
+    });
+  }, []);
+
+  const waitForInteraction = useCallback((selector: string, eventType: string = 'click'): Promise<void> => {
+    return new Promise((resolve) => {
+      const element = document.querySelector(selector);
+      if (!element) {
+        resolve();
+        return;
+      }
+
+      const handler = () => {
+        element.removeEventListener(eventType, handler);
+        resolve();
+      };
+
+      element.addEventListener(eventType, handler);
+
+      // Cleanup after 30 seconds
+      setTimeout(() => {
+        element.removeEventListener(eventType, handler);
+        resolve();
+      }, 30000);
+    });
+  }, []);
 
   return {
     isOnboarding,
@@ -257,7 +373,13 @@ export const useOnboarding = (): OnboardingState => {
     goToStep,
     trackInteraction,
     resetOnboarding,
-    finishOnboarding
+    finishOnboarding,
+    // Overlay system
+    highlightElement,
+    showTooltip,
+    hideOverlay,
+    overlayState,
+    waitForInteraction
   };
 };
 

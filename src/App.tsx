@@ -6,6 +6,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
 import { OnboardingProgress } from "@/components/OnboardingProgress";
+import { OnboardingOverlay } from "@/components/OnboardingOverlay";
+import { useOnboardingSteps } from "@/hooks/useOnboardingSteps";
 import LearndAI from "@/components/LearndAI"; // <-- Floating AI bubble
 import RoleSwitcher from "@/components/dev/RoleSwitcher"; // <-- Dev role testing component
 
@@ -42,8 +44,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function Shell() {
   const location = useLocation();
   const { user, loading } = useAuth();
-  const { isOnboarding } = useOnboarding();
+  const { isOnboarding, overlayState, hideOverlay } = useOnboarding();
   const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
+
+  // Initialize onboarding steps logic
+  useOnboardingSteps();
 
   // Check if we should show the welcome screen
   useEffect(() => {
@@ -170,6 +175,16 @@ function Shell() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
+
+      {/* Onboarding Overlay System */}
+      {isOnboarding && !showWelcomeScreen && (
+        <OnboardingOverlay
+          isVisible={overlayState.isVisible}
+          target={overlayState.target}
+          tooltip={overlayState.tooltip}
+          onClose={hideOverlay}
+        />
+      )}
 
       {/* Onboarding Progress Indicator */}
       {isOnboarding && !showWelcomeScreen && <OnboardingProgress />}

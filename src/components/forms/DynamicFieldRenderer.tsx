@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { DynamicFormFields } from './DynamicFormFields';
 import { ProjectLifecycleStatus } from '@/lib/statusUtils';
+import { IntelligentClientInput } from '@/components/forms/IntelligentClientInput';
 
 interface FieldConfig {
   id: string;
@@ -362,6 +363,18 @@ export function DynamicFieldRenderer({
     switch (field.type) {
       case 'text':
       case 'number':
+        // Special handling for client_name field
+        if (field.id === 'client_name') {
+          return (
+            <IntelligentClientInput
+              value={value}
+              onChange={(newValue) => onFieldChange(field.id, newValue)}
+              placeholder={field.placeholder}
+              disabled={false}
+            />
+          );
+        }
+        
         return (
           <Input
             type={field.type}

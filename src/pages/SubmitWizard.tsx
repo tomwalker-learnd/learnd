@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { IntelligentClientInput } from "@/components/forms/IntelligentClientInput";
 import {
   Select,
   SelectContent,
@@ -145,13 +146,12 @@ export default function SubmitWizard() {
 
             <div className="space-y-2">
               <Label htmlFor="client">Client (optional)</Label>
-              <Input
-                id="client"
-                placeholder="e.g., Acme Corp"
+              <IntelligentClientInput
                 value={form.client_name}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, client_name: e.target.value }))
+                onChange={(value) =>
+                  setForm((f) => ({ ...f, client_name: value }))
                 }
+                placeholder="e.g., Acme Corp"
               />
             </div>
 

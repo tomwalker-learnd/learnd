@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save } from 'lucide-react';
+import { IntelligentClientInput } from '@/components/forms/IntelligentClientInput';
 
 const Submit = () => {
   const { user, loading } = useAuth();
@@ -155,11 +156,9 @@ const Submit = () => {
                 {/* Client Name */}
                 <div className="space-y-2">
                   <Label htmlFor="client_name">Client Name</Label>
-                  <Input
-                    id="client_name"
-                    type="text"
+                  <IntelligentClientInput
                     value={formData.client_name}
-                    onChange={(e) => handleInputChange('client_name', e.target.value)}
+                    onChange={(value) => handleInputChange('client_name', value)}
                     placeholder="Enter client or company name"
                   />
                 </div>

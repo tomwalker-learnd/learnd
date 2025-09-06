@@ -16,6 +16,7 @@ import { CustomFieldBuilder } from '@/components/forms/CustomFieldBuilder';
 import { FieldGroupToggle } from '@/components/forms/FieldGroupToggle';
 import { ProjectStatusManager } from '@/components/forms/ProjectStatusManager';
 import { ProjectLifecycleStatus } from '@/lib/statusUtils';
+import { IntelligentClientInput } from '@/components/forms/IntelligentClientInput';
 
 interface CustomField {
   id: string;

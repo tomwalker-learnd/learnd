@@ -51,8 +51,10 @@ export default function AppHeader() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `text-sm font-medium transition-colors ${
-                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                `text-sm font-medium transition-colors relative ${
+                  isActive 
+                    ? "text-accent font-semibold after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-accent after:rounded-full" 
+                    : "text-muted-foreground hover:text-foreground"
                 }`
               }
             >

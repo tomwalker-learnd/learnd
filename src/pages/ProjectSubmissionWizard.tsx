@@ -283,6 +283,8 @@ const ProjectSubmissionWizard = () => {
   };
 
   const getFieldGroups = () => {
+    console.log('Getting field groups - selectedTemplates:', selectedTemplates, 'customFields:', customFields.length);
+    
     const groups = [
       {
         id: 'core',

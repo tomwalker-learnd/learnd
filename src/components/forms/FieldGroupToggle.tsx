@@ -20,9 +20,17 @@ interface FieldGroupToggleProps {
 }
 
 export function FieldGroupToggle({ fieldGroups, onToggle }: FieldGroupToggleProps) {
+  console.log('FieldGroupToggle received fieldGroups:', fieldGroups);
+  
   const coreGroup = fieldGroups.find(group => group.id === 'core');
   const templateGroups = fieldGroups.filter(group => group.template);
   const customGroup = fieldGroups.find(group => group.id === 'custom');
+  
+  console.log('Filtered groups:', { 
+    coreGroup: !!coreGroup, 
+    templateGroupsCount: templateGroups.length, 
+    customGroup: !!customGroup 
+  });
 
   return (
     <div className="space-y-6">
@@ -37,6 +45,23 @@ export function FieldGroupToggle({ fieldGroups, onToggle }: FieldGroupToggleProp
       </div>
 
       <div className="space-y-4">
+        {/* Show helpful message if only core group exists */}
+        {fieldGroups.length === 1 && coreGroup && (
+          <Card className="border-l-4 border-l-yellow-500 bg-yellow-50/30">
+            <CardHeader>
+              <CardTitle className="text-base text-yellow-800">No Configurable Field Groups</CardTitle>
+              <CardDescription className="text-yellow-700">
+                You currently only have the required core fields. To add configurable field groups:
+                <ul className="mt-2 ml-4 list-disc space-y-1">
+                  <li>Go back to step 1 to select industry templates</li>
+                  <li>Add custom fields in the previous steps</li>
+                  <li>Or continue with just the core fields</li>
+                </ul>
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+
         {/* Core Fields - Always Enabled */}
         {coreGroup && (
           <Card className="border-l-4 border-l-primary">

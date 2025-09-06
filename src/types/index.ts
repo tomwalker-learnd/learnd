@@ -26,6 +26,7 @@ export interface Lesson {
   budget_status: 'under' | 'on' | 'over';
   scope_change: boolean;
   timeline_status: string;
+  project_status: 'active' | 'on_hold' | 'completed' | 'cancelled';
   notes?: string;
   created_by: string;
   created_at: string;

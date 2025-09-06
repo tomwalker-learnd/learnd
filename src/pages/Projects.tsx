@@ -120,6 +120,11 @@ export default function Projects() {
         .eq("created_by", user.id)
         .order("created_at", { ascending: false });
 
+      // Apply project status filter based on current view
+      if (dateFilter === "active") {
+        query = query.in("project_status", ["active", "on_hold"]);
+      }
+
       // Apply date filter - default to active projects (last 60 days)
       if (dateFilter === "active") {
         const sixtyDaysAgo = new Date();

@@ -39,6 +39,7 @@ export interface LessonExportData {
   satisfaction: number | null; // 1-5 rating
   budget_status: string | null; // under/on/over
   timeline_status: string | null; // early/on/late
+  project_status: string | null; // active/on_hold/completed/cancelled
   scope_change: boolean | null;
   notes: string | null;
   created_by: string | null;
@@ -127,6 +128,7 @@ export const formatLessonForExport = (lesson: LessonExportData): Record<string, 
     satisfaction: lesson.satisfaction?.toString() || '—',
     budget_status: lesson.budget_status || '—',
     timeline_status: lesson.timeline_status || '—',
+    project_status: lesson.project_status || '—',
     scope_change: lesson.scope_change ? 'Yes' : 'No',
     notes: lesson.notes || '—',
     created_by: lesson.created_by || '—',
@@ -158,7 +160,7 @@ export const generateCSVContent = (
   
   const headers = [
     'Project Name', 'Client Name', 'Role', 'Date Created', 'Date Updated',
-    'Satisfaction', 'Budget Status', 'Timeline Status', 'Scope Change', 'Notes',
+    'Satisfaction', 'Budget Status', 'Timeline Status', 'Project Status', 'Scope Change', 'Notes',
     'Created By', 'Project Type', 'Phase', 'Industry', 'Region', 'Billing Model',
     'Initial Budget USD', 'Actual Days', 'Planned Days',
     'Requirements Clarity', 'Stakeholder Engagement', 'Team Morale',
@@ -174,6 +176,7 @@ export const generateCSVContent = (
     lesson.satisfaction || '',
     lesson.budget_status || '',
     lesson.timeline_status || '',
+    lesson.project_status || '',
     lesson.scope_change ? 'Yes' : 'No',
     escapeCSVValue(lesson.notes || ''),
     lesson.created_by || '',
@@ -315,6 +318,7 @@ export const generatePDFContent = (
     lesson.satisfaction?.toString() || '—',
     lesson.budget_status || '—',
     lesson.timeline_status || '—',
+    lesson.project_status || '—',
     lesson.scope_change ? 'Yes' : 'No',
     lesson.project_type || '—',
     lesson.industry || '—',
@@ -326,7 +330,7 @@ export const generatePDFContent = (
   autoTable(doc, {
     head: [[
       'Project', 'Client', 'Role', 'Date Created', 'Satisfaction', 'Budget Status',
-      'Timeline', 'Scope Change', 'Project Type', 'Industry', 'Budget', 'Days'
+      'Timeline', 'Project Status', 'Scope Change', 'Project Type', 'Industry', 'Budget', 'Days'
     ]],
     body: tableData,
     startY: currentY,

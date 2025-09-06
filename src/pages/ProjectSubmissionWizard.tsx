@@ -220,7 +220,10 @@ const ProjectSubmissionWizard = () => {
 
       const { error } = await supabase
         .from('lessons')
-        .insert(lessonData);
+        .insert({
+          ...lessonData,
+          project_status: 'active' // Default new projects to active
+        });
 
       if (error) throw error;
 

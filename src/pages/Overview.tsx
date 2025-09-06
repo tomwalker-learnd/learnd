@@ -94,6 +94,7 @@ export default function Overview() {
       const { data: lessons, error } = await supabase
         .from("lessons")
         .select("id, satisfaction, budget_status, timeline_status, created_at")
+        .eq("created_by", user!.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -151,9 +152,8 @@ export default function Overview() {
       // Recent lessons
       const { data: recentRows, error: rErr } = await supabase
         .from("lessons")
-        .select(
-          "id, project_name, client_name, date:created_at, satisfaction, budget_status, timeline_status, notes"
-        )
+        .select("id, project_name, client_name, created_at, satisfaction, budget_status, timeline_status, notes")
+        .eq("created_by", user!.id)
         .order("created_at", { ascending: false })
         .limit(5);
 

@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserTier } from "@/hooks/useUserTier";
+import { PremiumFeature, FeatureBadge } from "@/components/premium";
+import LearndAI from "@/components/LearndAI";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -158,6 +161,7 @@ const CANDIDATE_DATE_COLS = ["date", "created_at"] as const;
 export default function Dashboards() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { canAccessExports, canAccessAdvancedAnalytics, canAccessCustomDashboards, canAccessAI } = useUserTier();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
@@ -703,47 +707,64 @@ export default function Dashboards() {
                 View in Lessons
               </Button>
               
-              <Button
-                onClick={handleCreate}
-                style={{ backgroundColor: '#ca0573', color: 'white' }}
-                className="hover:opacity-90"
+              <PremiumFeature 
+                requiredTier="team"
+                fallback={
+                  <Button
+                    variant="outline"
+                    className="text-muted-foreground border-dashed hover:border-primary/50"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Custom Dashboard
+                    <FeatureBadge tier="team" className="ml-2" />
+                  </Button>
+                }
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Create Custom Dashboard
-              </Button>
+                <Button
+                  onClick={handleCreate}
+                  style={{ backgroundColor: '#ca0573', color: 'white' }}
+                  className="hover:opacity-90"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Custom Dashboard
+                </Button>
+              </PremiumFeature>
 
               {/* Export Dropdown */}
-              <div className="relative group">
-                <Button
-                  style={{ backgroundColor: '#0d3240', color: 'white' }}
-                  className="hover:opacity-90"
-                  disabled={loadingData || lessons.length === 0}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export Current View
-                </Button>
-                <div className="absolute right-0 top-full mt-1 bg-background border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[140px]">
-                  <button
-                    onClick={handleExportCSV}
-                    disabled={exportingCSV || loadingData || lessons.length === 0}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent rounded-t-md disabled:opacity-50 disabled:cursor-not-allowed"
+              <PremiumFeature requiredTier="team" showUpgradePrompt={false}>
+                <div className="relative group">
+                  <Button
+                    style={{ backgroundColor: '#0d3240', color: 'white' }}
+                    className="hover:opacity-90"
+                    disabled={loadingData || lessons.length === 0}
                   >
-                    {exportingCSV ? "Exporting..." : "Export as CSV"}
-                  </button>
-                  <button
-                    onClick={handleExportPDF}
-                    disabled={exportingPDF || loadingData || lessons.length === 0}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent rounded-b-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {exportingPDF ? "Exporting..." : "Export as PDF"}
-                  </button>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Current View
+                  </Button>
+                  <div className="absolute right-0 top-full mt-1 bg-background border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[140px]">
+                    <button
+                      onClick={handleExportCSV}
+                      disabled={exportingCSV || loadingData || lessons.length === 0}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent rounded-t-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {exportingCSV ? "Exporting..." : "Export as CSV"}
+                    </button>
+                    <button
+                      onClick={handleExportPDF}
+                      disabled={exportingPDF || loadingData || lessons.length === 0}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent rounded-b-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {exportingPDF ? "Exporting..." : "Export as PDF"}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </PremiumFeature>
             </div>
           </div>
 
           {/* Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            {/* Basic Metrics (Always visible) */}
             <Card>
               <CardContent className="p-6">
                 <div className="text-sm text-muted-foreground">Total</div>
@@ -764,22 +785,59 @@ export default function Dashboards() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-sm text-muted-foreground">On Budget</div>
-                <div className="text-5xl font-semibold mt-2">
-                  {loadingData ? "…" : `${metrics.onBudgetPct}%`}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-sm text-muted-foreground">On Time</div>
-                <div className="text-5xl font-semibold mt-2">
-                  {loadingData ? "…" : `${metrics.onTimePct}%`}
-                </div>
-              </CardContent>
-            </Card>
+            
+            {/* Advanced Metrics (Team+ only) */}
+            <PremiumFeature 
+              requiredTier="team"
+              fallback={
+                <Card className="relative overflow-hidden">
+                  <CardContent className="p-6 bg-gradient-to-br from-muted/30 to-muted/10">
+                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                      On Budget
+                      <FeatureBadge tier="team" showIcon />
+                    </div>
+                    <div className="text-3xl font-semibold mt-2 text-muted-foreground/50">
+                      —%
+                    </div>
+                  </CardContent>
+                </Card>
+              }
+            >
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-sm text-muted-foreground">On Budget</div>
+                  <div className="text-5xl font-semibold mt-2">
+                    {loadingData ? "…" : `${metrics.onBudgetPct}%`}
+                  </div>
+                </CardContent>
+              </Card>
+            </PremiumFeature>
+            
+            <PremiumFeature 
+              requiredTier="team"
+              fallback={
+                <Card className="relative overflow-hidden">
+                  <CardContent className="p-6 bg-gradient-to-br from-muted/30 to-muted/10">
+                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                      On Time
+                      <FeatureBadge tier="team" showIcon />
+                    </div>
+                    <div className="text-3xl font-semibold mt-2 text-muted-foreground/50">
+                      —%
+                    </div>
+                  </CardContent>
+                </Card>
+              }
+            >
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-sm text-muted-foreground">On Time</div>
+                  <div className="text-5xl font-semibold mt-2">
+                    {loadingData ? "…" : `${metrics.onTimePct}%`}
+                  </div>
+                </CardContent>
+              </Card>
+            </PremiumFeature>
           </div>
 
           {/* Recent list */}
@@ -828,6 +886,11 @@ export default function Dashboards() {
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Assistant (Business+ tier only) */}
+      <PremiumFeature requiredTier="business" showUpgradePrompt={false}>
+        <LearndAI context={{ page: 'dashboards', lessons, metrics }} />
+      </PremiumFeature>
     </div>
   );
 }

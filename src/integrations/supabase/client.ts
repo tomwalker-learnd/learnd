@@ -1,19 +1,10 @@
 // src/integrations/supabase/client.ts
-// Centralized Supabase client. Reads from Vite env vars and fails fast if missing.
+// Centralized Supabase client configured with project credentials
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env
-  .VITE_SUPABASE_ANON_KEY as string;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  const msg =
-    "[Supabase] Missing VITE_SUPABASE_URL and/or VITE_SUPABASE_ANON_KEY. Check your .env";
-  // Fail fast in dev; throw to surface the error in CI/build
-  console.error(msg);
-  throw new Error(msg);
-}
+const SUPABASE_URL = "https://rakdsvojiwpdunruenmg.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJha2Rzdm9qaXdwZHVucnVlbm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU5ODYwNjksImV4cCI6MjA3MTU2MjA2OX0.88i1qTKmKhAXgartXMXLOll6P2KALLU8BiTEGljvQC8";
 
 export const supabase = createClient<Database>(
   SUPABASE_URL,

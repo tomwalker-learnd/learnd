@@ -1,8 +1,9 @@
-// src/pages/Home.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserTier } from "@/hooks/useUserTier";
 import { supabase } from "@/integrations/supabase/client";
+import { PremiumFeature, FeatureBadge } from "@/components/premium";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, TrendingUp } from "lucide-react";
+import { RefreshCw, TrendingUp, BarChart3, Users, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type BudgetStatus = "under" | "on" | "over";
@@ -24,16 +25,16 @@ type LessonRow = {
   id: string;
   project_name: string | null;
   client_name: string | null;
-  // NOTE: we alias created_at -> date so existing UI can keep using `date`
-  date: string; // ISO
-  created_at?: string; // not used by UI, but may come back in other queries
+  date: string;
+  created_at?: string;
   satisfaction: number | null;
   budget_status: BudgetStatus | null;
   timeline_status: TimelineStatus | null;
 };
 
-export default function Home() {
+export default function Overview() {
   const { user, loading } = useAuth();
+  const { canAccessAdvancedAnalytics } = useUserTier();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -46,14 +47,8 @@ export default function Home() {
     onTimePct: 0,
   });
 
-  const initial = useMemo(() => {
-    const src = user?.user_metadata?.full_name || user?.email || "U";
-    return (src as string).trim()[0]?.toUpperCase() ?? "U";
-  }, [user]);
-
   useEffect(() => {
     if (!loading && user) refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user]);
 
   const refresh = async () => {
@@ -84,7 +79,7 @@ export default function Home() {
         onTimePct: total ? Math.round((onTime / total) * 100) : 0,
       });
 
-      // Recent lessons (alias created_at -> date to avoid schema diff)
+      // Recent lessons
       const { data: recentRows, error: rErr } = await supabase
         .from("lessons")
         .select(
@@ -97,7 +92,7 @@ export default function Home() {
       setRecent((recentRows as unknown as LessonRow[]) || []);
     } catch (e: any) {
       toast({
-        title: "Couldn’t refresh",
+        title: "Couldn't refresh",
         description: e?.message ?? "Unexpected error",
         variant: "destructive",
       });
@@ -133,58 +128,109 @@ export default function Home() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Home</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Executive Overview</h1>
         <p className="text-muted-foreground">
-          High-level KPIs and your most recent lessons.
+          High-level intelligence dashboard for strategic decision making.
         </p>
         <div className="mt-3 flex gap-2">
           <Button variant="outline" onClick={refresh} disabled={busy}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          <Button variant="analytics" onClick={() => navigate("/analytics")}>
-            <TrendingUp className="mr-2 h-4 w-4" />
-            Analytics
-          </Button>
+          <PremiumFeature requiredTier="team">
+            <Button variant="default" onClick={() => navigate("/insights")}>
+              <TrendingUp className="mr-2 h-4 w-4" />
+              Advanced Insights
+            </Button>
+          </PremiumFeature>
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* Core KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card>
-          <CardHeader>
-            <CardDescription>Total</CardDescription>
-            <CardTitle className="text-3xl">{kpis.total}</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{kpis.total}</div>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardDescription>Avg Satisfaction</CardDescription>
-            <CardTitle className="text-3xl">{kpis.avgSatisfaction}</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Satisfaction</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{kpis.avgSatisfaction}</div>
+          </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>On Budget</CardDescription>
-            <CardTitle className="text-3xl">{kpis.onBudgetPct}%</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>On Time</CardDescription>
-            <CardTitle className="text-3xl">{kpis.onTimePct}%</CardTitle>
-          </CardHeader>
-        </Card>
+        
+        <PremiumFeature requiredTier="team" fallback={
+          <Card className="opacity-60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                On Budget
+                <FeatureBadge tier="team" />
+              </CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-muted-foreground">—</div>
+            </CardContent>
+          </Card>
+        }>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">On Budget</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{kpis.onBudgetPct}%</div>
+            </CardContent>
+          </Card>
+        </PremiumFeature>
+
+        <PremiumFeature requiredTier="team" fallback={
+          <Card className="opacity-60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                On Time
+                <FeatureBadge tier="team" />
+              </CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-muted-foreground">—</div>
+            </CardContent>
+          </Card>
+        }>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">On Time</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{kpis.onTimePct}%</div>
+            </CardContent>
+          </Card>
+        </PremiumFeature>
       </div>
 
-      {/* Recent Lessons */}
+      {/* Recent Activity */}
       <div className="mt-8">
-        <h2 className="mb-3 text-2xl font-semibold tracking-tight">Recent Lessons</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-2xl font-semibold tracking-tight">Recent Activity</h2>
+          <Button variant="outline" onClick={() => navigate("/projects")}>
+            View All Projects
+          </Button>
+        </div>
 
         {/* MOBILE: cards */}
         <div className="md:hidden space-y-3">
           {recent.length === 0 ? (
-            <Card><CardContent className="py-6 text-muted-foreground">No recent lessons.</CardContent></Card>
+            <Card><CardContent className="py-6 text-muted-foreground">No recent activity.</CardContent></Card>
           ) : (
             recent.map((r) => (
               <Card key={r.id}>
@@ -226,7 +272,7 @@ export default function Home() {
                   {recent.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                        No recent lessons.
+                        No recent activity.
                       </TableCell>
                     </TableRow>
                   ) : (

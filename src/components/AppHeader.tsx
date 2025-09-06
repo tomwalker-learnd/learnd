@@ -21,10 +21,10 @@ import { supabase } from "@/integrations/supabase/client";
 import logoUrl from "@/assets/learnd-logo.png";
 
 const NAV_ITEMS = [
-  { to: "/", label: "Home" },
-  { to: "/dashboards", label: "Dashboards" },
-  { to: "/lessons", label: "Lessons" },
-  { to: "/analytics", label: "Analytics" },
+  { to: "/", label: "Overview", icon: "BarChart3" },
+  { to: "/projects", label: "Projects", icon: "FolderOpen" },
+  { to: "/insights", label: "Insights", icon: "Brain" },
+  { to: "/reports", label: "Reports", icon: "FileText" },
 ];
 
 export default function AppHeader() {

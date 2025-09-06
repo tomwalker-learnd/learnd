@@ -6,10 +6,10 @@ import LearndAI from "@/components/LearndAI"; // <-- Floating AI bubble
 import RoleSwitcher from "@/components/dev/RoleSwitcher"; // <-- Dev role testing component
 
 // PAGES
-import Home from "@/pages/Home";
-import Dashboards from "@/pages/Dashboards";
-import Lessons from "@/pages/Lessons";
-import Analytics from "@/pages/Analytics";
+import Overview from "@/pages/Overview";
+import Projects from "@/pages/Projects";
+import Insights from "@/pages/Insights";
+import Reports from "@/pages/Reports";
 import DashboardCustomizer from "@/pages/DashboardCustomizer";
 import SubmitWizard from "@/pages/SubmitWizard";
 import Submit from "@/pages/Submit";
@@ -50,31 +50,31 @@ function Shell() {
             path="/"
             element={
               <ProtectedRoute>
-                <Home />
+                <Overview />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/dashboards"
+            path="/projects"
             element={
               <ProtectedRoute>
-                <Dashboards />
+                <Projects />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/lessons"
+            path="/insights"
             element={
               <ProtectedRoute>
-                <Lessons />
+                <Insights />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/analytics"
+            path="/reports"
             element={
               <ProtectedRoute>
-                <Analytics />
+                <Reports />
               </ProtectedRoute>
             }
           />

@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserTier } from "@/hooks/useUserTier";
+import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { supabase } from "@/integrations/supabase/client";
-import { PremiumFeature, FeatureBadge } from "@/components/premium";
+import { PremiumFeature, FeatureBadge, FeatureRestriction } from "@/components/premium";
 import { EnhancedLearndAI } from "@/components/ai/EnhancedLearndAI";
 
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 export default function Insights() {
   const { user } = useAuth();
   const { canAccessAdvancedAnalytics, canAccessAI, tier } = useUserTier();
+  const { usage, trackUsage, checkLimitation } = useUsageTracking();
   const { toast } = useToast();
 
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -94,8 +96,9 @@ export default function Insights() {
     if (user) {
       loadData();
       generateAIInsights();
+      trackUsage('insights_page_visit');
     }
-  }, [user, period]);
+  }, [user, period, trackUsage]);
 
   const loadData = async () => {
     if (!user) return;
@@ -122,11 +125,24 @@ export default function Insights() {
           break;
       }
 
-      const { data, error } = await supabase
+      // Apply freemium data retention limits
+      let lessonsQuery = supabase
         .from("lessons")
         .select("*")
-        .eq("created_by", user.id)
-        .gte("created_at", startDate.toISOString())
+        .eq("created_by", user.id);
+
+      // Apply data retention filter for free users
+      if (tier === 'free' || !tier) {
+        const retentionCutoff = new Date();
+        retentionCutoff.setDate(retentionCutoff.getDate() - usage.dataRetentionDays);
+        // Use the later of startDate or retention cutoff
+        const effectiveStartDate = startDate > retentionCutoff ? startDate : retentionCutoff;
+        lessonsQuery = lessonsQuery.gte("created_at", effectiveStartDate.toISOString());
+      } else {
+        lessonsQuery = lessonsQuery.gte("created_at", startDate.toISOString());
+      }
+
+      const { data, error } = await lessonsQuery
         .lte("created_at", endDate.toISOString())
         .order("created_at", { ascending: false });
       
@@ -487,24 +503,36 @@ export default function Insights() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <Button
                   variant={selectedAnalysis === 'budget' ? 'default' : 'outline'}
-                  onClick={() => setSelectedAnalysis('budget')}
+                  onClick={() => {
+                    setSelectedAnalysis('budget');
+                    trackUsage('ai_analysis_clicked', { type: 'budget' });
+                  }}
                   className="justify-start"
+                  disabled={!canAccessAdvancedAnalytics()}
                 >
                   <DollarSign className="h-4 w-4 mr-2" />
                   Budget Performance Analysis
                 </Button>
                 <Button
                   variant={selectedAnalysis === 'satisfaction' ? 'default' : 'outline'}
-                  onClick={() => setSelectedAnalysis('satisfaction')}
+                  onClick={() => {
+                    setSelectedAnalysis('satisfaction');
+                    trackUsage('ai_analysis_clicked', { type: 'satisfaction' });
+                  }}
                   className="justify-start"
+                  disabled={!canAccessAdvancedAnalytics()}
                 >
                   <Users className="h-4 w-4 mr-2" />
                   Client Satisfaction Trends
                 </Button>
                 <Button
                   variant={selectedAnalysis === 'timeline' ? 'default' : 'outline'}
-                  onClick={() => setSelectedAnalysis('timeline')}
+                  onClick={() => {
+                    setSelectedAnalysis('timeline');
+                    trackUsage('ai_analysis_clicked', { type: 'timeline' });
+                  }}
                   className="justify-start"
+                  disabled={!canAccessAdvancedAnalytics()}
                 >
                   <Clock className="h-4 w-4 mr-2" />
                   Timeline Analysis
@@ -681,7 +709,18 @@ export default function Insights() {
           </PremiumFeature>
 
           {/* Export AI Analysis */}
-          <PremiumFeature requiredTier="team">
+          <PremiumFeature requiredTier="team" fallback={
+            <FeatureRestriction
+              title="Export AI Analysis"
+              description="Generate executive summaries and detailed reports"
+              restrictionType="block"
+              upgradeContext="exports"
+              requiredTier="team"
+              previewMessage="Export capabilities are available with Team plans and above"
+            >
+              <div></div>
+            </FeatureRestriction>
+          }>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -694,15 +733,27 @@ export default function Insights() {
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => trackUsage('export_clicked', { type: 'executive_summary' })}
+                  >
                     <Brain className="h-4 w-4 mr-2" />
                     Executive Summary
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => trackUsage('export_clicked', { type: 'detailed_analysis' })}
+                  >
                     <BarChart3 className="h-4 w-4 mr-2" />
                     Detailed Analysis
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => trackUsage('export_clicked', { type: 'predictive_report' })}
+                  >
                     <Sparkles className="h-4 w-4 mr-2" />
                     Predictive Report
                   </Button>

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserTier } from "@/hooks/useUserTier";
+import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { supabase } from "@/integrations/supabase/client";
 import PremiumFeature from "@/components/premium/PremiumFeature";
-import { FeatureBadge } from "@/components/premium";
+import { FeatureBadge, UsageIndicator, FeatureRestriction } from "@/components/premium";
 import { 
   getActiveProjectHealthDistribution, 
   getCompletedProjectHealthDistribution,
@@ -71,6 +72,7 @@ interface KeyInsight {
 export default function Overview() {
   const { user, loading } = useAuth();
   const { tier, canAccessAdvancedAnalytics } = useUserTier();
+  const { usage, trackUsage, getUpgradeOpportunity } = useUsageTracking();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -95,19 +97,33 @@ export default function Overview() {
   });
 
   useEffect(() => {
-    if (!loading && user) refresh();
-  }, [loading, user]);
+    if (!loading && user) {
+      refresh();
+      trackUsage('overview_page_visit');
+    }
+  }, [loading, user, trackUsage]);
 
   const refresh = async () => {
     try {
       setBusy(true);
 
-      // KPIs (defaulting to active status for now)
-      const { data: lessons, error } = await supabase
+      // Apply freemium data retention limits
+      const dataRetentionDays = usage.dataRetentionDays;
+      let lessonsQuery = supabase
         .from("lessons")
         .select("id, satisfaction, budget_status, timeline_status, created_at")
-        .eq("created_by", user!.id)
-        .order("created_at", { ascending: false });
+        .eq("created_by", user!.id);
+
+      // Apply data retention filter for free users
+      if (tier === 'free' || !tier) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - dataRetentionDays);
+        lessonsQuery = lessonsQuery.gte('created_at', cutoffDate.toISOString());
+      }
+
+      lessonsQuery = lessonsQuery.order("created_at", { ascending: false });
+
+      const { data: lessons, error } = await lessonsQuery;
 
       if (error) throw error;
 
@@ -183,13 +199,22 @@ export default function Overview() {
         satisfactionTrend: Number(satisfactionTrend.toFixed(1)),
       });
 
-      // Recent lessons (defaulting to active status)
-      const { data: recentRows, error: rErr } = await supabase
+      // Recent lessons with same data retention limits
+      let recentQuery = supabase
         .from("lessons")
         .select("id, project_name, client_name, created_at, satisfaction, budget_status, timeline_status, notes")
-        .eq("created_by", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
+        .eq("created_by", user!.id);
+
+      // Apply data retention filter for free users
+      if (tier === 'free' || !tier) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - dataRetentionDays);
+        recentQuery = recentQuery.gte('created_at', cutoffDate.toISOString());
+      }
+
+      recentQuery = recentQuery.order("created_at", { ascending: false }).limit(5);
+
+      const { data: recentRows, error: rErr } = await recentQuery;
 
       if (rErr) throw rErr;
       setRecent((recentRows as unknown as LessonRow[]) || []);
@@ -309,6 +334,9 @@ export default function Overview() {
     return insights.slice(0, 4); // Limit to 4 insights
   }, [kpis]);
 
+  // Get upgrade opportunity for proactive prompts
+  const upgradeOpportunity = getUpgradeOpportunity();
+
   if (!user && !loading) return null;
 
   const fmtDate = (iso?: string) => {
@@ -375,6 +403,41 @@ export default function Overview() {
           </div>
         </div>
       </div>
+
+      {/* Usage & Upgrade Opportunity */}
+      {(tier === 'free' || !tier) && (
+        <div className="mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <UsageIndicator
+              title="Project Insights"
+              used={usage.lessonsUsed}
+              limit={usage.lessonsLimit}
+              unit="lessons"
+              onUpgrade={() => trackUsage('upgrade_prompt_clicked', { context: 'lessons_limit' })}
+              upgradeMessage="Upgrade to capture unlimited project insights"
+            />
+            
+            {upgradeOpportunity && (
+              <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Brain className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">Upgrade Opportunity</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {upgradeOpportunity.message}
+                </p>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => trackUsage('proactive_upgrade_clicked', { trigger: upgradeOpportunity.trigger })}
+                >
+                  Learn More
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Key Insights */}
       {keyInsights.length > 0 && (
@@ -455,10 +518,17 @@ export default function Overview() {
               </Card>
 
               <PremiumFeature requiredTier="team" fallback={
-                <Card className="opacity-60">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      Budget Health (Active)
+                <FeatureRestriction
+                  title="Budget Health (Active)"
+                  description="Track budget performance across your active portfolio"
+                  restrictionType="blur"
+                  upgradeContext="advanced_analytics"
+                  requiredTier="team"
+                  previewMessage="Upgrade to monitor budget health across your active projects"
+                >
+                  <Card className="opacity-60">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Budget Health (Active)</CardTitle>
                       <FeatureBadge tier="team" />
                     </CardTitle>
                     <DollarSign className="h-4 w-4 text-muted-foreground" />

@@ -67,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
-        console.log('[auth] initializing...');
         setLoading(true);
         // 1) Get current session
         const { data, error } = await supabase.auth.getSession();
@@ -75,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const sess = data.session ?? null;
         const usr = sess?.user ?? null;
-        console.log('[auth] session loaded:', { hasSession: !!sess, hasUser: !!usr });
 
         if (!mounted.current) return;
         setSession(sess);
@@ -83,11 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 2) Load profile if we have a user
         if (usr) {
-          console.log('[auth] loading profile for user:', usr.id);
           const p = await loadProfile(usr.id);
           if (!mounted.current) return;
           setProfile(p);
-          console.log('[auth] profile loaded:', !!p);
         } else {
           setProfile(null);
         }
@@ -114,7 +110,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // eslint-disable-next-line no-console
         console.warn("[auth] init error:", e?.message || e);
       } finally {
-        console.log('[auth] setting loading to false');
         if (mounted.current) setLoading(false);
       }
     };

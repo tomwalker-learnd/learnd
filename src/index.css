@@ -18,12 +18,12 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 84% 5%;
 
-    /* Primary: Orange #de5722 */
-    --primary: 19 76% 51%;
+    /* Primary: Dark Teal #0e3340 */
+    --primary: 196 64% 15%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary: Muted violet */
-    --secondary: 250 45% 50%;
+    /* Secondary: Orange button color #de5722 */
+    --secondary: 19 76% 51%;
     --secondary-foreground: 0 0% 100%;
 
     /* Analytics: Dark teal #0d3240 */
@@ -47,8 +47,8 @@ All colors MUST be HSL.
     --radius: 0.75rem; /* 12px for buttons */
 
     /* Brand Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(19 76% 51%) 0%, hsl(250 91% 60%) 100%);
-    --gradient-chart-orange: linear-gradient(135deg, hsl(7 100% 69%) 0%, hsl(19 76% 51%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(196 64% 15%) 0%, hsl(250 91% 60%) 100%);
+    --gradient-chart-orange: linear-gradient(135deg, hsl(7 100% 69%) 0%, hsl(196 64% 15%) 100%);
 
     --sidebar-background: 0 0% 98%;
 
@@ -77,11 +77,11 @@ All colors MUST be HSL.
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 19 76% 51%;
+    --primary: 196 64% 15%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 19 76% 51%;
+    --secondary-foreground: 0 0% 100%;
 
     --analytics: 206 66% 15%;
     --analytics-foreground: 0 0% 100%;
@@ -89,8 +89,8 @@ All colors MUST be HSL.
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 19 76% 51%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;

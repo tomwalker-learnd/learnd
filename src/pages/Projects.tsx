@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserTier } from "@/hooks/useUserTier";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { ProjectAIAnalysisModal } from "@/components/ProjectAIAnalysisModal";
 import { supabase } from "@/integrations/supabase/client";
 import { PremiumFeature, UpgradeButton } from "@/components/premium";
 import { 
@@ -116,6 +117,9 @@ export default function Projects() {
   const [viewMode, setViewMode] = useState<"cards" | "table" | "timeline">("cards");
   const [exportingCSV, setExportingCSV] = useState(false);
   const [projectStatusTab, setProjectStatusTab] = useState<"active" | "completed" | "all">("active");
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [aiAnalysisModalOpen, setAiAnalysisModalOpen] = useState(false);
+  const [showCountdown, setShowCountdown] = useState(false);
   
   // AI Integration state
   const [aiPrompt, setAiPrompt] = useState("");
@@ -138,6 +142,21 @@ export default function Projects() {
     if (isOnboarding) {
       trackInteraction('page_visit', '/projects');
       completeStep('projects');
+      
+      // Auto-filter to at-risk projects in onboarding mode
+      setProjectStatusTab('active');
+      setSelectedHealthStatus('at-risk');
+      
+      // Auto-expand the first at-risk project after loading
+      setTimeout(() => {
+        const atRiskProject = sampleData.projects.find(p => 
+          p.project_status === 'active' && 
+          (p.budget_status === 'over' || p.timeline_status === 'late')
+        );
+        if (atRiskProject) {
+          setExpandedProjectId(atRiskProject.id);
+        }
+      }, 1500);
     }
   }, [user, isOnboarding, projectStatusTab, trackInteraction, completeStep]);
 
@@ -296,6 +315,25 @@ export default function Projects() {
     setAiAction(action);
   };
 
+  const handleProjectAIAnalysis = (projectId: string) => {
+    if (isOnboarding) {
+      trackInteraction('ai_click', { context: 'projects_expanded_project', projectId });
+      setAiAnalysisModalOpen(true);
+    }
+  };
+
+  const handleAIAnalysisComplete = () => {
+    if (isOnboarding) {
+      completeStep('projects');
+      setShowCountdown(true);
+      // Auto-advance to insights after 3 seconds
+      setTimeout(() => {
+        setAiAnalysisModalOpen(false);
+        navigate('/insights?onboarding=true');
+      }, 3000);
+    }
+  };
+
   const getBadgeVariant = (status: string | null) => {
     switch (status) {
       case "under":
@@ -374,6 +412,8 @@ export default function Projects() {
     const health = getProjectHealth(projectForHealth);
     const isActive = isActiveProject(lesson.project_status || 'active');
     const statusLabel = (lesson.project_status || 'active').replace('_', ' ');
+    const isExpanded = expandedProjectId === lesson.id;
+    const isOnboardingProject = isOnboarding && lesson.project_name === "Mobile App Redesign";
     
     return (
       <Card className={`transition-all hover:shadow-md border-l-4 ${
@@ -384,7 +424,8 @@ export default function Projects() {
           health === "successful" ? "border-l-blue-500" :
           health === "underperformed" ? "border-l-orange-500" : "border-l-gray-500"
         )
-      }`}>
+      } ${isExpanded ? 'shadow-lg ring-2 ring-primary/20' : ''}`}
+      data-onboarding={isOnboardingProject ? 'expanded-project' : undefined}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
@@ -446,6 +487,41 @@ export default function Projects() {
             <div className="mt-3 flex items-center gap-1 text-amber-600">
               <AlertTriangle className="h-3 w-3" />
               <span className="text-xs">Scope changes occurred</span>
+            </div>
+          )}
+          
+          {/* Expanded content for onboarding */}
+          {isExpanded && isOnboardingProject && (
+            <div className="mt-4 pt-4 border-t space-y-4">
+              <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                <h4 className="font-medium text-amber-900 mb-2 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Risk Factors Detected
+                </h4>
+                <ul className="text-sm text-amber-800 space-y-1">
+                  <li>• Budget variance: 40% over original estimate</li>
+                  <li>• Timeline delay: 3 weeks behind schedule</li>
+                  <li>• Team size: 10 members (recommended: 5-6)</li>
+                  <li>• Scope changes: 8 change requests submitted</li>
+                </ul>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-medium">Project Notes</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {lesson.notes || "Complex redesign project with TechCorp Solutions. Client requested significant UX changes mid-project, causing budget overruns. Large development team struggling with coordination. Timeline extended due to additional feature requests."}
+                </p>
+              </div>
+              
+              <Button 
+                onClick={() => handleProjectAIAnalysis(lesson.id)}
+                variant="default"
+                className="w-full gap-2"
+                data-onboarding="project-ai-analysis"
+              >
+                <Brain className="h-4 w-4" />
+                Get AI Analysis
+              </Button>
             </div>
           )}
         </CardContent>
@@ -847,7 +923,11 @@ export default function Projects() {
 
             <div className="space-y-2">
               <Label>Project Health</Label>
-              <Select value={selectedHealthStatus} onValueChange={(value) => setSelectedHealthStatus(value as any)}>
+              <Select 
+                value={selectedHealthStatus} 
+                onValueChange={(value) => setSelectedHealthStatus(value as any)}
+                data-onboarding={isOnboarding && selectedHealthStatus === 'at-risk' ? 'risk-projects-filter' : undefined}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1125,6 +1205,13 @@ export default function Projects() {
         projectData={filteredLessons}
         suggestedPrompt={aiPrompt}
         suggestedAction={aiAction}
+      />
+
+      {/* AI Analysis Modal for Onboarding */}
+      <ProjectAIAnalysisModal
+        isOpen={aiAnalysisModalOpen}
+        onClose={() => setAiAnalysisModalOpen(false)}
+        onInteractionComplete={handleAIAnalysisComplete}
       />
     </div>
   );

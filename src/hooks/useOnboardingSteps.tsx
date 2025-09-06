@@ -117,49 +117,65 @@ export const useOnboardingSteps = () => {
   };
 
   const runProjectsSteps = async () => {
-    // Look for project cards or health indicators
-    const projectsFound = await highlightElement('[data-testid="project-card"], .project-card, [class*="border-l-"]:first-of-type', 12);
+    // First highlight the risk filter showing at-risk projects
+    const filterFound = await highlightElement('[data-onboarding="risk-projects-filter"]', 12);
     
-    if (projectsFound) {
+    if (filterFound) {
       showTooltip({
-        title: "Smart Health Indicators",
-        description: "Each project shows AI-calculated health status based on satisfaction, budget, timeline, and scope metrics.",
-        ctaText: "See At-Risk Analysis",
+        title: "Smart Risk Detection",
+        description: "Your portfolio automatically identifies projects that need attention. Currently showing 3 At Risk projects with budget or timeline issues.",
+        ctaText: "Explore At-Risk Project",
         onCTA: async () => {
-          await highlightAtRiskElements();
+          await highlightExpandedProject();
         },
-        position: 'left'
+        position: 'bottom',
+        type: 'default'
       });
+    } else {
+      // Fallback to expanded project
+      await highlightExpandedProject();
     }
   };
 
-  const highlightAtRiskElements = async () => {
-    // Look for warning/at-risk elements
-    const atRiskFound = await highlightElement('[data-health="at-risk"], [class*="amber"], [class*="warning"], [class*="rose"]:first-of-type', 12);
+  const highlightExpandedProject = async () => {
+    const expandedFound = await highlightElement('[data-onboarding="expanded-project"]', 12);
     
-    if (atRiskFound) {
+    if (expandedFound) {
       showTooltip({
-        title: "At-Risk Project Detected",
-        description: "This project shows warning signs: budget overrun and scope changes. The AI flagged it for immediate attention.",
-        ctaText: "Analyze Further",
-        skipText: "Continue",
-        onCTA: () => {
-          trackInteraction('completion', { context: 'at_risk_analysis' });
-          showSuccessTooltip("Perfect! You can now identify troubled projects instantly and take proactive action.", () => {
-            nextStep();
-          });
-        },
-        onSkip: () => {
-          hideOverlay();
-          nextStep();
+        title: "Project Deep Dive",
+        description: "This Mobile App Redesign project shows multiple warning signs: 40% over budget, 3 weeks behind schedule, and 8 scope changes.",
+        ctaText: "Analyze Pattern",
+        onCTA: async () => {
+          await highlightAIAnalysisButton();
         },
         position: 'right',
         type: 'warning'
       });
     } else {
-      // Fallback: continue to next step
-      hideOverlay();
-      setTimeout(() => nextStep(), 1000);
+      // Continue anyway
+      await highlightAIAnalysisButton();
+    }
+  };
+
+  const highlightAIAnalysisButton = async () => {
+    const aiButtonFound = await highlightElement('[data-onboarding="project-ai-analysis"]', 8);
+    
+    if (aiButtonFound) {
+      showTooltip({
+        title: "AI Pattern Recognition",
+        description: "Click 'Get AI Analysis' to discover why this project is struggling and how to prevent similar issues in future projects.",
+        ctaText: "Click Button Below",
+        onCTA: () => {
+          // The actual click will be handled by the button's onClick
+          hideOverlay();
+        },
+        position: 'top',
+        type: 'interactive',
+        requireInteraction: true
+      });
+    } else {
+      // Continue to next step
+      nextStep();
     }
   };
 

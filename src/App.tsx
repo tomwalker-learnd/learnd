@@ -209,8 +209,8 @@ function Shell() {
         />
       )}
 
-      {/* Dev Role Switcher - Fixed position bottom-right */}
-      <RoleSwitcher />
+      {/* Dev Role Switcher - Fixed position bottom-right (Restricted to specific developer) */}
+      {user?.id === '19b03f2b-a719-40b3-b93d-29cea1ae28ba' && <RoleSwitcher />}
     </>
   );
 }

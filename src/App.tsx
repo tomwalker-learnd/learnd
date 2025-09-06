@@ -1,7 +1,11 @@
 // src/App.tsx
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import AppHeader from "@/components/AppHeader";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { WelcomeScreen } from "@/components/WelcomeScreen";
+import { OnboardingProgress } from "@/components/OnboardingProgress";
 import LearndAI from "@/components/LearndAI"; // <-- Floating AI bubble
 import RoleSwitcher from "@/components/dev/RoleSwitcher"; // <-- Dev role testing component
 
@@ -20,21 +24,60 @@ import NotFound from "@/pages/NotFound";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
+  const { isOnboarding } = useOnboarding();
+  
   if (loading) {
     return <div className="p-6 text-sm text-muted-foreground">Checking session…</div>;
   }
+  
+  // Allow access during onboarding mode even without user
+  if (isOnboarding) {
+    return <>{children}</>;
+  }
+  
   if (!user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 };
 
 function Shell() {
   const location = useLocation();
+  const { user, loading } = useAuth();
+  const { isOnboarding } = useOnboarding();
+  const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
 
-  // Hide header & LearndAI on auth-related screens
+  // Check if we should show the welcome screen
+  useEffect(() => {
+    const onboardingCompleted = localStorage.getItem('onboarding_completed');
+    const onboardingStarted = localStorage.getItem('onboarding_started');
+    const urlParams = new URLSearchParams(location.search);
+    const hasOnboardingParam = urlParams.get('onboarding') === 'true';
+
+    // Show welcome screen if:
+    // 1. User hasn't completed onboarding AND
+    // 2. User hasn't started onboarding AND 
+    // 3. No onboarding URL parameter is present AND
+    // 4. User is not logged in (or loading) AND
+    // 5. We're on the root path
+    const shouldShowWelcome = !onboardingCompleted && 
+                             !onboardingStarted && 
+                             !hasOnboardingParam && 
+                             (!user && !loading) &&
+                             location.pathname === '/';
+
+    setShowWelcomeScreen(shouldShowWelcome);
+  }, [user, loading, location]);
+
+  // If we should show welcome screen, render it
+  if (showWelcomeScreen) {
+    return <WelcomeScreen />;
+  }
+
+  // Hide header & LearndAI on auth-related screens and welcome screen
   const isAuthScreen =
     /^\/auth(\/|$)/i.test(location.pathname) ||
     /^\/reset/i.test(location.pathname) ||
-    /^\/reset-password/i.test(location.pathname);
+    /^\/reset-password/i.test(location.pathname) ||
+    location.pathname === '/welcome';
 
   return (
     <>
@@ -42,6 +85,9 @@ function Shell() {
 
       <div className="min-h-[calc(100vh-56px)]">
         <Routes>
+          {/* Welcome/Onboarding Route */}
+          <Route path="/welcome" element={<WelcomeScreen />} />
+          
           {/* Public */}
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
@@ -49,6 +95,14 @@ function Shell() {
           {/* Protected */}
           <Route
             path="/"
+            element={
+              <ProtectedRoute>
+                <Overview />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/overview"
             element={
               <ProtectedRoute>
                 <Overview />
@@ -117,15 +171,18 @@ function Shell() {
         </Routes>
       </div>
 
-      {/* Floating LearndAI bubble (hidden on auth/reset screens) */}
-      {!isAuthScreen && (
+      {/* Onboarding Progress Indicator */}
+      {isOnboarding && !showWelcomeScreen && <OnboardingProgress />}
+
+      {/* Floating LearndAI bubble (hidden on auth/reset/welcome screens, shown during onboarding tour) */}
+      {!isAuthScreen && (!showWelcomeScreen || isOnboarding) && (
         <div className="z-[2000]">
           <LearndAI context={{ from: "global" }} />
         </div>
       )}
 
       {/* Dev Role Switcher (hidden on auth screens) - REMOVE BEFORE PRODUCTION */}
-      {!isAuthScreen && <RoleSwitcher />}
+      {!isAuthScreen && !showWelcomeScreen && <RoleSwitcher />}
     </>
   );
 }

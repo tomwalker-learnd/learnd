@@ -208,6 +208,9 @@ function Shell() {
           onStartTrial={onStartTrial}
         />
       )}
+
+      {/* Dev Role Switcher - Fixed position bottom-right */}
+      <RoleSwitcher />
     </>
   );
 }

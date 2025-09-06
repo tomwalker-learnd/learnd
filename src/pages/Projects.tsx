@@ -155,19 +155,13 @@ export default function Projects() {
         .eq("created_by", user.id)
         .order("created_at", { ascending: false });
 
-      // For now, we'll filter by date since project_status column doesn't exist yet
-      // Once the migration is run, this can be updated to use actual project_status
+      // Apply project status filter based on current tab
       if (projectStatusTab === "active") {
-        // Show recent projects (assume they're active)
-        const sixtyDaysAgo = new Date();
-        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-        query = query.gte("created_at", sixtyDaysAgo.toISOString());
+        query = query.in("project_status", ["active", "on_hold"]);
       } else if (projectStatusTab === "completed") {
-        // Show older projects (assume they're completed)
-        const sixtyDaysAgo = new Date();
-        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-        query = query.lt("created_at", sixtyDaysAgo.toISOString());
+        query = query.in("project_status", ["completed", "cancelled"]);
       }
+      // "all" tab doesn't apply any project_status filter
 
       // Apply URL filters if present
       if (filtersFromURL.project_name) {

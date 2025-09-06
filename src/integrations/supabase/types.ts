@@ -199,6 +199,7 @@ export type Database = {
           phase: string | null
           planned_days: number | null
           project_name: string
+          project_status: string | null
           project_type: string | null
           region: string | null
           repeat_this: string | null
@@ -252,6 +253,7 @@ export type Database = {
           phase?: string | null
           planned_days?: number | null
           project_name: string
+          project_status?: string | null
           project_type?: string | null
           region?: string | null
           repeat_this?: string | null
@@ -305,6 +307,7 @@ export type Database = {
           phase?: string | null
           planned_days?: number | null
           project_name?: string
+          project_status?: string | null
           project_type?: string | null
           region?: string | null
           repeat_this?: string | null

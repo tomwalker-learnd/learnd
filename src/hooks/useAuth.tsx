@@ -108,9 +108,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
               // Start onboarding for new users after email verification
               if (event === 'SIGNED_IN' && !localStorage.getItem('onboarding_completed')) {
-                const isFirstLogin = !localStorage.getItem('user_has_logged_in_before');
+                const userSpecificKey = `user_has_logged_in_before_${newUser.id}`;
+                const isFirstLogin = !localStorage.getItem(userSpecificKey);
+                console.log('[DEBUG] New user login check:', { 
+                  userId: newUser.id, 
+                  email: newUser.email,
+                  isFirstLogin,
+                  onboardingCompleted: localStorage.getItem('onboarding_completed')
+                });
                 if (isFirstLogin) {
-                  localStorage.setItem('user_has_logged_in_before', 'true');
+                  localStorage.setItem(userSpecificKey, 'true');
                   // Redirect to onboarding
                   setTimeout(() => {
                     window.location.href = '/?onboarding=true';

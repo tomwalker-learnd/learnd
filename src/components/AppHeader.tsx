@@ -15,9 +15,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import logoUrl from "@/assets/learnd-logo.png";
 
 const NAV_ITEMS = [
@@ -28,12 +29,14 @@ const NAV_ITEMS = [
 ];
 
 export default function AppHeader() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
+    const { error } = await signOut();
+    if (!error) {
+      navigate("/auth");
+    }
   };
 
   return (
@@ -101,8 +104,17 @@ export default function AppHeader() {
                   {user.email?.[0]?.toUpperCase()}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleSignOut}>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">Account</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign Out
                 </DropdownMenuItem>

@@ -20,22 +20,37 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   useEffect(() => {
     if (!loading && user) navigate("/");
   }, [loading, user, navigate]);
 
+  const handleModeChange = (newMode: Mode) => {
+    setMode(newMode);
+    setError(null);
+    setSignupSuccess(false);
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setSignupSuccess(false);
     try {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`
+          }
+        });
         if (error) throw error;
+        setSignupSuccess(true);
       }
     } catch (e: any) {
       setError(e?.message ?? "Authentication failed.");
@@ -77,6 +92,14 @@ export default function Auth() {
               </Alert>
             )}
 
+            {signupSuccess && (
+              <Alert className="mb-4">
+                <AlertDescription>
+                  Account created successfully! Please check your email to verify your account before signing in.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -110,14 +133,14 @@ export default function Auth() {
               {mode === "signin" ? (
                 <>
                   Don’t have an account?{" "}
-                  <button className="underline" onClick={() => setMode("signup")} type="button">
+                  <button className="underline" onClick={() => handleModeChange("signup")} type="button">
                     Sign up
                   </button>
                 </>
               ) : (
                 <>
                   Already have an account?{" "}
-                  <button className="underline" onClick={() => setMode("signin")} type="button">
+                  <button className="underline" onClick={() => handleModeChange("signin")} type="button">
                     Sign in
                   </button>
                 </>

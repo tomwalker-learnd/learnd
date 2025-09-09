@@ -94,8 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 3) Subscribe to auth changes
         const { data: sub } = supabase.auth.onAuthStateChange(
-          async (_event, newSession) => {
-            console.log('[DEBUG] Auth state change:', _event, { hasSession: !!newSession, userId: newSession?.user?.id });
+          async (event, newSession) => {
+            console.log('[DEBUG] Auth state change:', event, { hasSession: !!newSession, userId: newSession?.user?.id });
             if (!mounted.current) return;
             setSession(newSession ?? null);
             const newUser = newSession?.user ?? null;
@@ -105,6 +105,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const p = await loadProfile(newUser.id);
               if (!mounted.current) return;
               setProfile(p);
+
+              // Start onboarding for new users after email verification
+              if (event === 'SIGNED_IN' && !localStorage.getItem('onboarding_completed')) {
+                const isFirstLogin = !localStorage.getItem('user_has_logged_in_before');
+                if (isFirstLogin) {
+                  localStorage.setItem('user_has_logged_in_before', 'true');
+                  // Redirect to onboarding
+                  setTimeout(() => {
+                    window.location.href = '/?onboarding=true';
+                  }, 100);
+                }
+              }
             } else {
               setProfile(null);
             }

@@ -107,22 +107,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setProfile(p);
 
               // Start onboarding for new users after email verification
+              console.log('[DEBUG] Auth state change processing:', { 
+                event, 
+                hasUser: !!newUser,
+                userId: newUser?.id,
+                email: newUser?.email
+              });
+              
               if (event === 'SIGNED_IN' && !localStorage.getItem('onboarding_completed')) {
                 const userSpecificKey = `user_has_logged_in_before_${newUser.id}`;
                 const isFirstLogin = !localStorage.getItem(userSpecificKey);
-                console.log('[DEBUG] New user login check:', { 
+                const onboardingCompleted = localStorage.getItem('onboarding_completed');
+                
+                console.log('[DEBUG] Onboarding check for user:', { 
                   userId: newUser.id, 
                   email: newUser.email,
                   isFirstLogin,
-                  onboardingCompleted: localStorage.getItem('onboarding_completed')
+                  onboardingCompleted,
+                  userSpecificKey,
+                  allLocalStorageKeys: Object.keys(localStorage)
                 });
+                
                 if (isFirstLogin) {
+                  console.log('[DEBUG] Starting onboarding for new user');
                   localStorage.setItem(userSpecificKey, 'true');
                   // Redirect to onboarding
                   setTimeout(() => {
+                    console.log('[DEBUG] Redirecting to onboarding');
                     window.location.href = '/?onboarding=true';
                   }, 100);
+                } else {
+                  console.log('[DEBUG] User has logged in before, skipping onboarding');
                 }
+              } else {
+                console.log('[DEBUG] Onboarding conditions not met:', {
+                  isSignedIn: event === 'SIGNED_IN',
+                  onboardingCompleted: localStorage.getItem('onboarding_completed')
+                });
               }
             } else {
               setProfile(null);

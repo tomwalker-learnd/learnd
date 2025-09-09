@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Settings, Users, Crown, Zap, Minimize2, Maximize2 } from "lucide-react";
+import { Settings, Users, Crown, Zap, Minimize2, Maximize2, Info } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions, getTierDisplayName as getPermissionTierDisplayName } from "@/hooks/usePermissions";
 import { useUserTier, getTierDisplayName, type SubscriptionTier } from "@/hooks/useUserTier";
@@ -156,87 +156,53 @@ export default function RoleSwitcher() {
         {/* EXPANDED CONTENT - Only show when not collapsed */}
         {!isCollapsed && (
           <CardContent className="space-y-4">
-            {/* CURRENT STATUS - Shows active role, tier, and permissions */}
-            <div className="space-y-2">
+            {/* CURRENT STATUS - Informational display */}
+            <div className="bg-muted/30 border border-muted rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2 mb-2">
+                <Info className="h-3 w-3 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">Current Status</span>
+              </div>
+              
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Current Status:</span>
-                <div className="flex gap-1">
-                  <Badge variant="secondary" className="text-xs">
-                    <span className="flex items-center gap-1">
-                      {getRoleIcon(profile.role)}
-                      {getRoleDisplayName(profile.role)}
-                    </span>
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    {getTierDisplayName(tier)}
-                  </Badge>
+                <span className="text-xs text-muted-foreground">Active Role:</span>
+                <div className="flex items-center gap-1 px-2 py-1 bg-background/50 rounded-md border">
+                  {getRoleIcon(profile.role)}
+                  <span className="text-xs font-medium">{getRoleDisplayName(profile.role)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Subscription:</span>
+                <div className="px-2 py-1 bg-background/50 rounded-md border">
+                  <span className="text-xs font-medium">{getTierDisplayName(tier)}</span>
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-muted">
                 <div className="flex items-center justify-between">
-                  <span>Exports:</span>
-                  <Badge variant={canAccessExports() ? 'default' : 'destructive'} className="text-xs px-2 py-0">
+                  <span className="text-muted-foreground">Exports:</span>
+                  <Badge variant={canAccessExports() ? 'default' : 'secondary'} className="text-xs px-2 py-0">
                     {canAccessExports() ? 'Yes' : 'No'}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Analytics:</span>
-                  <Badge variant={canAccessAdvancedAnalytics() ? 'default' : 'destructive'} className="text-xs px-2 py-0">
+                  <span className="text-muted-foreground">Analytics:</span>
+                  <Badge variant={canAccessAdvancedAnalytics() ? 'default' : 'secondary'} className="text-xs px-2 py-0">
                     {canAccessAdvancedAnalytics() ? 'Yes' : 'No'}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Dashboards:</span>
-                  <Badge variant={canAccessCustomDashboards() ? 'default' : 'destructive'} className="text-xs px-2 py-0">
+                  <span className="text-muted-foreground">Dashboards:</span>
+                  <Badge variant={canAccessCustomDashboards() ? 'default' : 'secondary'} className="text-xs px-2 py-0">
                     {canAccessCustomDashboards() ? 'Yes' : 'No'}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>AI Features:</span>
-                  <Badge variant={canAccessAI() ? 'default' : 'destructive'} className="text-xs px-2 py-0">
+                  <span className="text-muted-foreground">AI Features:</span>
+                  <Badge variant={canAccessAI() ? 'default' : 'secondary'} className="text-xs px-2 py-0">
                     {canAccessAI() ? 'Yes' : 'No'}
                   </Badge>
                 </div>
-              </div>
-            </div>
-
-            {/* USER ROLE SWITCHING BUTTONS */}
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">User Role:</span>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  size="sm"
-                  variant={profile.role === 'basic_user' ? 'default' : 'outline'}
-                  onClick={() => handleRoleSwitch('basic_user')}
-                  disabled={isUpdating || profile.role === 'basic_user'}
-                  className="text-xs h-8"
-                >
-                  <Users className="h-3 w-3 mr-1" />
-                  Basic
-                </Button>
-                
-                <Button
-                  size="sm"
-                  variant={profile.role === 'power_user' ? 'default' : 'outline'}
-                  onClick={() => handleRoleSwitch('power_user')}
-                  disabled={isUpdating || profile.role === 'power_user'}
-                  className="text-xs h-8"
-                >
-                  <Zap className="h-3 w-3 mr-1" />
-                  Power
-                </Button>
-                
-                <Button
-                  size="sm"
-                  variant={profile.role === 'admin' ? 'default' : 'outline'}
-                  onClick={() => handleRoleSwitch('admin')}
-                  disabled={isUpdating || profile.role === 'admin'}
-                  className="text-xs h-8"
-                >
-                  <Crown className="h-3 w-3 mr-1" />
-                  Admin
-                </Button>
               </div>
             </div>
 

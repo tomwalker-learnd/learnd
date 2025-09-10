@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserTier } from "@/hooks/useUserTier";
@@ -137,7 +137,7 @@ export default function Projects() {
     }
   }, [searchParams]);
 
-  const loadLessons = async () => {
+  const loadLessons = useCallback(async () => {
     console.log('[DEBUG] Projects loadLessons called:', { hasUser: !!user, userId: user?.id, isOnboarding });
     if (!user && !isOnboarding) {
       console.log('[DEBUG] Projects loadLessons early return - no user and not onboarding');
@@ -194,7 +194,7 @@ export default function Projects() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, isOnboarding, projectStatusTab, toast]);
 
   useEffect(() => {
     console.log('[DEBUG] Projects useEffect triggered:', { 
@@ -243,79 +243,6 @@ export default function Projects() {
     if (timeline && timeline !== "all") setSelectedTimelineStatus(timeline as TimelineStatus);
   }, [searchParams]);
 
-  const loadLessons = async () => {
-    console.log('[DEBUG] Projects loadLessons called:', { hasUser: !!user, userId: user?.id, isOnboarding });
-    if (!user && !isOnboarding) {
-      console.log('[DEBUG] Projects loadLessons early return - no user and not onboarding');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-
-      // Use sample data in onboarding mode
-      if (isOnboarding) {
-        let filteredSampleData = sampleData.projects;
-        
-        // Apply project status filter based on current tab
-        if (projectStatusTab === "active") {
-          filteredSampleData = filteredSampleData.filter(p => 
-            p.project_status === "active" || p.project_status === "on_hold"
-          );
-        } else if (projectStatusTab === "completed") {
-          filteredSampleData = filteredSampleData.filter(p => 
-            p.project_status === "completed" || p.project_status === "cancelled"
-          );
-        }
-        
-        setLessons(filteredSampleData as unknown as Lesson[]);
-        setLoading(false);
-        return;
-      }
-      
-      let query = supabase
-        .from("lessons")
-        .select("*")
-        .eq("created_by", user.id)
-        .order("created_at", { ascending: false });
-
-      // Apply project status filter based on current tab
-      if (projectStatusTab === "active") {
-        query = query.in("project_status", ["active", "on_hold"]);
-      } else if (projectStatusTab === "completed") {
-        query = query.in("project_status", ["completed", "cancelled"]);
-      }
-      // "all" tab doesn't apply any project_status filter
-
-      // Apply URL filters if present
-      if (filtersFromURL.project_name) {
-        query = query.ilike("project_name", `%${filtersFromURL.project_name}%`);
-      }
-      if (filtersFromURL.client_name) {
-        query = query.ilike("client_name", `%${filtersFromURL.client_name}%`);
-      }
-      if (filtersFromURL.budget_status && filtersFromURL.budget_status.length > 0) {
-        query = query.in("budget_status", filtersFromURL.budget_status);
-      }
-      if (filtersFromURL.timeline_status && filtersFromURL.timeline_status.length > 0) {
-        query = query.in("timeline_status", filtersFromURL.timeline_status);
-      }
-
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      
-      setLessons((data as Lesson[]) || []);
-    } catch (error: any) {
-      toast({
-        title: "Error loading projects",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [user, isOnboarding, projectStatusTab, toast]);
 
   const filteredLessons = useMemo(() => {
     return lessons.filter((lesson) => {

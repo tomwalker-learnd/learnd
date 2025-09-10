@@ -137,6 +137,65 @@ export default function Projects() {
     }
   }, [searchParams]);
 
+  const loadLessons = async () => {
+    console.log('[DEBUG] Projects loadLessons called:', { hasUser: !!user, userId: user?.id, isOnboarding });
+    if (!user && !isOnboarding) {
+      console.log('[DEBUG] Projects loadLessons early return - no user and not onboarding');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+
+      // Use sample data in onboarding mode
+      if (isOnboarding) {
+        let filteredSampleData = sampleData.projects;
+        
+        // Apply project status filter based on current tab
+        if (projectStatusTab === "active") {
+          filteredSampleData = filteredSampleData.filter(p => 
+            p.project_status === "active" || p.project_status === "on_hold"
+          );
+        } else if (projectStatusTab === "completed") {
+          filteredSampleData = filteredSampleData.filter(p => 
+            p.project_status === "completed" || p.project_status === "cancelled"
+          );
+        }
+        
+        setLessons(filteredSampleData as unknown as Lesson[]);
+        setLoading(false);
+        return;
+      }
+      
+      let query = supabase
+        .from("lessons")
+        .select("*")
+        .eq("created_by", user.id)
+        .order("created_at", { ascending: false });
+
+      // Apply project status filter based on current tab
+      if (projectStatusTab === "active") {
+        query = query.in("project_status", ["active", "on_hold"]);
+      } else if (projectStatusTab === "completed") {
+        query = query.in("project_status", ["completed", "cancelled"]);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      setLessons((data as Lesson[]) || []);
+    } catch (error: any) {
+      toast({
+        title: "Error loading projects",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     console.log('[DEBUG] Projects useEffect triggered:', { 
       authLoading, 
@@ -170,7 +229,7 @@ export default function Projects() {
     }
   }, [authLoading, user, isOnboarding, projectStatusTab, trackInteraction, completeStep]);
 
-  // Set filters from URL params on component mount
+  // Set filters from URL params on component mount  
   useEffect(() => {
     const filter = searchParams.get("filter");
     const health = searchParams.get("health");
@@ -256,7 +315,7 @@ export default function Projects() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, isOnboarding, projectStatusTab, toast]);
 
   const filteredLessons = useMemo(() => {
     return lessons.filter((lesson) => {

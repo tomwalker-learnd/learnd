@@ -86,7 +86,7 @@ export default function Overview() {
   const [recent, setRecent] = useState<LessonRow[]>([]);
   const [aiInsightModalOpen, setAiInsightModalOpen] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
-  const [collapsedInsights, setCollapsedInsights] = useState<Set<string>>(new Set());
+  const [collapsedInsights, setCollapsedInsights] = useState<Set<string>>(new Set(['active-portfolio-health', 'completed-performance', 'satisfaction-trend', 'active-budget-performance', 'active-timeline-performance', 'onboarding-ai-insight']));
   const [kpis, setKpis] = useState({
     // Active projects
     activeTotal: 0,

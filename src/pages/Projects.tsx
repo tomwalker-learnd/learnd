@@ -640,7 +640,7 @@ export default function Projects() {
 
           <TabsContent value="active" className="mt-4">
             {/* Active Projects Health Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
@@ -714,7 +714,7 @@ export default function Projects() {
 
           <TabsContent value="completed" className="mt-4">
             {/* Completed Projects Performance Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
@@ -791,7 +791,7 @@ export default function Projects() {
 
           <TabsContent value="all" className="mt-4">
             {/* All Projects Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">

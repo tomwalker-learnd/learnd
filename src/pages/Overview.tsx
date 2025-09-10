@@ -613,9 +613,9 @@ export default function Overview() {
                         <div className="flex items-center gap-3 flex-1">
                           {getSeverityIcon(insight.severity)}
                           <div className="min-w-0">
-                            <CardTitle className="text-base font-semibold">{insight.title}</CardTitle>
+                            <CardTitle className="text-sm md:text-base font-semibold">{insight.title}</CardTitle>
                             <CollapsibleContent>
-                              <CardDescription className="text-sm mt-1">
+                              <CardDescription className="text-xs md:text-sm mt-1">
                                 {insight.description}
                               </CardDescription>
                             </CollapsibleContent>
@@ -625,7 +625,7 @@ export default function Overview() {
                           <CollapsibleContent>
                             {insight.trend === 'up' && <TrendingUp className="h-4 w-4 text-emerald-600" />}
                             {insight.trend === 'down' && <TrendingDown className="h-4 w-4 text-rose-600" />}
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-[0.625rem] md:text-xs">
                               {insight.metric}
                             </Badge>
                           </CollapsibleContent>
@@ -642,13 +642,13 @@ export default function Overview() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-auto p-0 font-medium text-primary"
+                          className="h-auto p-0 font-medium text-primary text-xs md:text-sm"
                           onClick={() => handleAIInsightClick(insight.id)}
                         >
                           {insight.action} →
                         </Button>
                         {isOnboarding && insight.id === 'onboarding-ai-insight' && (
-                          <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                          <div className="mt-2 text-[0.625rem] md:text-xs text-muted-foreground flex items-center gap-1">
                             <Brain className="h-3 w-3" />
                             Click to explore AI analysis
                           </div>

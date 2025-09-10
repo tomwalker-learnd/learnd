@@ -603,9 +603,9 @@ export default function Overview() {
               const isCollapsed = collapsedInsights.has(insight.id);
               return (
                 <Collapsible key={insight.id} open={!isCollapsed} onOpenChange={() => toggleInsightCollapse(insight.id)}>
-                  <Card className={`transition-all border-l-4 h-[180px] ${getSeverityColor(insight.severity)} ${
+                  <Card className={`transition-all border-l-4 ${getSeverityColor(insight.severity)} ${
                     isOnboarding && insight.id === 'onboarding-ai-insight' ? 'ring-2 ring-primary/20 shadow-lg' : ''
-                  } ${isCollapsed ? 'h-[40px]' : 'h-[180px]'}`}
+                  } ${isCollapsed ? 'h-[60px]' : 'h-[120px]'}`}
                     data-onboarding={insight.id === 'onboarding-ai-insight' ? 'ai-insight-card' : undefined}
                   >
                     <CardHeader className="pb-3 overflow-hidden">

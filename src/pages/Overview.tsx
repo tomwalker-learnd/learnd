@@ -26,6 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   RefreshCw, 
   TrendingUp, 
@@ -41,7 +42,8 @@ import {
   Activity,
   FileText,
   Brain,
-  Plus
+  Plus,
+  ChevronDown
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -84,6 +86,7 @@ export default function Overview() {
   const [recent, setRecent] = useState<LessonRow[]>([]);
   const [aiInsightModalOpen, setAiInsightModalOpen] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
+  const [collapsedInsights, setCollapsedInsights] = useState<Set<string>>(new Set());
   const [kpis, setKpis] = useState({
     // Active projects
     activeTotal: 0,
@@ -453,6 +456,19 @@ export default function Overview() {
     }
   };
 
+  // Toggle insight collapse state
+  const toggleInsightCollapse = (insightId: string) => {
+    setCollapsedInsights(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(insightId)) {
+        newSet.delete(insightId);
+      } else {
+        newSet.add(insightId);
+      }
+      return newSet;
+    });
+  };
+
   const handleAIModalInteractionComplete = () => {
     if (isOnboarding) {
       completeStep('overview');
@@ -583,48 +599,66 @@ export default function Overview() {
             {isOnboarding && <Badge variant="secondary" className="text-xs">AI-Powered</Badge>}
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {keyInsights.map((insight) => (
-              <Card 
-                key={insight.id} 
-                className={`cursor-pointer transition-all hover:shadow-md border-l-4 ${getSeverityColor(insight.severity)} ${
-                  isOnboarding && insight.id === 'onboarding-ai-insight' ? 'ring-2 ring-primary/20 shadow-lg' : ''
-                }`}
-                onClick={() => handleAIInsightClick(insight.id)}
-                data-onboarding={insight.id === 'onboarding-ai-insight' ? 'ai-insight-card' : undefined}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      {getSeverityIcon(insight.severity)}
-                      <div>
-                        <CardTitle className="text-base font-semibold">{insight.title}</CardTitle>
-                        <CardDescription className="text-sm mt-1">
-                          {insight.description}
-                        </CardDescription>
+            {keyInsights.map((insight) => {
+              const isCollapsed = collapsedInsights.has(insight.id);
+              return (
+                <Collapsible key={insight.id} open={!isCollapsed} onOpenChange={() => toggleInsightCollapse(insight.id)}>
+                  <Card className={`transition-all border-l-4 ${getSeverityColor(insight.severity)} ${
+                    isOnboarding && insight.id === 'onboarding-ai-insight' ? 'ring-2 ring-primary/20 shadow-lg' : ''
+                  }`}
+                    data-onboarding={insight.id === 'onboarding-ai-insight' ? 'ai-insight-card' : undefined}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          {getSeverityIcon(insight.severity)}
+                          <div className="min-w-0">
+                            <CardTitle className="text-base font-semibold">{insight.title}</CardTitle>
+                            <CollapsibleContent>
+                              <CardDescription className="text-sm mt-1">
+                                {insight.description}
+                              </CardDescription>
+                            </CollapsibleContent>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CollapsibleContent>
+                            {insight.trend === 'up' && <TrendingUp className="h-4 w-4 text-emerald-600" />}
+                            {insight.trend === 'down' && <TrendingDown className="h-4 w-4 text-rose-600" />}
+                            <Badge variant="outline" className="text-xs">
+                              {insight.metric}
+                            </Badge>
+                          </CollapsibleContent>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-background/50">
+                              <ChevronDown className={`h-4 w-4 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
+                            </Button>
+                          </CollapsibleTrigger>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {insight.trend === 'up' && <TrendingUp className="h-4 w-4 text-emerald-600" />}
-                      {insight.trend === 'down' && <TrendingDown className="h-4 w-4 text-rose-600" />}
-                      <Badge variant="outline" className="text-xs">
-                        {insight.metric}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <Button variant="ghost" size="sm" className="h-auto p-0 font-medium text-primary">
-                    {insight.action} →
-                  </Button>
-                  {isOnboarding && insight.id === 'onboarding-ai-insight' && (
-                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
-                      <Brain className="h-3 w-3" />
-                      Click to explore AI analysis
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                    </CardHeader>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-auto p-0 font-medium text-primary"
+                          onClick={() => handleAIInsightClick(insight.id)}
+                        >
+                          {insight.action} →
+                        </Button>
+                        {isOnboarding && insight.id === 'onboarding-ai-insight' && (
+                          <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                            <Brain className="h-3 w-3" />
+                            Click to explore AI analysis
+                          </div>
+                        )}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              );
+            })}
           </div>
         </div>
       )}

@@ -603,19 +603,19 @@ export default function Overview() {
               const isCollapsed = collapsedInsights.has(insight.id);
               return (
                 <Collapsible key={insight.id} open={!isCollapsed} onOpenChange={() => toggleInsightCollapse(insight.id)}>
-                  <Card className={`transition-all border-l-4 ${getSeverityColor(insight.severity)} ${
+                  <Card className={`transition-all border-l-4 h-[180px] ${getSeverityColor(insight.severity)} ${
                     isOnboarding && insight.id === 'onboarding-ai-insight' ? 'ring-2 ring-primary/20 shadow-lg' : ''
-                  }`}
+                  } ${isCollapsed ? 'h-[120px]' : 'h-[180px]'}`}
                     data-onboarding={insight.id === 'onboarding-ai-insight' ? 'ai-insight-card' : undefined}
                   >
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-3 overflow-hidden">
                       <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3 flex-1">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
                           {getSeverityIcon(insight.severity)}
-                          <div className="min-w-0">
-                            <CardTitle className="text-sm md:text-base font-semibold">{insight.title}</CardTitle>
+                          <div className="min-w-0 flex-1">
+                            <CardTitle className="text-sm md:text-base font-semibold truncate">{insight.title}</CardTitle>
                             <CollapsibleContent>
-                              <CardDescription className="text-xs md:text-sm mt-1">
+                              <CardDescription className="text-xs md:text-sm mt-1 line-clamp-2">
                                 {insight.description}
                               </CardDescription>
                             </CollapsibleContent>

@@ -674,7 +674,7 @@ export default function Overview() {
           {/* Active Projects Section */}
           <div data-onboarding="active-projects-section">
             <h3 className="text-lg font-medium mb-3 text-blue-600">Active Project Health</h3>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4" data-onboarding="project-kpis">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4" data-onboarding="project-kpis">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
@@ -684,6 +684,45 @@ export default function Overview() {
                   <div className="text-2xl font-bold">{displayKpis.activeTotal}</div>
                   <p className="text-xs text-muted-foreground">
                     {isOnboarding ? "8 projects in portfolio" : "Total in progress"}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Healthy</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-emerald-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-emerald-600">{displayKpis.activeHealthy}</div>
+                  <p className="text-xs text-muted-foreground">
+                    On track projects
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">At Risk</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-amber-600">{displayKpis.activeAtRisk}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Need attention
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Critical</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-rose-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-rose-600">{displayKpis.activeCritical}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Urgent action needed
                   </p>
                 </CardContent>
               </Card>

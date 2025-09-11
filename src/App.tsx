@@ -59,6 +59,15 @@ function Shell() {
     const urlParams = new URLSearchParams(location.search);
     const hasOnboardingParam = urlParams.get('onboarding') === 'true';
 
+    console.log('[DEBUG] Welcome screen logic check:', {
+      onboardingCompleted,
+      onboardingStarted,
+      hasOnboardingParam,
+      pathname: location.pathname,
+      loading,
+      user: user?.email
+    });
+
     // Show welcome screen if:
     // 1. User hasn't completed onboarding AND
     // 2. (User hasn't started onboarding OR has onboarding parameter) AND 
@@ -69,6 +78,7 @@ function Shell() {
                              location.pathname === '/' &&
                              !loading;
 
+    console.log('[DEBUG] Should show welcome screen:', shouldShowWelcome);
     setShowWelcomeScreen(shouldShowWelcome);
   }, [user, loading, location]);
 

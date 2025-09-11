@@ -20,7 +20,9 @@ import {
 export const WelcomeScreen = () => {
   console.log('[DEBUG] WelcomeScreen component rendered');
   const navigate = useNavigate();
-  const { goToStep } = useOnboarding();
+  const onboardingHook = useOnboarding();
+  const { goToStep } = onboardingHook;
+  console.log('[DEBUG] useOnboarding hook result:', { goToStep: typeof goToStep, onboardingHook });
   const [isStarting, setIsStarting] = useState(false);
 
   const handleExploreWithSampleData = async () => {
@@ -121,7 +123,10 @@ export const WelcomeScreen = () => {
           <div className="space-y-4">
             <Button
               size="lg"
-              onClick={handleExploreWithSampleData}
+              onClick={() => {
+                console.log('[DEBUG] Button clicked - about to call handleExploreWithSampleData');
+                handleExploreWithSampleData();
+              }}
               disabled={isStarting}
               className="px-8 py-6 text-lg font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-300 hover-scale"
             >

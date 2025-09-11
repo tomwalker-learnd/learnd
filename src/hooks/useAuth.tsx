@@ -115,29 +115,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               });
               
               if (event === 'SIGNED_IN' && !localStorage.getItem('onboarding_completed')) {
-                const userSpecificKey = `user_has_logged_in_before_${newUser.id}`;
-                const isFirstLogin = !localStorage.getItem(userSpecificKey);
-                const onboardingCompleted = localStorage.getItem('onboarding_completed');
+                const onboardingStarted = localStorage.getItem('onboarding_started');
                 
                 console.log('[DEBUG] Onboarding check for user:', { 
                   userId: newUser.id, 
                   email: newUser.email,
-                  isFirstLogin,
-                  onboardingCompleted,
-                  userSpecificKey,
-                  allLocalStorageKeys: Object.keys(localStorage)
+                  onboardingStarted,
+                  onboardingCompleted: localStorage.getItem('onboarding_completed')
                 });
                 
-                if (isFirstLogin) {
+                if (!onboardingStarted) {
                   console.log('[DEBUG] Starting onboarding for new user');
-                  localStorage.setItem(userSpecificKey, 'true');
-                  // Redirect to onboarding
+                  // Redirect to homepage which will show welcome screen
                   setTimeout(() => {
-                    console.log('[DEBUG] Redirecting to onboarding');
-                    window.location.href = '/?onboarding=true';
+                    console.log('[DEBUG] Redirecting to homepage for onboarding');
+                    window.location.href = '/';
                   }, 100);
                 } else {
-                  console.log('[DEBUG] User has logged in before, skipping onboarding');
+                  console.log('[DEBUG] Onboarding already started, skipping');
                 }
               } else {
                 console.log('[DEBUG] Onboarding conditions not met:', {

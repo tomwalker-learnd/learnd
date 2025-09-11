@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 export const WelcomeScreen = () => {
+  console.log('[DEBUG] WelcomeScreen component rendered');
   const navigate = useNavigate();
   const { goToStep } = useOnboarding();
   const [isStarting, setIsStarting] = useState(false);

@@ -525,26 +525,28 @@ export function DynamicFieldRenderer({
         const isCollapsed = collapsedGroups.has(group.id);
         
         return (
-          <Card key={group.id}>
+          <Card key={group.id} className="transition-all">
             <CardHeader 
-              className="cursor-pointer"
+              className="cursor-pointer pb-3"
               onClick={() => toggleGroup(group.id)}
             >
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {group.title}
-                  <Badge variant="outline">
+              <CardTitle className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span className="truncate">{group.title}</span>
+                  <Badge variant="outline" className="whitespace-nowrap flex-shrink-0">
                     {group.template?.charAt(0).toUpperCase() + group.template?.slice(1)}
                   </Badge>
                 </div>
-                {isCollapsed ? (
-                  <ChevronRight className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
+                <div className="flex-shrink-0">
+                  {isCollapsed ? (
+                    <ChevronRight className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </div>
               </CardTitle>
               {group.description && (
-                <p className="text-sm text-muted-foreground">{group.description}</p>
+                <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{group.description}</p>
               )}
             </CardHeader>
             {!isCollapsed && (

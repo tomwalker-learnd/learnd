@@ -49,6 +49,8 @@ function Shell() {
   const { isOnboarding, overlayState, hideOverlay, showCompletionModal, setShowCompletionModal, onImportData, onInviteTeam, onStartTrial } = useOnboarding();
   const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
 
+  console.log('Shell component rendered - basic test');
+  
   // Initialize onboarding steps logic
   useOnboardingSteps();
 

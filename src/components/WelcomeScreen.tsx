@@ -23,15 +23,19 @@ export const WelcomeScreen = () => {
   const [isStarting, setIsStarting] = useState(false);
 
   const handleExploreWithSampleData = async () => {
+    console.log('[DEBUG] handleExploreWithSampleData clicked');
     setIsStarting(true);
     
     try {
       // Mark onboarding as started
       localStorage.setItem('onboarding_started', 'true');
+      console.log('[DEBUG] Set onboarding_started to true');
       
       // Navigate to overview with onboarding active
       setTimeout(() => {
+        console.log('[DEBUG] About to call goToStep(overview)');
         goToStep('overview');
+        console.log('[DEBUG] Called goToStep, setting isStarting to false');
         setIsStarting(false);
       }, 300);
     } catch (error) {
@@ -41,6 +45,7 @@ export const WelcomeScreen = () => {
   };
 
   const handleImportProjects = () => {
+    console.log('[DEBUG] handleImportProjects clicked');
     // Mark onboarding as completed for users who want to import immediately
     localStorage.setItem('onboarding_completed', 'true');
     navigate('/project-wizard');

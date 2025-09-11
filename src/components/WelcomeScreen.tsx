@@ -25,13 +25,19 @@ export const WelcomeScreen = () => {
   const handleExploreWithSampleData = async () => {
     setIsStarting(true);
     
-    // Mark onboarding as started
-    localStorage.setItem('onboarding_started', 'true');
-    
-    // Navigate to overview with onboarding active
-    setTimeout(() => {
-      goToStep('overview');
-    }, 300);
+    try {
+      // Mark onboarding as started
+      localStorage.setItem('onboarding_started', 'true');
+      
+      // Navigate to overview with onboarding active
+      setTimeout(() => {
+        goToStep('overview');
+        setIsStarting(false);
+      }, 300);
+    } catch (error) {
+      console.error('Error starting onboarding:', error);
+      setIsStarting(false);
+    }
   };
 
   const handleImportProjects = () => {

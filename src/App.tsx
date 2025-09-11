@@ -56,6 +56,10 @@ function Shell() {
 
   // Check if we should show the welcome screen
   useEffect(() => {
+    // Clear localStorage to force welcome screen for debugging
+    localStorage.removeItem('onboarding_completed');
+    localStorage.removeItem('onboarding_started');
+    
     const onboardingCompleted = localStorage.getItem('onboarding_completed');
     const onboardingStarted = localStorage.getItem('onboarding_started');
     const urlParams = new URLSearchParams(location.search);

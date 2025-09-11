@@ -27,6 +27,7 @@ export const WelcomeScreen = () => {
 
   const handleExploreWithSampleData = async () => {
     console.log('[DEBUG] handleExploreWithSampleData clicked');
+    alert('Button clicked!'); // Simple test
     setIsStarting(true);
     
     try {
@@ -34,13 +35,10 @@ export const WelcomeScreen = () => {
       localStorage.setItem('onboarding_started', 'true');
       console.log('[DEBUG] Set onboarding_started to true');
       
-      // Navigate to overview with onboarding active
-      setTimeout(() => {
-        console.log('[DEBUG] About to call goToStep(overview)');
-        goToStep('overview');
-        console.log('[DEBUG] Called goToStep, setting isStarting to false');
-        setIsStarting(false);
-      }, 300);
+      // Navigate directly to overview page
+      console.log('[DEBUG] About to navigate to /overview');
+      navigate('/overview?onboarding=true');
+      
     } catch (error) {
       console.error('Error starting onboarding:', error);
       setIsStarting(false);

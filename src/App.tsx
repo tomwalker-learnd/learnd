@@ -61,13 +61,11 @@ function Shell() {
 
     // Show welcome screen if:
     // 1. User hasn't completed onboarding AND
-    // 2. User hasn't started onboarding AND 
-    // 3. No onboarding URL parameter is present AND
-    // 4. We're on the root path AND
-    // 5. Not currently loading
+    // 2. (User hasn't started onboarding OR has onboarding parameter) AND 
+    // 3. We're on the root path AND
+    // 4. Not currently loading
     const shouldShowWelcome = !onboardingCompleted && 
-                             !onboardingStarted && 
-                             !hasOnboardingParam && 
+                             (!onboardingStarted || hasOnboardingParam) && 
                              location.pathname === '/' &&
                              !loading;
 

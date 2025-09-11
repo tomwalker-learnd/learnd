@@ -57,6 +57,7 @@ interface OnboardingState extends OnboardingProgress {
   trackInteraction: (type: 'ai_click' | 'completion' | 'page_visit', data?: any) => void;
   resetOnboarding: () => void;
   finishOnboarding: () => void;
+  startOnboarding: () => void;
   showCompletionModal: boolean;
   setShowCompletionModal: (show: boolean) => void;
   onImportData: () => void;
@@ -429,6 +430,18 @@ export const useOnboarding = (): OnboardingState => {
     });
   }, []);
 
+  const startOnboarding = useCallback(() => {
+    // Clear any existing onboarding state
+    localStorage.removeItem('onboarding_completed');
+    localStorage.removeItem('onboarding_started');
+    
+    // Reset progress to initial state
+    setProgress(getInitialProgress());
+    
+    // Navigate to welcome screen
+    window.location.href = '/';
+  }, []);
+
   return {
     isOnboarding,
     sampleData,
@@ -444,6 +457,7 @@ export const useOnboarding = (): OnboardingState => {
     trackInteraction,
     resetOnboarding,
     finishOnboarding,
+    startOnboarding,
     // Overlay system
     highlightElement,
     showTooltip,

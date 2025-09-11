@@ -1,6 +1,6 @@
 // src/components/AppHeader.tsx
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Menu, LogOut, User } from "lucide-react";
+import { Menu, LogOut, User, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import logoUrl from "@/assets/learnd-logo.png";
 
 const NAV_ITEMS = [
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
 
 export default function AppHeader() {
   const { user, signOut } = useAuth();
+  const { startOnboarding } = useOnboarding();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -37,6 +39,10 @@ export default function AppHeader() {
     if (!error) {
       navigate("/auth");
     }
+  };
+
+  const handleStartOnboarding = () => {
+    startOnboarding();
   };
 
   return (
@@ -113,6 +119,11 @@ export default function AppHeader() {
                     </p>
                   </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleStartOnboarding}>
+                  <HelpCircle className="mr-2 h-4 w-4" />
+                  Help & Tour
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />

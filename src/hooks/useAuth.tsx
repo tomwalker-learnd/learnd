@@ -115,25 +115,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               });
               
               if (event === 'SIGNED_IN' && !localStorage.getItem('onboarding_completed')) {
-                const onboardingStarted = localStorage.getItem('onboarding_started');
-                
                 console.log('[DEBUG] Onboarding check for user:', { 
                   userId: newUser.id, 
                   email: newUser.email,
-                  onboardingStarted,
                   onboardingCompleted: localStorage.getItem('onboarding_completed')
                 });
                 
-                if (!onboardingStarted) {
-                  console.log('[DEBUG] Starting onboarding for new user');
-                  // Redirect to homepage which will show welcome screen
-                  setTimeout(() => {
-                    console.log('[DEBUG] Redirecting to homepage for onboarding');
-                    window.location.href = '/';
-                  }, 100);
-                } else {
-                  console.log('[DEBUG] Onboarding already started, skipping');
-                }
+                console.log('[DEBUG] User needs onboarding, redirecting to homepage');
+                // Redirect to homepage which will show welcome screen
+                setTimeout(() => {
+                  console.log('[DEBUG] Redirecting to homepage for onboarding');
+                  window.location.href = '/';
+                }, 100);
               } else {
                 console.log('[DEBUG] Onboarding conditions not met:', {
                   isSignedIn: event === 'SIGNED_IN',

@@ -605,32 +605,32 @@ export default function Overview() {
                 <Collapsible key={insight.id} open={!isCollapsed} onOpenChange={() => toggleInsightCollapse(insight.id)}>
                   <Card className={`transition-all border-l-4 ${getSeverityColor(insight.severity)} ${
                     isOnboarding && insight.id === 'onboarding-ai-insight' ? 'ring-2 ring-primary/20 shadow-lg' : ''
-                  } ${isCollapsed ? 'h-[60px]' : 'h-[120px]'}`}
+                  } ${isCollapsed ? 'min-h-[60px]' : 'min-h-[140px]'}`}
                     data-onboarding={insight.id === 'onboarding-ai-insight' ? 'ai-insight-card' : undefined}
                   >
-                    <CardHeader className="pb-3 overflow-hidden">
-                      <div className="flex items-start justify-between">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           {getSeverityIcon(insight.severity)}
                           <div className="min-w-0 flex-1">
-                            <CardTitle className="text-sm md:text-base font-semibold truncate">{insight.title}</CardTitle>
+                            <CardTitle className="text-sm md:text-base font-semibold line-clamp-1">{insight.title}</CardTitle>
                             <CollapsibleContent>
-                              <CardDescription className="text-xs md:text-sm mt-1 line-clamp-2">
+                              <CardDescription className="text-xs md:text-sm mt-1 line-clamp-2 leading-relaxed">
                                 {insight.description}
                               </CardDescription>
                             </CollapsibleContent>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <CollapsibleContent>
                             {insight.trend === 'up' && <TrendingUp className="h-4 w-4 text-emerald-600" />}
                             {insight.trend === 'down' && <TrendingDown className="h-4 w-4 text-rose-600" />}
-                            <Badge variant="outline" className="text-[0.625rem] md:text-xs">
+                            <Badge variant="outline" className="text-[0.625rem] md:text-xs whitespace-nowrap">
                               {insight.metric}
                             </Badge>
                           </CollapsibleContent>
                           <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-background/50">
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-background/50 flex-shrink-0">
                               <ChevronDown className={`h-4 w-4 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
                             </Button>
                           </CollapsibleTrigger>
@@ -638,11 +638,11 @@ export default function Overview() {
                       </div>
                     </CardHeader>
                     <CollapsibleContent>
-                      <CardContent className="pt-0">
+                      <CardContent className="pt-0 pb-4">
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-auto p-0 font-medium text-primary text-xs md:text-sm"
+                          className="h-auto p-1 font-medium text-primary text-xs md:text-sm hover:bg-primary/10 rounded-md whitespace-nowrap"
                           onClick={() => handleAIInsightClick(insight.id)}
                         >
                           {insight.action} →

@@ -27,7 +27,6 @@ export const WelcomeScreen = () => {
 
   const handleExploreWithSampleData = async () => {
     console.log('[DEBUG] handleExploreWithSampleData clicked');
-    alert('Button clicked!'); // Simple test
     setIsStarting(true);
     
     try {

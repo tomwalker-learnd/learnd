@@ -89,7 +89,7 @@ function Shell() {
   }, [user, loading, location]);
 
   // If we should show welcome screen, render it
-  if (showWelcomeScreen) {
+  if (showWelcomeScreen || (!localStorage.getItem('onboarding_completed') && location.pathname === '/')) {
     return <WelcomeScreen />;
   }
 

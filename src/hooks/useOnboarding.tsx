@@ -179,8 +179,30 @@ export const useOnboarding = (): OnboardingState => {
           ? prev.completedSteps 
           : [...prev.completedSteps, prev.currentStep!]
       }));
+
+      // Navigate to appropriate page based on step
+      switch (nextStep) {
+        case 'welcome':
+          navigate('/?onboarding=true');
+          break;
+        case 'overview':
+          navigate('/overview?onboarding=true');
+          break;
+        case 'projects':
+          navigate('/projects?onboarding=true');
+          break;
+        case 'insights':
+          navigate('/insights?onboarding=true');
+          break;
+        case 'reports':
+          navigate('/reports?onboarding=true');
+          break;
+        case 'complete':
+          navigate('/?onboarding=complete');
+          break;
+      }
     }
-  }, [isOnboarding, progress.currentStep]);
+  }, [isOnboarding, progress.currentStep, navigate]);
 
   const previousStep = useCallback(() => {
     if (!isOnboarding || !progress.currentStep) return;

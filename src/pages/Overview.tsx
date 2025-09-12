@@ -869,13 +869,13 @@ export default function Overview() {
           <Button 
             variant="outline" 
             onClick={() => navigate("/projects?filter=active&health=at-risk")}
-            className="h-auto p-4 flex flex-col items-start gap-2"
+            className="min-h-[80px] p-4 flex flex-col items-start gap-2 whitespace-normal text-left"
           >
             <div className="flex items-center gap-2 w-full">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <span className="font-medium">Review At-Risk Projects</span>
+              <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+              <span className="font-medium break-words">Review At-Risk Projects</span>
             </div>
-            <span className="text-xs text-muted-foreground text-left">
+            <span className="text-xs text-muted-foreground text-left break-words hyphens-auto">
               Intervene on active projects needing attention
             </span>
           </Button>
@@ -883,13 +883,13 @@ export default function Overview() {
           <Button 
             variant="outline" 
             onClick={() => navigate("/projects?filter=completed&health=underperformed")}
-            className="h-auto p-4 flex flex-col items-start gap-2"
+            className="min-h-[80px] p-4 flex flex-col items-start gap-2 whitespace-normal text-left"
           >
             <div className="flex items-center gap-2 w-full">
-              <BarChart3 className="h-4 w-4 text-orange-500" />
-              <span className="font-medium">Analyze Completion Trends</span>
+              <BarChart3 className="h-4 w-4 text-orange-500 flex-shrink-0" />
+              <span className="font-medium break-words">Analyze Completion Trends</span>
             </div>
-            <span className="text-xs text-muted-foreground text-left">
+            <span className="text-xs text-muted-foreground text-left break-words hyphens-auto">
               Learn from completed project patterns
             </span>
           </Button>
@@ -897,13 +897,13 @@ export default function Overview() {
           <Button 
             variant="outline" 
             onClick={() => navigate("/reports")}
-            className="h-auto p-4 flex flex-col items-start gap-2"
+            className="min-h-[80px] p-4 flex flex-col items-start gap-2 whitespace-normal text-left"
           >
             <div className="flex items-center gap-2 w-full">
-              <FileText className="h-4 w-4 text-blue-500" />
-              <span className="font-medium">Executive Report</span>
+              <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+              <span className="font-medium break-words">Executive Report</span>
             </div>
-            <span className="text-xs text-muted-foreground text-left">
+            <span className="text-xs text-muted-foreground text-left break-words hyphens-auto">
               Combined active status & completion learnings
             </span>
           </Button>
@@ -912,16 +912,16 @@ export default function Overview() {
             <Button 
               variant="outline" 
               disabled
-              className="h-auto p-4 flex flex-col items-start gap-2 opacity-60"
+              className="min-h-[80px] p-4 flex flex-col items-start gap-2 opacity-60 whitespace-normal text-left"
             >
               <div className="flex items-center gap-2 w-full">
-                <Brain className="h-4 w-4 text-purple-500" />
-                <span className="font-medium flex items-center gap-1">
+                <Brain className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                <span className="font-medium flex items-center gap-1 break-words">
                   AI Analysis
                   <FeatureBadge tier="team" />
                 </span>
               </div>
-              <span className="text-xs text-muted-foreground text-left">
+              <span className="text-xs text-muted-foreground text-left break-words hyphens-auto">
                 Context-aware insights based on project mix
               </span>
             </Button>
@@ -929,13 +929,13 @@ export default function Overview() {
             <Button 
               variant="outline" 
               onClick={() => navigate("/insights?ai=true")}
-              className="h-auto p-4 flex flex-col items-start gap-2"
+              className="min-h-[80px] p-4 flex flex-col items-start gap-2 whitespace-normal text-left"
             >
               <div className="flex items-center gap-2 w-full">
-                <Brain className="h-4 w-4 text-purple-500" />
-                <span className="font-medium">AI Analysis</span>
+                <Brain className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                <span className="font-medium break-words">AI Analysis</span>
               </div>
-              <span className="text-xs text-muted-foreground text-left">
+              <span className="text-xs text-muted-foreground text-left break-words hyphens-auto">
                 Context-aware insights based on project mix
               </span>
             </Button>

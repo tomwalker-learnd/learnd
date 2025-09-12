@@ -18,12 +18,12 @@
  * - Remove this component before production deployment
  */
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Settings, Users, Crown, Zap, Minimize2, Maximize2, Info } from "lucide-react";
+import { Settings, Users, Crown, Zap, Minimize2, Maximize2, Info, Move } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions, getTierDisplayName as getPermissionTierDisplayName } from "@/hooks/usePermissions";
 import { useUserTier, getTierDisplayName, type SubscriptionTier } from "@/hooks/useUserTier";
@@ -36,6 +36,58 @@ export default function RoleSwitcher() {
   const { tier, canAccessExports, canAccessAdvancedAnalytics, canAccessCustomDashboards, canAccessAI } = useUserTier();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  // Drag functionality state
+  const [position, setPosition] = useState({ x: window.innerWidth - 336, y: window.innerHeight - 400 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Handle drag start
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!cardRef.current) return;
+    
+    const rect = cardRef.current.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+    setIsDragging(true);
+  }, []);
+
+  // Handle drag move
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+    
+    // Keep within viewport bounds
+    const maxX = window.innerWidth - (isCollapsed ? 256 : 320);
+    const maxY = window.innerHeight - 200;
+    
+    setPosition({
+      x: Math.max(0, Math.min(newX, maxX)),
+      y: Math.max(0, Math.min(newY, maxY))
+    });
+  }, [isDragging, dragOffset, isCollapsed]);
+
+  // Handle drag end
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add global mouse event listeners
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // Handle role switching - updates database and shows feedback
   const handleRoleSwitch = async (newRole: 'basic_user' | 'power_user' | 'admin') => {
@@ -113,9 +165,16 @@ export default function RoleSwitcher() {
 
   return (
     <TooltipProvider>
-      <Card className={`fixed bottom-4 right-4 bg-background/95 backdrop-blur-sm border-2 border-primary/20 shadow-lg z-50 transition-all duration-300 ${
-        isCollapsed ? 'w-64' : 'w-80'
-      }`}>
+      <Card 
+        ref={cardRef}
+        className={`fixed bg-background/95 backdrop-blur-sm border-2 border-primary/20 shadow-lg z-50 transition-all duration-300 ${
+          isCollapsed ? 'w-64' : 'w-80'
+        } ${isDragging ? 'cursor-grabbing' : 'cursor-auto'}`}
+        style={{
+          left: `${position.x}px`,
+          top: `${position.y}px`
+        }}
+      >
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
@@ -123,8 +182,26 @@ export default function RoleSwitcher() {
               Dev Role Switcher
             </div>
             
-            {/* COLLAPSE/EXPAND BUTTON - Corner button with tooltip */}
-            <Tooltip>
+            <div className="flex items-center gap-1">
+              {/* DRAG HANDLE */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onMouseDown={handleMouseDown}
+                    className="h-6 w-6 p-0 hover:bg-muted/50 cursor-grab active:cursor-grabbing"
+                  >
+                    <Move className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  <p>Drag to move</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              {/* COLLAPSE/EXPAND BUTTON - Corner button with tooltip */}
+              <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
@@ -143,6 +220,7 @@ export default function RoleSwitcher() {
                 <p>{isCollapsed ? 'Expand' : 'Collapse'}</p>
               </TooltipContent>
             </Tooltip>
+            </div>
           </CardTitle>
           
           {/* DESCRIPTION - Only show when expanded */}

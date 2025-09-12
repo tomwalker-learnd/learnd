@@ -99,7 +99,8 @@ export const useOnboarding = (): OnboardingState => {
   const navigate = useNavigate();
   
   // Check if we're in onboarding mode via URL parameter
-  const isOnboarding = searchParams.get('onboarding') === 'true';
+  const onboardingParam = searchParams.get('onboarding');
+  const isOnboarding = onboardingParam === 'true' || onboardingParam === 'complete';
   
   // Overlay state
   const [overlayState, setOverlayState] = useState<OnboardingOverlayState>({
@@ -317,15 +318,18 @@ export const useOnboarding = (): OnboardingState => {
     // Track completion analytics
     trackInteraction('completion', { 
       context: 'onboarding_finished',
-      totalSteps: 5, // welcome, overview, projects, insights, reports
+      totalSteps: 5, // welcome, overview, projects, insights, reports  
       completedSteps: updatedProgress.completedSteps.length,
       completionTime: new Date().toISOString()
     });
     
+    // Navigate to complete state
+    navigate('/?onboarding=complete');
+    
     // Show completion modal
     setShowCompletionModal(true);
     hideOverlay();
-  }, [progress, trackInteraction]);
+  }, [progress, trackInteraction, navigate]);
 
   const onImportData = useCallback(() => {
     // Track conversion event

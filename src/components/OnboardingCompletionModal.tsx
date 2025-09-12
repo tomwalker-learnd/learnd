@@ -47,7 +47,7 @@ export const OnboardingCompletionModal = ({
     
     onImportData();
     onClose();
-    navigate('/submit-wizard');
+    navigate('/submit-wizard', { replace: true });
   };
 
   const handleInviteTeam = () => {
@@ -57,7 +57,7 @@ export const OnboardingCompletionModal = ({
     onInviteTeam();
     onClose();
     // Navigate to team invitation flow (placeholder)
-    navigate('/settings?tab=team');
+    navigate('/settings?tab=team', { replace: true });
   };
 
   const handleStartTrial = () => {
@@ -67,7 +67,7 @@ export const OnboardingCompletionModal = ({
     onStartTrial();
     onClose();
     // Navigate to upgrade flow (placeholder)
-    navigate('/upgrade');
+    navigate('/upgrade', { replace: true });
   };
 
   const handleSkipToApp = () => {
@@ -76,7 +76,8 @@ export const OnboardingCompletionModal = ({
     localStorage.setItem('onboarding_skipped_import', 'true');
     
     onClose();
-    navigate('/overview');
+    // Remove onboarding params completely
+    navigate('/overview', { replace: true });
   };
 
   if (completionStep === "celebration") {
